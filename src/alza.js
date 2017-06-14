@@ -12,8 +12,9 @@ export function* login(credentials) {
   return yield request.post(`${SCV}LoginUser`, {body: JSON.stringify(credentials)})
 }
 
-export function* addToCart(item, count) {
+export function* addToCart(itemUrl, count) {
+  const id = itemUrl.match(/d(\d*)\.htm$/)[1]
   return yield request.post(`${SCV}OrderCommodity`, {body: JSON.stringify(
-    {id: item, count}
+    {id, count}
   )})
 }
