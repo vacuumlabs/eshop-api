@@ -1,0 +1,28 @@
+{
+  "name": "eshop-api",
+  "version": "1.0.0",
+  "description": "Unified api to Slovak eshops.",
+  "main": "src/index.js",
+  "repository": "git@github.com:vacuumlabs/eshop-api.git",
+  "author": "Samuel Hapák <samuel.hapak@gmail.com>",
+  "license": "Unlicense",
+  "scripts": {
+    "start": "babel-node -- src/index.js",
+    "deploy-now": "now `sed 's/#.*$//;/^\\s*$/d;s/^/-e /' .env.prod`"
+  },
+  "devDependencies": {
+    "babel-eslint": "^7.2.3",
+    "eslint": "^4.0.0",
+    "eslint-config-vacuumlabs": "^1.2.0",
+    "eslint-plugin-import": "^2.3.0",
+    "eslint-plugin-react": "^7.1.0"
+  },
+  "dependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-preset-node6": "^11.0.0",
+    "babel-preset-stage-0": "^6.24.1",
+    "express": "^4.15.3",
+    "transenv": "^1.0.3",
+    "yacol": "^0.7.0"
+  }
+}
