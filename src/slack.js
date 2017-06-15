@@ -18,6 +18,7 @@ export function* connect(token) {
     team: response.team,
     bot: response.self,
     token,
+    channels: {},
   }
 
   const connection = new WS(response.url)
@@ -27,17 +28,33 @@ export function* connect(token) {
 }
 
 function amIMentioned(event) {
+  if (event.user === state.bot.id) return false
   if (event.channel[0] === 'D') return true
   if (event.text.match(`<@${state.bot.id}>`)) return true
   return false
 }
 
-export function* listen(channel) {
+function channelForUser(userId) {
+  if (state.channels[userId] == null) {
+    state.channels[userId] = createChannel()
+    run(listenUser, state.channels[userId])
+  }
+  return state.channels[userId]
+}
+
+function* listen(channel) {
   while (true) {
     const event = yield channel.take()
     if (event.type === 'message' && event.subtype == null && amIMentioned(event)) {
-      console.log(event)
+      channelForUser(event.user).put(event)
     }
   }
 }
 
+function* listenUser(channel) {
+  while (true) {
+    const event = yield channel.take()
+    yield run(apiCall, 'chat.postMessage', state.token,
+              {channel: event.user, text: 'Thank you!', as_user: true})
+  }
+}
