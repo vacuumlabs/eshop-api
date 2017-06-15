@@ -1,9 +1,12 @@
 import c from './config'
 import express from 'express'
+import bodyParser from 'body-parser'
 import {expressHelpers, run} from 'yacol'
 import {login, addToCart, getInfo} from './alza'
 
 const app = express()
+app.use(bodyParser.json())
+
 const {register, runApp} = expressHelpers
 
 function* orderItems(items) {

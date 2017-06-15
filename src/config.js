@@ -28,6 +28,10 @@ export default transenv()(({str, bool}) => {
       migrations: {
         directory: 'src/knex/migrations',
       },
+    },
+    slack: {
+      apiToken: str('slack-api-token'),
+      botToken: str('slack-bot-token'),
     }
   }
 })
