@@ -16,19 +16,24 @@ const formatter = new Intl.NumberFormat('en-US', {
 
 let state = {}
 
-function* apiCall(name, token, data={}) {
-  return JSON.parse(yield request.post(`${API}${name}`, {form: {...data, token}}))
+function* apiCall(name, data={}) {
+  return JSON.parse(yield request.post(`${API}${name}`, {form: {...data, token: state.token}}))
 }
 
 export function* connect(token) {
-  const response = yield run(apiCall, 'rtm.connect', token)
   state = {
-    team: response.team,
-    bot: response.self,
     token,
     channels: {},
     pendingActions: {},
     actionsCount: 0,
+  }
+
+  const response = yield run(apiCall, 'rtm.connect')
+
+  state = {
+    ...state,
+    team: response.team,
+    bot: response.self,
   }
 
   const connection = new WS(response.url)
@@ -110,7 +115,7 @@ function* finnishOrder(order, action, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
 
   if (action === 'cancel') {
-    yield run(apiCall, 'chat.update', state.token, {
+    yield run(apiCall, 'chat.update', {
       channel, ts, as_user: true, attachments: JSON.stringify([{...attachment,
         pretext: `:no_entry_sign: Order canceled:`,
         color: 'danger',
@@ -120,7 +125,7 @@ function* finnishOrder(order, action, user) {
   }
 
   if (action === 'personal' || action === 'company') {
-    yield run(apiCall, 'chat.update', state.token, {
+    yield run(apiCall, 'chat.update', {
       channel, ts, as_user: true, attachments: JSON.stringify([{...attachment,
         pretext: `:white_check_mark: Order finnished:`,
         color: 'good',
@@ -135,12 +140,12 @@ function* updateOrder(order, event, user) {
 
   if (order.orderConfirmation) {
     const {channel, ts} = order.orderConfirmation
-    yield run(apiCall, 'chat.delete', state.token, {channel, ts})
+    yield run(apiCall, 'chat.delete', {channel, ts})
   }
 
   const orderAttachment = orderToAttachment(yield run(orderInfo, items), order.id)
 
-  const orderConfirmation = yield run(apiCall, 'chat.postMessage', state.token, {
+  const orderConfirmation = yield run(apiCall, 'chat.postMessage', {
       channel: user,
       attachments: JSON.stringify([orderAttachment]),
       as_user: true,
