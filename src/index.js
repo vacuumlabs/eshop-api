@@ -3,11 +3,14 @@ import express from 'express'
 import bodyParser from 'body-parser'
 import {expressHelpers, run} from 'yacol'
 import {login, addToCart, getInfo} from './alza'
+import {connect, listen} from './slack'
 
 const app = express()
-app.use(bodyParser.json())
+app.use(bodyParser.urlencoded())
 
 const {register, runApp} = expressHelpers
+
+let slackEvents
 
 function* orderItems(items) {
   let info = []
@@ -32,16 +35,25 @@ function* index(req, res) {
   res.send('Hello World')
 }
 
+function* actions(req, res) {
+  slackEvents.put({...JSON.parse(req.body.payload), type: 'action'})
+  res.status(200).send()
+}
+
 const r = {
   index: '/',
+  actions: '/actions',
 }
 
 register(app, 'get', r.index, index)
+register(app, 'post', r.actions, actions)
 
 run(function* () {
-  const a = run(runApp)
+  run(runApp)
   app.listen(c.port, () =>
     console.log(`App started on localhost:${c.port}.`)
   )
-  yield a
+
+  slackEvents = yield run(connect, c.slack.botToken)
+  yield run(listen, slackEvents)
 })
