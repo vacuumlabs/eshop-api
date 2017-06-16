@@ -192,8 +192,16 @@ function* updateOrder(order, event, user) {
     yield run(apiCall, 'chat.delete', {channel, ts})
   }
 
-  const info = yield run(orderInfo, items)
+  const [info, errors] = yield run(orderInfo, items)
   const orderAttachment = orderToAttachment(info, order.id)
+
+  if (errors.length > 0) {
+    yield run(apiCall, 'chat.postMessage', {
+      channel: user,
+      as_user: true,
+      text: `:exclamation: I can't find these items:\n${errors.join('\n')}`,
+    })
+  }
 
   const orderConfirmation = yield run(apiCall, 'chat.postMessage', {
       channel: user,
@@ -242,12 +250,17 @@ function parseOrder(text) {
 
 function* orderInfo(items) {
   let info = []
+  let errors = []
   let totalPrice = 0
   yield run(login, c.alza.credentials)
   for (let item of items) {
-    const itemInfo = yield run(getInfo, item.url)
-    info.push({...itemInfo, count: item.count, url: item.url})
-    totalPrice += itemInfo.price * item.count
+    yield run(function*() {
+      const itemInfo = yield run(getInfo, item.url)
+      info.push({...itemInfo, count: item.count, url: item.url})
+      totalPrice += itemInfo.price * item.count
+    }).catch((e) => {
+      errors.push(item.url)
+    })
   }
-  return {items: info, totalPrice}
+  return [{items: info, totalPrice}, errors]
 }
