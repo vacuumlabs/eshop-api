@@ -69,26 +69,39 @@ export function* listen(channel) {
 }
 
 function* listenUser(channel, user) {
-  let id = null
-  let order = []
+  const newOrder = () => ({
+    id: null,
+    items: [],
+  })
 
-  function setId(newId) {
-    if (id) delete state.pendingActions[id]
+  function setId(order, newId) {
+    if (order.id) delete state.pendingActions[order.id]
     if (newId) state.pendingActions[newId] = channel
-    id = newId
+    return {...order, id: newId}
+  }
+
+  function destroyOrder(order) {
+    setId(order, null)
   }
 
   while (true) {
-    const event = yield channel.take()
+    let order = newOrder()
 
-    if (event.type === 'action') {
-      yield run(finnishOrder, event.actions[0].name, user)
-      setId(null)
-      order = []
-    } else if (event.type === 'message') {
-      setId(nextUUID())
-      order = yield run(updateOrder, id, order, event, user)
+    while (true) {
+      const event = yield channel.take()
+
+      if (event.type === 'action') {
+        yield run(finnishOrder, event.actions[0].name, user)
+        break
+      }
+
+      if (event.type === 'message') {
+        order = setId(order, nextUUID())
+        order = yield run(updateOrder, order, event, user)
+      }
     }
+
+    destroyOrder(order)
   }
 }
 
@@ -100,10 +113,10 @@ function* finnishOrder(action, user) {
   })
 }
 
-function* updateOrder(id, order, event, user) {
-  order = [...order, ...parseOrder(event.text)]
+function* updateOrder(order, event, user) {
+  const items = [...order.items, ...parseOrder(event.text)]
 
-  const orderAttachment = orderToAttachment(yield run(orderInfo, order), id)
+  const orderAttachment = orderToAttachment(yield run(orderInfo, items), order.id)
 
   yield run(apiCall, 'chat.postMessage', state.token, {
       channel: user,
@@ -111,7 +124,7 @@ function* updateOrder(id, order, event, user) {
       as_user: true,
   })
 
-  return order
+  return {...order, items}
 }
 
 
