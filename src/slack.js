@@ -72,6 +72,7 @@ function* listenUser(channel, user) {
   const newOrder = () => ({
     id: null,
     items: [],
+    orderConfirmation: null,
   })
 
   function setId(order, newId) {
@@ -116,15 +117,20 @@ function* finnishOrder(action, user) {
 function* updateOrder(order, event, user) {
   const items = [...order.items, ...parseOrder(event.text)]
 
+  if (order.orderConfirmation) {
+    const {channel, ts} = order.orderConfirmation
+    yield run(apiCall, 'chat.delete', state.token, {channel, ts})
+  }
+
   const orderAttachment = orderToAttachment(yield run(orderInfo, items), order.id)
 
-  yield run(apiCall, 'chat.postMessage', state.token, {
+  const orderConfirmation = yield run(apiCall, 'chat.postMessage', state.token, {
       channel: user,
       attachments: JSON.stringify([orderAttachment]),
       as_user: true,
   })
 
-  return {...order, items}
+  return {...order, items, orderConfirmation}
 }
 
 
