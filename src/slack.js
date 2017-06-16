@@ -68,9 +68,16 @@ export function* listen(stream) {
       streamForUser(event.user).put(event)
     }
     if (event.type === 'action') {
-      state.pendingActions[event.callback_id].put(event)
+      const actionStream = state.pendingActions[event.callback_id]
+      if (actionStream) actionStream.put(event)
+      else yield run(replaceWithError, event.channel.id, event.original_message.ts,
+          'The order has timed out. Create a new order please.')
     }
   }
+}
+
+function* replaceWithError(channel, ts, msg) {
+  yield run(apiCall, 'chat.update', {channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: '[]'})
 }
 
 function* listenUser(stream, user) {
