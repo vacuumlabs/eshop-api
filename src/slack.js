@@ -114,7 +114,7 @@ function* listenUser(stream, user) {
 function* finnishOrder(stream, order, action, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
   function* updateMessage(attachmentUpdate) {
-    const r = yield run(apiCall, 'chat.update', {channel, ts, as_user: true, attachments:
+    yield run(apiCall, 'chat.update', {channel, ts, as_user: true, attachments:
               JSON.stringify([{...attachment, ...attachmentUpdate}])
     })
   }
@@ -151,6 +151,7 @@ function* finnishOrder(stream, order, action, user) {
 
     if (event.type === 'message') {
       yield run(updateMessage, {
+        fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
         text: event.text,
         pretext: `:office: Company order finished:`,
         color: 'good',
@@ -192,20 +193,19 @@ function* updateOrder(order, event, user) {
 
 
 function orderToAttachment(order, id) {
-  const fields = order.items.map((item) => {
-    const itemSum = formatter.format(item.count * item.price)
-    const itemPrice = formatter.format(item.price)
-    return {
-      title: `${item.count} x ${item.name}`,
-      value: `<${item.url}|${itemSum} (${item.count} x ${itemPrice})>`,
-      short: true,
-    }
+  const itemLines = order.items.map((item) => {
+    const itemPrice = formatter.format(item.price).padStart(10)
+    return `\`${itemPrice}\` <${item.url}|${item.count} x ${item.name}>`
   })
 
   return {
-    title: `Total value: ${formatter.format(order.totalPrice)}`,
+    title: `Order summary`,
     pretext: `Please confirm your order:`,
-    fields,
+    fields: [
+      {title: 'Items', value: itemLines.join('\n'), short: false},
+      {title: 'Total value', value: formatter.format(order.totalPrice)},
+    ],
+    mrkdwn_in: ['fields'],
     callback_id: id,
     actions: [
       {name: 'personal', text: 'Make Personal Order', type: 'button', value: 'personal'},
