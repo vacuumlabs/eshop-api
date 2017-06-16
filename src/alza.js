@@ -39,5 +39,5 @@ export function* getInfo(url) {
   )
   const description = $('div.nameextc').text()
 
-  return {name, price, description}
+  return {id: getId(url), name, price, description}
 }
