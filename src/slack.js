@@ -23,7 +23,7 @@ function* apiCall(name, data={}) {
 export function* connect(token) {
   state = {
     token,
-    channels: {},
+    streams: {},
     pendingActions: {},
     actionsCount: 0,
   }
@@ -37,9 +37,9 @@ export function* connect(token) {
   }
 
   const connection = new WS(response.url)
-  const channel = createChannel()
-  connection.on('message', (data) => channel.put(JSON.parse(data)))
-  return channel
+  const stream = createChannel()
+  connection.on('message', (data) => stream.put(JSON.parse(data)))
+  return stream
 }
 
 function nextUUID() {
@@ -53,19 +53,19 @@ function amIMentioned(event) {
   return false
 }
 
-function channelForUser(userId) {
-  if (state.channels[userId] == null) {
-    state.channels[userId] = createChannel()
-    run(listenUser, state.channels[userId], userId)
+function streamForUser(userId) {
+  if (state.streams[userId] == null) {
+    state.streams[userId] = createChannel()
+    run(listenUser, state.streams[userId], userId)
   }
-  return state.channels[userId]
+  return state.streams[userId]
 }
 
-export function* listen(channel) {
+export function* listen(stream) {
   while (true) {
-    const event = yield channel.take()
+    const event = yield stream.take()
     if (event.type === 'message' && event.subtype == null && amIMentioned(event)) {
-      channelForUser(event.user).put(event)
+      streamForUser(event.user).put(event)
     }
     if (event.type === 'action') {
       state.pendingActions[event.callback_id].put(event)
@@ -73,7 +73,7 @@ export function* listen(channel) {
   }
 }
 
-function* listenUser(channel, user) {
+function* listenUser(stream, user) {
   const newOrder = () => ({
     id: null,
     items: [],
@@ -82,7 +82,7 @@ function* listenUser(channel, user) {
 
   function setId(order, newId) {
     if (order.id) delete state.pendingActions[order.id]
-    if (newId) state.pendingActions[newId] = channel
+    if (newId) state.pendingActions[newId] = stream
     return {...order, id: newId}
   }
 
@@ -94,10 +94,10 @@ function* listenUser(channel, user) {
     let order = newOrder()
 
     while (true) {
-      const event = yield channel.take()
+      const event = yield stream.take()
 
       if (event.type === 'action') {
-        yield run(finnishOrder, channel, order, event.actions[0].name, user)
+        yield run(finnishOrder, stream, order, event.actions[0].name, user)
         break
       }
 
