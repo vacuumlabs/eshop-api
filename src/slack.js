@@ -113,24 +113,33 @@ function* listenUser(channel, user) {
 
 function* finnishOrder(order, action, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
-
-  if (action === 'cancel') {
-    yield run(apiCall, 'chat.update', {
-      channel, ts, as_user: true, attachments: JSON.stringify([{...attachment,
-        pretext: `:no_entry_sign: Order canceled:`,
-        color: 'danger',
-        actions: [],
-      }])
+  function* updateMessage(attachmentUpdate) {
+    const r = yield run(apiCall, 'chat.update', {channel, ts, as_user: true, attachments:
+              JSON.stringify([{...attachment, ...attachmentUpdate}])
     })
   }
 
-  if (action === 'personal' || action === 'company') {
-    yield run(apiCall, 'chat.update', {
-      channel, ts, as_user: true, attachments: JSON.stringify([{...attachment,
-        pretext: `:white_check_mark: Order finnished:`,
-        color: 'good',
-        actions: [],
-      }])
+  if (action === 'cancel') {
+    yield run(updateMessage, {
+      pretext: `:no_entry_sign: Order canceled:`,
+      color: 'danger',
+      actions: [],
+    })
+  }
+
+  if (action === 'personal') {
+    yield run(updateMessage, {
+      pretext: `:woman: Personal order finished:`,
+      color: 'good',
+      actions: [],
+    })
+  }
+
+  if (action === 'company') {
+    yield run(updateMessage, {
+      pretext: `:office: Company order finished:`,
+      color: 'good',
+      actions: [],
     })
   }
 }
