@@ -84,6 +84,7 @@ function* listenUser(channel, user) {
     if (event.type === 'action') {
       yield run(finnishOrder, event.actions[0].name, user)
       setId(null)
+      order = []
     } else if (event.type === 'message') {
       setId(nextUUID())
       order = yield run(updateOrder, id, order, event, user)
