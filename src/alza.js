@@ -22,7 +22,7 @@ export function* addToCart({url, count}) {
 
 export function* getInfo(url) {
   const $ = cheerio.load(yield request(url))
-  const name = $('h1[itemprop="name"]').text()
+  const name = $('h1[itemprop="name"]').text().trim().replace(/\s+/g, ' ')
   const price = parseFloat(
     $('span.price_withoutVat').text()
       .replace(/[^\d,]/g, '')
