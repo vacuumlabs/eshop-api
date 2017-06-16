@@ -1,5 +1,6 @@
 import _request from 'request-promise'
 import cheerio from 'cheerio'
+import {URL} from 'url'
 
 const jar = _request.jar()
 const request = _request.defaults({
@@ -13,10 +14,18 @@ export function* login(credentials) {
   return yield request.post(`${SCV}LoginUser`, {body: JSON.stringify(credentials)})
 }
 
+function getId(urlString) {
+  const url = new URL(urlString)
+  if (!url.hostname.endsWith('alza.sk')) throw new Error(`Invalid alza url: ${urlString}`)
+  const dq = url.searchParams.get('dq')
+  if (dq) return dq
+
+  return url.pathname.match(/d(\d*)(\.htm)?$/)[1]
+}
+
 export function* addToCart({url, count}) {
-  const id = url.match(/(d|dq=)(\d*)(\.htm)?$/)[2]
   return yield request.post(`${SCV}OrderCommodity`, {body: JSON.stringify(
-    {id, count}
+    {id: getId(url), count}
   )})
 }
 
