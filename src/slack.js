@@ -97,7 +97,7 @@ function* listenUser(channel, user) {
       const event = yield channel.take()
 
       if (event.type === 'action') {
-        yield run(finnishOrder, order, event.actions[0].name, user)
+        yield run(finnishOrder, channel, order, event.actions[0].name, user)
         break
       }
 
@@ -111,7 +111,7 @@ function* listenUser(channel, user) {
   }
 }
 
-function* finnishOrder(order, action, user) {
+function* finnishOrder(stream, order, action, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
   function* updateMessage(attachmentUpdate) {
     const r = yield run(apiCall, 'chat.update', {channel, ts, as_user: true, attachments:
@@ -119,13 +119,15 @@ function* finnishOrder(order, action, user) {
     })
   }
 
-  if (action === 'cancel') {
+  function* cancelOrder() {
     yield run(updateMessage, {
       pretext: `:no_entry_sign: Order canceled:`,
       color: 'danger',
       actions: [],
     })
   }
+
+  if (action === 'cancel') yield run(cancelOrder)
 
   if (action === 'personal') {
     yield run(updateMessage, {
@@ -137,10 +139,35 @@ function* finnishOrder(order, action, user) {
 
   if (action === 'company') {
     yield run(updateMessage, {
-      pretext: `:office: Company order finished:`,
-      color: 'good',
-      actions: [],
+      actions: [
+        {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'},
+      ],
     })
+    yield run(apiCall, 'chat.postMessage', {
+      channel: user, as_user: true, text: `:question: What's the reason for this company order?`
+    })
+
+    const event = yield stream.take()
+
+    if (event.type === 'message') {
+      yield run(updateMessage, {
+        text: event.text,
+        pretext: `:office: Company order finished:`,
+        color: 'good',
+        actions: [],
+      })
+      yield run(apiCall, 'chat.postMessage', {
+        channel: user, as_user: true, text: `:office: Company order finished :point_up:`
+      })
+    }
+
+    if (event.type === 'action') {
+      yield run(cancelOrder)
+      yield run(apiCall, 'chat.postMessage', {
+        channel: user, as_user: true, text: `:no_entry_sign: Canceling :point_up:`
+      })
+    }
+
   }
 }
 
