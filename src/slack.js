@@ -92,7 +92,7 @@ function* listenUser(channel, user) {
       const event = yield channel.take()
 
       if (event.type === 'action') {
-        yield run(finnishOrder, event.actions[0].name, user)
+        yield run(finnishOrder, order, event.actions[0].name, user)
         break
       }
 
@@ -106,12 +106,28 @@ function* listenUser(channel, user) {
   }
 }
 
-function* finnishOrder(action, user) {
-  yield run(apiCall, 'chat.postMessage', state.token, {
-    channel: user,
-    text: `${action} rulez!`,
-    as_user: true,
-  })
+function* finnishOrder(order, action, user) {
+  const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
+
+  if (action === 'cancel') {
+    yield run(apiCall, 'chat.update', state.token, {
+      channel, ts, as_user: true, attachments: JSON.stringify([{...attachment,
+        pretext: `:no_entry_sign: Order canceled:`,
+        color: 'danger',
+        actions: [],
+      }])
+    })
+  }
+
+  if (action === 'personal' || action === 'company') {
+    yield run(apiCall, 'chat.update', state.token, {
+      channel, ts, as_user: true, attachments: JSON.stringify([{...attachment,
+        pretext: `:white_check_mark: Order finnished:`,
+        color: 'good',
+        actions: [],
+      }])
+    })
+  }
 }
 
 function* updateOrder(order, event, user) {
