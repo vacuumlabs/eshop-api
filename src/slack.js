@@ -77,6 +77,7 @@ function* listenUser(stream, user) {
   const newOrder = () => ({
     id: null,
     items: [],
+    totalPrice: 0,
     orderConfirmation: null,
   })
 
@@ -143,8 +144,12 @@ function* finnishOrder(stream, order, action, user) {
         {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'},
       ],
     })
+    console.log(c.approvalTreshold)
     yield run(apiCall, 'chat.postMessage', {
-      channel: user, as_user: true, text: `:question: What's the reason for this company order?`
+      channel: user, as_user: true, text:
+        order.totalPrice < c.approvalTreshold
+          ? `:question: Why do you need these items?`
+          : `:question: This order is pretty high, who approved it?\n:question: Why do you need it?`
     })
 
     const event = yield stream.take()
@@ -180,7 +185,8 @@ function* updateOrder(order, event, user) {
     yield run(apiCall, 'chat.delete', {channel, ts})
   }
 
-  const orderAttachment = orderToAttachment(yield run(orderInfo, items), order.id)
+  const info = yield run(orderInfo, items)
+  const orderAttachment = orderToAttachment(info, order.id)
 
   const orderConfirmation = yield run(apiCall, 'chat.postMessage', {
       channel: user,
@@ -188,7 +194,7 @@ function* updateOrder(order, event, user) {
       as_user: true,
   })
 
-  return {...order, items, orderConfirmation}
+  return {...order, items, orderConfirmation, totalPrice: info.totalPrice}
 }
 
 

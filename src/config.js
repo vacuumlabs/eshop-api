@@ -1,11 +1,12 @@
 import transenv from 'transenv'
-export default transenv()(({str, bool}) => {
+export default transenv()(({str, bool, num}) => {
   const env = str('NODE_ENV', 'development')
   const isDevelopment = env === 'development'
 
   return {
     env,
     port: str('PORT'),
+    approvalTreshold: num('approval-treshold'),
     alza: {
       credentials: {
         userName: str('alza-username'),
