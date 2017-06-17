@@ -17,6 +17,9 @@ const formatter = new Intl.NumberFormat('en-US', {
 let state = {}
 
 function* apiCall(name, data={}) {
+  for (let k in data) {
+    if (typeof data[k] === 'object') data[k] = JSON.stringify(data[k])
+  }
   return JSON.parse(yield request.post(`${API}${name}`, {form: {...data, token: state.token}}))
 }
 
@@ -77,7 +80,7 @@ export function* listen(stream) {
 }
 
 function* replaceWithError(channel, ts, msg) {
-  yield run(apiCall, 'chat.update', {channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: '[]'})
+  yield run(apiCall, 'chat.update', {channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: []})
 }
 
 function* listenUser(stream, user) {
@@ -122,8 +125,8 @@ function* listenUser(stream, user) {
 function* finnishOrder(stream, order, action, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
   function* updateMessage(attachmentUpdate) {
-    yield run(apiCall, 'chat.update', {channel, ts, as_user: true, attachments:
-              JSON.stringify([{...attachment, ...attachmentUpdate}])
+    yield run(apiCall, 'chat.update', {channel, ts, as_user: true,
+        attachments: [{...attachment, ...attachmentUpdate}]
     })
   }
 
@@ -209,7 +212,7 @@ function* updateOrder(order, event, user) {
 
   const orderConfirmation = yield run(apiCall, 'chat.postMessage', {
       channel: user,
-      attachments: JSON.stringify([orderAttachment]),
+      attachments: [orderAttachment],
       as_user: true,
   })
 
