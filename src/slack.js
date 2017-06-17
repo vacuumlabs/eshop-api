@@ -83,7 +83,7 @@ function* replaceWithError(channel, ts, msg) {
 function* listenUser(stream, user) {
   const newOrder = () => ({
     id: null,
-    items: [],
+    items: new Map(),
     totalPrice: 0,
     orderConfirmation: null,
   })
@@ -185,15 +185,20 @@ function* finnishOrder(stream, order, action, user) {
 }
 
 function* updateOrder(order, event, user) {
-  const items = [...order.items, ...parseOrder(event.text)]
-
   if (order.orderConfirmation) {
     const {channel, ts} = order.orderConfirmation
     yield run(apiCall, 'chat.delete', {channel, ts})
   }
 
-  const [info, errors] = yield run(orderInfo, items)
-  const orderAttachment = orderToAttachment(info, order.id)
+  const [info, errors] = yield run(orderInfo, parseOrder(event.text))
+
+  for (let i of info.items) {
+    if (order.items.get(i.id)) order.items.get(i.id).count += i.count
+    else order.items.set(i.id, i)
+  }
+  order.totalPrice += info.totalPrice
+
+  const orderAttachment = orderToAttachment(order)
 
   if (errors.length > 0) {
     yield run(apiCall, 'chat.postMessage', {
@@ -209,12 +214,12 @@ function* updateOrder(order, event, user) {
       as_user: true,
   })
 
-  return {...order, items, orderConfirmation, totalPrice: info.totalPrice}
+  return {...order, orderConfirmation}
 }
 
 
-function orderToAttachment(order, id) {
-  const itemLines = order.items.map((item) => {
+function orderToAttachment(order) {
+  const itemLines = [...order.items.values()].map((item) => {
     const itemPrice = formatter.format(item.price).padStart(10)
     return `\`${itemPrice}\` <${item.url}|${item.count} x ${item.name}>`
   })
@@ -227,7 +232,7 @@ function orderToAttachment(order, id) {
       {title: 'Total value', value: formatter.format(order.totalPrice)},
     ],
     mrkdwn_in: ['fields'],
-    callback_id: id,
+    callback_id: order.id,
     actions: [
       {name: 'personal', text: 'Make Personal Order', type: 'button', value: 'personal'},
       {name: 'company', text: 'Make Company Order', type: 'button', value: 'company'},
