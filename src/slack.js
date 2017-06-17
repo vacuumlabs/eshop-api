@@ -164,7 +164,6 @@ function* finnishOrder(stream, order, action, user) {
     if (event.type === 'message') {
       yield run(updateMessage, {
         fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
-        text: event.text,
         pretext: `:office: Company order finished:`,
         color: 'good',
         actions: [],
