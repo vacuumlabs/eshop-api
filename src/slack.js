@@ -144,6 +144,7 @@ function* finishOrder(stream, order, action, user) {
 
   if (action === 'personal') {
     yield storeOrder({user, ts, isCompany: false}, order.items)
+    yield run(notifyOfficeManager, order, user, false)
     yield run(updateMessage, {
       pretext: `:woman: Personal order finished:`,
       color: 'good',
@@ -168,7 +169,9 @@ function* finishOrder(stream, order, action, user) {
     const event = yield stream.take()
 
     if (event.type === 'message') {
-      yield storeOrder({user, ts, isCompany: true, reason: event.text}, order.items)
+      order.reason = event.text
+      yield storeOrder({user, ts, isCompany: true, reason: order.reason}, order.items)
+      yield run(notifyOfficeManager, order, user, true)
       yield run(updateMessage, {
         fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
         pretext: `:office: Company order finished:`,
@@ -188,6 +191,14 @@ function* finishOrder(stream, order, action, user) {
     }
 
   }
+}
+
+function* notifyOfficeManager(order, user, isCompany) {
+  const orderTypeText = isCompany ? `:office: Company` : `:woman: Personal`
+  yield run(apiCall, 'chat.postMessage', {
+    channel: c.officeManager, as_user: true,
+    attachments: [orderToAttachment(order, `${orderTypeText} order from <@${user}>`)]
+  })
 }
 
 function* updateOrder(order, event, user) {
@@ -253,6 +264,7 @@ function orderToAttachment(order, text) {
     fields: [
       itemsField(order),
       {title: 'Total value', value: formatter.format(order.totalPrice)},
+      order.reason && {title: 'Reason', value: order.reason},
     ],
     mrkdwn_in: ['fields'],
   }
