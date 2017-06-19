@@ -204,7 +204,10 @@ function* updateOrder(order, event, user) {
   }
   order.totalPrice += info.totalPrice
 
-  const orderAttachment = orderToAttachment(order)
+  const orderAttachment = {
+    ...orderToAttachment(order, `Please confirm your order:`),
+    ...makeOrderActions(order)
+  }
 
   if (errors.length > 0) {
     yield run(apiCall, 'chat.postMessage', {
@@ -223,21 +226,17 @@ function* updateOrder(order, event, user) {
   return {...order, orderConfirmation}
 }
 
-
-function orderToAttachment(order) {
+function itemsField(order) {
   const itemLines = [...order.items.values()].map((item) => {
     const itemPrice = formatter.format(item.price).padStart(10)
     return `\`${itemPrice}\` <${item.url}|${item.count} x ${item.name}>`
   })
 
+  return {title: 'Items', value: itemLines.join('\n'), short: false}
+}
+
+function makeOrderActions(order) {
   return {
-    title: `Order summary`,
-    pretext: `Please confirm your order:`,
-    fields: [
-      {title: 'Items', value: itemLines.join('\n'), short: false},
-      {title: 'Total value', value: formatter.format(order.totalPrice)},
-    ],
-    mrkdwn_in: ['fields'],
     callback_id: order.id,
     actions: [
       {name: 'personal', text: 'Make Personal Order', type: 'button', value: 'personal'},
@@ -245,7 +244,18 @@ function orderToAttachment(order) {
       {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'},
     ],
   }
+}
 
+function orderToAttachment(order, text) {
+  return {
+    title: `Order summary`,
+    pretext: text,
+    fields: [
+      itemsField(order),
+      {title: 'Total value', value: formatter.format(order.totalPrice)},
+    ],
+    mrkdwn_in: ['fields'],
+  }
 }
 
 function parseOrder(text) {
