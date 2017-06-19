@@ -30,4 +30,7 @@ run(function* () {
 
   slackEvents = yield run(connect, c.slack.botToken)
   yield run(listen, slackEvents)
+}).catch((e) => {
+  console.log(e)
+  process.exit(1)
 })
