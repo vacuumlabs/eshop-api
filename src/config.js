@@ -6,34 +6,34 @@ export default transenv()(({str, bool, num}) => {
   return {
     env,
     port: str('PORT'),
-    approvalTreshold: num('approval-treshold'),
-    officeManager: str('office-manager'),
+    approvalTreshold: num('approval_treshold'),
+    officeManager: str('office_manager'),
     alza: {
       credentials: {
-        userName: str('alza-username'),
-        password: str('alza-password'),
+        userName: str('alza_username'),
+        password: str('alza_password'),
       }
     },
     knex: {
       client: 'pg',
-      connection: str('DATABASE-URL', null) || { // env.DATABASE-URL is set by Heroku
-        host: str('db-host'),
-        port: str('db-port'),
-        ssl: bool('db-ssl'),
-        user: str('db-user'),
-        password: str('db-password'),
-        database: str('db-name'),
+      connection: {
+        host: str('db_host'),
+        port: str('db_port'),
+        ssl: bool('db_ssl'),
+        user: str('db_user'),
+        password: str('db_password'),
+        database: str('db_name'),
       },
-      searchPath: str('db-schema'),
-      schema: str('db-schema'),
+      searchPath: str('db_schema'),
+      schema: str('db_schema'),
       debug: isDevelopment,
       migrations: {
         directory: 'src/knex/migrations',
       },
     },
     slack: {
-      apiToken: str('slack-api-token'),
-      botToken: str('slack-bot-token'),
+      apiToken: str('slack_api_token'),
+      botToken: str('slack_bot_token'),
     }
   }
 })
