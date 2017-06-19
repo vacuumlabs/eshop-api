@@ -1,4 +1,5 @@
 import c from './config'
+import _knex from 'knex'
 import _request from 'request-promise'
 import {run, createChannel} from 'yacol'
 import {login, getInfo} from './alza'
@@ -7,6 +8,7 @@ import WS from 'ws'
 const API = 'https://slack.com/api/'
 
 const request = _request.defaults({})
+const knex = _knex(c.knex)
 
 const formatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -108,7 +110,7 @@ function* listenUser(stream, user) {
       const event = yield stream.take()
 
       if (event.type === 'action') {
-        yield run(finnishOrder, stream, order, event.actions[0].name, user)
+        yield run(finishOrder, stream, order, event.actions[0].name, user)
         break
       }
 
@@ -122,7 +124,7 @@ function* listenUser(stream, user) {
   }
 }
 
-function* finnishOrder(stream, order, action, user) {
+function* finishOrder(stream, order, action, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
   function* updateMessage(attachmentUpdate) {
     yield run(apiCall, 'chat.update', {channel, ts, as_user: true,
@@ -141,6 +143,7 @@ function* finnishOrder(stream, order, action, user) {
   if (action === 'cancel') yield run(cancelOrder)
 
   if (action === 'personal') {
+    yield storeOrder({user, ts, isCompany: false}, order.items)
     yield run(updateMessage, {
       pretext: `:woman: Personal order finished:`,
       color: 'good',
@@ -165,6 +168,7 @@ function* finnishOrder(stream, order, action, user) {
     const event = yield stream.take()
 
     if (event.type === 'message') {
+      yield storeOrder({user, ts, isCompany: true, reason: event.text}, order.items)
       yield run(updateMessage, {
         fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
         pretext: `:office: Company order finished:`,
@@ -270,4 +274,20 @@ function* orderInfo(items) {
     })
   }
   return [{items: info, totalPrice}, errors]
+}
+
+function storeOrder(order, items) {
+  return knex.transaction((trx) => run(function*() {
+    const id = (yield trx.insert(order, 'id').into('order'))[0]
+
+    for (let item of items.values()) {
+      yield trx.insert({
+        order: id,
+        shopId: item.id,
+        count: item.count,
+        url: item.url,
+        price: item.price
+      }).into('orderItem')
+    }
+  }))
 }
