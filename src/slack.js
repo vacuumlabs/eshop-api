@@ -135,6 +135,16 @@ function* listenUser(stream, user) {
 function* handleOrderAction(event) {
   const orderId = event.actions[0].value
   const items = yield knex.select('shopId', 'count').from('orderItem').where('order', orderId)
+
+  const msg = event.original_message
+  const attachment = msg.attachments[0]
+  const action = attachment.actions[0]
+
+  yield run(apiCall, 'chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
+    ...attachment,
+    actions: [{...action, text: `Add to Cart Again`, style: 'default'}]
+  }]})
+
   yield run(login, c.alza.credentials)
   for (let item of items) yield run(addToCart, item.shopId, item.count)
 }
