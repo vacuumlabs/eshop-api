@@ -2,7 +2,7 @@ import c from './config'
 import _knex from 'knex'
 import _request from 'request-promise'
 import {run, createChannel} from 'yacol'
-import {login, getInfo} from './alza'
+import {login, getInfo, addToCart} from './alza'
 import WS from 'ws'
 
 const API = 'https://slack.com/api/'
@@ -73,6 +73,11 @@ export function* listen(stream) {
       streamForUser(event.user).put(event)
     }
     if (event.type === 'action') {
+      if (event.callback_id.startsWith('O')) {
+        yield run(handleOrderAction, event)
+        continue
+      }
+
       const actionStream = state.pendingActions[event.callback_id]
       if (actionStream) actionStream.put(event)
       else yield run(replaceWithError, event.channel.id, event.original_message.ts,
@@ -124,6 +129,13 @@ function* listenUser(stream, user) {
   }
 }
 
+function* handleOrderAction(event) {
+  const orderId = event.actions[0].value
+  const items = yield knex.select('shopId', 'count').from('orderItem').where('order', orderId)
+  yield run(login, c.alza.credentials)
+  for (let item of items) yield run(addToCart, item.shopId, item.count)
+}
+
 function* finishOrder(stream, order, action, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
   function* updateMessage(attachmentUpdate) {
@@ -143,8 +155,8 @@ function* finishOrder(stream, order, action, user) {
   if (action === 'cancel') yield run(cancelOrder)
 
   if (action === 'personal') {
-    yield storeOrder({user, ts, isCompany: false}, order.items)
-    yield run(notifyOfficeManager, order, user, false)
+    const dbId = yield storeOrder({user, ts, isCompany: false}, order.items)
+    yield run(notifyOfficeManager, order, dbId, user, false)
     yield run(updateMessage, {
       pretext: `:woman: Personal order finished:`,
       color: 'good',
@@ -170,8 +182,8 @@ function* finishOrder(stream, order, action, user) {
 
     if (event.type === 'message') {
       order.reason = event.text
-      yield storeOrder({user, ts, isCompany: true, reason: order.reason}, order.items)
-      yield run(notifyOfficeManager, order, user, true)
+      const dbId = yield storeOrder({user, ts, isCompany: true, reason: order.reason}, order.items)
+      yield run(notifyOfficeManager, order, dbId, user, true)
       yield run(updateMessage, {
         fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
         pretext: `:office: Company order finished:`,
@@ -193,11 +205,19 @@ function* finishOrder(stream, order, action, user) {
   }
 }
 
-function* notifyOfficeManager(order, user, isCompany) {
+function* notifyOfficeManager(order, dbId, user, isCompany) {
+  console.log(dbId)
   const orderTypeText = isCompany ? `:office: Company` : `:woman: Personal`
+
+  const orderAttachment = {
+    ...orderToAttachment(order, `${orderTypeText} order from <@${user}>`),
+    callback_id: `O${dbId}`,
+    actions: [{name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'}],
+  }
+
   yield run(apiCall, 'chat.postMessage', {
     channel: c.officeManager, as_user: true,
-    attachments: [orderToAttachment(order, `${orderTypeText} order from <@${user}>`)]
+    attachments: [orderAttachment]
   })
 }
 
@@ -311,5 +331,6 @@ function storeOrder(order, items) {
         price: item.price
       }).into('orderItem')
     }
+    return id
   }))
 }

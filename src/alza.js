@@ -23,9 +23,9 @@ function getId(urlString) {
   return url.pathname.match(/d(\d*)(\.htm)?$/)[1]
 }
 
-export function* addToCart({url, count}) {
+export function* addToCart(id, count) {
   return yield request.post(`${SCV}OrderCommodity`, {body: JSON.stringify(
-    {id: getId(url), count}
+    {id, count}
   )})
 }
 
