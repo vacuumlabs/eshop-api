@@ -30,6 +30,7 @@ export function* addToCart(id, count) {
 }
 
 export function* getInfo(url) {
+  url = url.replace('m.alza.sk', 'alza.sk')
   const $ = cheerio.load(yield request(url))
   const name = $('h1[itemprop="name"]').text().trim().replace(/\s+/g, ' ')
   const price = parseFloat(
