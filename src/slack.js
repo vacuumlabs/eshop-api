@@ -75,19 +75,22 @@ export function* listen(stream) {
     if (event.type === 'action') {
       if (event.callback_id.startsWith('O')) {
         yield run(handleOrderAction, event)
+            .catch((e) => run(showError, event.channel.id, null, 'Something went wrong.'))
         continue
       }
 
       const actionStream = state.pendingActions[event.callback_id]
       if (actionStream) actionStream.put(event)
-      else yield run(replaceWithError, event.channel.id, event.original_message.ts,
+      else yield run(showError, event.channel.id, event.original_message.ts,
           'The order has timed out. Create a new order please.')
     }
   }
 }
 
-function* replaceWithError(channel, ts, msg) {
-  yield run(apiCall, 'chat.update', {channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: []})
+function* showError(channel, ts, msg) {
+  yield run(apiCall, ts ? 'chat.update' : 'chat.postMessage', {
+      channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: []
+  })
 }
 
 function* listenUser(stream, user) {
