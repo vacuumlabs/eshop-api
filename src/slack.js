@@ -3,6 +3,7 @@ import _knex from 'knex'
 import _request from 'request-promise'
 import {run, createChannel} from 'yacol'
 import {login, getInfo, addToCart} from './alza'
+import {create as createRecord} from './airtable'
 import WS from 'ws'
 
 const API = 'https://slack.com/api/'
@@ -168,7 +169,7 @@ function* finishOrder(stream, order, action, user) {
   if (action === 'cancel') yield run(cancelOrder)
 
   if (action === 'personal') {
-    const dbId = yield storeOrder({user, ts, isCompany: false}, order.items)
+    const dbId = yield run(storeOrder, {user, ts, isCompany: false}, order.items)
     yield run(notifyOfficeManager, order, dbId, user, false)
     yield run(updateMessage, {
       pretext: `:woman: Personal order finished:`,
@@ -194,7 +195,7 @@ function* finishOrder(stream, order, action, user) {
 
     if (event.type === 'message') {
       order.reason = event.text
-      const dbId = yield storeOrder({user, ts, isCompany: true, reason: order.reason}, order.items)
+      const dbId = yield run(storeOrder, {user, ts, isCompany: true, reason: order.reason}, order.items)
       yield run(notifyOfficeManager, order, dbId, user, true)
       yield run(updateMessage, {
         fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
@@ -329,8 +330,8 @@ function* orderInfo(items) {
   return [{items: info, totalPrice}, errors]
 }
 
-function storeOrder(order, items) {
-  return knex.transaction((trx) => run(function*() {
+function* storeOrder(order, items) {
+  const id = yield knex.transaction((trx) => run(function*() {
     const id = (yield trx.insert(order, 'id').into('order'))[0]
 
     for (let item of items.values()) {
@@ -344,4 +345,26 @@ function storeOrder(order, items) {
     }
     return id
   }))
+
+  const user = (yield run(apiCall, 'users.info', {user: order.user})).user
+
+  const airtableOrder = yield run(createRecord, 'Orders', {
+    id,
+    'User': user.profile.real_name,
+    'Company Order': order.isCompany,
+    'Reason': order.reason,
+    'Status': 'Requested',
+  })
+
+  for (let item of items.values()) {
+    yield run(createRecord, 'Items', {
+      'Name': item.name,
+      'Url': item.url,
+      'Count': item.count,
+      'Price': item.price,
+      'Order': [airtableOrder.getId()],
+    })
+  }
+
+  return id
 }

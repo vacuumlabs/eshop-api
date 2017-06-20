@@ -34,6 +34,10 @@ export default transenv()(({str, bool, num}) => {
     slack: {
       apiToken: str('slack_api_token'),
       botToken: str('slack_bot_token'),
-    }
+    },
+    airtable: {
+      apiKey: str('airtable_api_key'),
+      base: str('airtable_base'),
+    },
   }
 })
