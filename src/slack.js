@@ -183,7 +183,6 @@ function* finishOrder(stream, order, action, user) {
         {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'},
       ],
     })
-    console.log(c.approvalTreshold)
     yield run(apiCall, 'chat.postMessage', {
       channel: user, as_user: true, text:
         order.totalPrice < c.approvalTreshold
@@ -219,7 +218,6 @@ function* finishOrder(stream, order, action, user) {
 }
 
 function* notifyOfficeManager(order, dbId, user, isCompany) {
-  console.log(dbId)
   const orderTypeText = isCompany ? `:office: Company` : `:woman: Personal`
 
   const orderAttachment = {
