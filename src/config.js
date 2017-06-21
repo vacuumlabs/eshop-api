@@ -12,7 +12,7 @@ export default transenv()(({str, bool, num}) => {
       credentials: {
         userName: str('alza_username'),
         password: str('alza_password'),
-      }
+      },
     },
     knex: {
       client: 'pg',

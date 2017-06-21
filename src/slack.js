@@ -15,12 +15,12 @@ const formatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'EUR',
   minimumFractionDigits: 2,
-});
+})
 
 let state = {}
 
 function* apiCall(name, data={}) {
-  for (let k in data) {
+  for (const k in data) {
     if (typeof data[k] === 'object') data[k] = JSON.stringify(data[k])
   }
   return JSON.parse(yield request.post(`${API}${name}`, {form: {...data, token: state.token}}))
@@ -68,7 +68,7 @@ function streamForUser(userId) {
 }
 
 export function* listen(stream) {
-  while (true) {
+  for (;;) {
     const event = yield stream.take()
     if (event.type === 'message' && event.subtype == null && amIMentioned(event)) {
       streamForUser(event.user).put(event)
@@ -76,21 +76,22 @@ export function* listen(stream) {
     if (event.type === 'action') {
       if (event.callback_id.startsWith('O')) {
         yield run(handleOrderAction, event)
-            .catch((e) => run(showError, event.channel.id, null, 'Something went wrong.'))
+          .catch((e) => run(showError, event.channel.id, null, 'Something went wrong.'))
         continue
       }
 
       const actionStream = state.pendingActions[event.callback_id]
-      if (actionStream) actionStream.put(event)
-      else yield run(showError, event.channel.id, event.original_message.ts,
+      if (actionStream) {actionStream.put(event)} else {
+        yield run(showError, event.channel.id, event.original_message.ts,
           'The order has timed out. Create a new order please.')
+      }
     }
   }
 }
 
 function* showError(channel, ts, msg) {
   yield run(apiCall, ts ? 'chat.update' : 'chat.postMessage', {
-      channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: []
+    channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: [],
   })
 }
 
@@ -112,10 +113,10 @@ function* listenUser(stream, user) {
     setId(order, null)
   }
 
-  while (true) {
+  for (;;) {
     let order = newOrder()
 
-    while (true) {
+    for (;;) {
       const event = yield stream.take()
 
       if (event.type === 'action') {
@@ -143,24 +144,24 @@ function* handleOrderAction(event) {
 
   yield run(apiCall, 'chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
     ...attachment,
-    actions: [{...action, text: `Add to Cart Again`, style: 'default'}]
+    actions: [{...action, text: 'Add to Cart Again', style: 'default'}],
   }]})
 
   yield run(login, c.alza.credentials)
-  for (let item of items) yield run(addToCart, item.shopId, item.count)
+  for (const item of items) yield run(addToCart, item.shopId, item.count)
 }
 
 function* finishOrder(stream, order, action, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
   function* updateMessage(attachmentUpdate) {
     yield run(apiCall, 'chat.update', {channel, ts, as_user: true,
-        attachments: [{...attachment, ...attachmentUpdate}]
+      attachments: [{...attachment, ...attachmentUpdate}],
     })
   }
 
   function* cancelOrder() {
     yield run(updateMessage, {
-      pretext: `:no_entry_sign: Order canceled:`,
+      pretext: ':no_entry_sign: Order canceled:',
       color: 'danger',
       actions: [],
     })
@@ -172,7 +173,7 @@ function* finishOrder(stream, order, action, user) {
     const dbId = yield run(storeOrder, {user, ts, isCompany: false}, order.items)
     yield run(notifyOfficeManager, order, dbId, user, false)
     yield run(updateMessage, {
-      pretext: `:woman: Personal order finished:`,
+      pretext: ':woman: Personal order finished:',
       color: 'good',
       actions: [],
     })
@@ -187,8 +188,8 @@ function* finishOrder(stream, order, action, user) {
     yield run(apiCall, 'chat.postMessage', {
       channel: user, as_user: true, text:
         order.totalPrice < c.approvalTreshold
-          ? `:question: Why do you need these items?`
-          : `:question: This order is pretty high, who approved it?\n:question: Why do you need it?`
+          ? ':question: Why do you need these items?'
+          : ':question: This order is pretty high, who approved it?\n:question: Why do you need it?',
     })
 
     const event = yield stream.take()
@@ -199,19 +200,19 @@ function* finishOrder(stream, order, action, user) {
       yield run(notifyOfficeManager, order, dbId, user, true)
       yield run(updateMessage, {
         fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
-        pretext: `:office: Company order finished:`,
+        pretext: ':office: Company order finished:',
         color: 'good',
         actions: [],
       })
       yield run(apiCall, 'chat.postMessage', {
-        channel: user, as_user: true, text: `:office: Company order finished :point_up:`
+        channel: user, as_user: true, text: ':office: Company order finished :point_up:',
       })
     }
 
     if (event.type === 'action') {
       yield run(cancelOrder)
       yield run(apiCall, 'chat.postMessage', {
-        channel: user, as_user: true, text: `:no_entry_sign: Canceling :point_up:`
+        channel: user, as_user: true, text: ':no_entry_sign: Canceling :point_up:',
       })
     }
 
@@ -219,7 +220,7 @@ function* finishOrder(stream, order, action, user) {
 }
 
 function* notifyOfficeManager(order, dbId, user, isCompany) {
-  const orderTypeText = isCompany ? `:office: Company` : `:woman: Personal`
+  const orderTypeText = isCompany ? ':office: Company' : ':woman: Personal'
 
   const orderAttachment = {
     ...orderToAttachment(order, `${orderTypeText} order from <@${user}>`),
@@ -229,7 +230,7 @@ function* notifyOfficeManager(order, dbId, user, isCompany) {
 
   yield run(apiCall, 'chat.postMessage', {
     channel: c.officeManager, as_user: true,
-    attachments: [orderAttachment]
+    attachments: [orderAttachment],
   })
 }
 
@@ -241,15 +242,15 @@ function* updateOrder(order, event, user) {
 
   const [info, errors] = yield run(orderInfo, parseOrder(event.text))
 
-  for (let i of info.items) {
+  for (const i of info.items) {
     if (order.items.get(i.id)) order.items.get(i.id).count += i.count
     else order.items.set(i.id, i)
   }
   order.totalPrice += info.totalPrice
 
   const orderAttachment = {
-    ...orderToAttachment(order, `Please confirm your order:`),
-    ...makeOrderActions(order)
+    ...orderToAttachment(order, 'Please confirm your order:'),
+    ...makeOrderActions(order),
   }
 
   if (errors.length > 0) {
@@ -261,9 +262,9 @@ function* updateOrder(order, event, user) {
   }
 
   const orderConfirmation = yield run(apiCall, 'chat.postMessage', {
-      channel: user,
-      attachments: [orderAttachment],
-      as_user: true,
+    channel: user,
+    attachments: [orderAttachment],
+    as_user: true,
   })
 
   return {...order, orderConfirmation}
@@ -291,7 +292,7 @@ function makeOrderActions(order) {
 
 function orderToAttachment(order, text) {
   return {
-    title: `Order summary`,
+    title: 'Order summary',
     pretext: text,
     fields: [
       itemsField(order),
@@ -305,20 +306,20 @@ function orderToAttachment(order, text) {
 function parseOrder(text) {
   const re = /\s*(\d*)\s*<(http[^\s]+)>/g
   let matches
-  let goods = []
+  const goods = []
   while ((matches = re.exec(text)) !== null) {
     if (matches[1] === '') matches[1] = '1'
-    goods.push({url: matches[2], count: parseInt(matches[1])})
+    goods.push({url: matches[2], count: parseInt(matches[1], 10)})
   }
   return goods
 }
 
 function* orderInfo(items) {
-  let info = []
-  let errors = []
+  const info = []
+  const errors = []
   let totalPrice = 0
   yield run(login, c.alza.credentials)
-  for (let item of items) {
+  for (const item of items) {
     yield run(function*() {
       const itemInfo = yield run(getInfo, item.url)
       info.push({...itemInfo, count: item.count, url: item.url})
@@ -334,13 +335,13 @@ function* storeOrder(order, items) {
   const id = yield knex.transaction((trx) => run(function*() {
     const id = (yield trx.insert(order, 'id').into('order'))[0]
 
-    for (let item of items.values()) {
+    for (const item of items.values()) {
       yield trx.insert({
         order: id,
         shopId: item.id,
         count: item.count,
         url: item.url,
-        price: item.price
+        price: item.price,
       }).into('orderItem')
     }
     return id
@@ -356,13 +357,13 @@ function* storeOrder(order, items) {
     'Status': 'Requested',
   })
 
-  for (let item of items.values()) {
+  for (const item of items.values()) {
     yield run(createRecord, 'Items', {
-      'Name': item.name,
-      'Url': item.url,
-      'Count': item.count,
-      'Price': item.price,
-      'Order': [airtableOrder.getId()],
+      Name: item.name,
+      Url: item.url,
+      Count: item.count,
+      Price: item.price,
+      Order: [airtableOrder.getId()],
     })
   }
 

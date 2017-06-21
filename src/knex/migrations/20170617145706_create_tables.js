@@ -1,4 +1,4 @@
-exports.up = async (knex) => {
+exports.up = async(knex) => {
 
   await knex.schema.createTableIfNotExists('order', (table) => {
     table.increments('id').primary()
@@ -6,7 +6,7 @@ exports.up = async (knex) => {
     table.string('ts').notNullable()
     table.boolean('isCompany').notNullable()
     table.text('reason')
-  });
+  })
 
   await knex.schema.createTableIfNotExists('orderItem', (table) => {
     table.increments('id').primary()
@@ -15,10 +15,10 @@ exports.up = async (knex) => {
     table.integer('count').notNullable()
     table.string('url').notNullable()
     table.decimal('price')
-  });
+  })
 }
 
-exports.down = async (knex) => {
+exports.down = async(knex) => {
   await knex.schema.dropTable('order')
   await knex.schema.dropTable('orderItem')
-};
+}

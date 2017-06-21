@@ -1,8 +1,8 @@
-import airtable from 'airtable'
+import Airtable from 'airtable'
 import c from './config'
 import {run, createChannel} from 'yacol'
 
-const base = new airtable({apiKey: c.airtable.apiKey}).base(c.airtable.base)
+const base = new Airtable({apiKey: c.airtable.apiKey}).base(c.airtable.base)
 
 const times = []
 const countLimit = 5
