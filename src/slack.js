@@ -78,8 +78,26 @@ function* announceToAll(message) {
       .filter((u) => u.is_bot === false)
 
   for (const u of users) {
-    yield run(apiCall, 'chat.postMessage', {channel: u.id, as_user: true, text: message})
+    if (message === 'help') yield run(greetNewUser, u.id)
+    else yield run(apiCall, 'chat.postMessage', {channel: u.id, as_user: true, text: message})
   }
+}
+
+function* greetNewUser(user) {
+  yield run(apiCall, 'chat.postMessage', {channel: user, as_user: true, text:
+    `Hi!
+I will get you anything from www.alza.sk. Use me for both your personal and company orders.
+
+DM me with Alza links and I'll order them. Like this:
+> https://www.alza.sk/cool-smartphone https://www.alza.sk/cool-chopter https://www.alza.sk/cool-cooler
+
+Do you want to order 3 Cool Coolers and 2 Cool Smartphones? Just tell me so:
+> 3 https://www.alza.sk/cool-cooler 2 https://www.alza.sk/cool-smartphone
+
+Happy shopping!
+
+PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`})
+
 }
 
 export function* listen(stream) {
