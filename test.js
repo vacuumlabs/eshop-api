@@ -1,9 +1,9 @@
 import {run} from 'yacol'
 import {getInfo} from './src/alza'
-import {connect, listen} from './src/slack'
+import {connect, listen, apiCall} from './src/slack'
 import c from './src/config'
 
-run(function*() {
+/*run(function*() {
   const urls = [
     'https://www.alza.sk/rowenta-rh8895wo-airforce-extreme-32-4v-d4945936.htm',
     'https://www.alza.sk/dji-phantom-4-advanced-d4844052.htm',
@@ -14,8 +14,9 @@ run(function*() {
     const info = yield run(getInfo, url)
     console.log(info)
   }
-})
-
-/*run(function* () {
-  yield run(connect, c.slack.botToken)
 })*/
+
+run(function* () {
+  yield run(connect, c.slack.botToken)
+  console.log(yield run(apiCall, 'users.list'))
+})

@@ -8,6 +8,7 @@ export default transenv()(({str, bool, num}) => {
     port: str('PORT'),
     approvalTreshold: num('approval_treshold'),
     officeManager: str('office_manager'),
+    newsChannel: str('news_channel'),
     alza: {
       credentials: {
         userName: str('alza_username'),

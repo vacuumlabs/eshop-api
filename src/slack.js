@@ -19,7 +19,7 @@ const formatter = new Intl.NumberFormat('en-US', {
 
 let state = {}
 
-function* apiCall(name, data={}) {
+export function* apiCall(name, data={}) {
   for (const k in data) {
     if (typeof data[k] === 'object') data[k] = JSON.stringify(data[k])
   }
@@ -59,6 +59,10 @@ function amIMentioned(event) {
   return false
 }
 
+function isMessage(event) {
+  return event.type === 'message' && event.subtype == null
+}
+
 function streamForUser(userId) {
   if (state.streams[userId] == null) {
     state.streams[userId] = createChannel()
@@ -67,12 +71,30 @@ function streamForUser(userId) {
   return state.streams[userId]
 }
 
+function* announceToAll(message) {
+  const users =
+    (yield run(apiCall, 'users.list'))
+      .members
+      .filter((u) => u.is_bot === false)
+
+  for (const u of users) {
+    yield run(apiCall, 'chat.postMessage', {channel: u.id, as_user: true, text: message})
+  }
+}
+
 export function* listen(stream) {
   for (;;) {
     const event = yield stream.take()
-    if (event.type === 'message' && event.subtype == null && amIMentioned(event)) {
+    if (isMessage(event) && amIMentioned(event)) {
       streamForUser(event.user).put(event)
+      continue
     }
+
+    if (isMessage(event) && event.channel === c.newsChannel) {
+      yield run(announceToAll, event.text)
+      continue
+    }
+
     if (event.type === 'action') {
       if (event.callback_id.startsWith('O')) {
         yield run(handleOrderAction, event)
