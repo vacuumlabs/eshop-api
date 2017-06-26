@@ -113,6 +113,11 @@ export function* listen(stream) {
       continue
     }
 
+    if (event.type === 'team_join') {
+      yield run(greetNewUser, event.user.id)
+      continue
+    }
+
     if (event.type === 'action') {
       if (event.callback_id.startsWith('O')) {
         yield run(handleOrderAction, event)
