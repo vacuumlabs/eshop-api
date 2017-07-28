@@ -32,7 +32,8 @@ export async function apiCall(name, data={}) {
   return response
 }
 
-export async function connect(token) {
+// eslint-disable-next-line require-await
+export async function init(token, stream) {
   state = {
     token,
     streams: {},
@@ -40,6 +41,28 @@ export async function connect(token) {
     actionsCount: 0,
   }
 
+  listen(stream)
+  maintainConnection(token, stream)
+}
+
+async function maintainConnection(token, stream) {
+  for (;;) {
+    const connection = await connect(token, stream)
+    while (await isAlive(connection)) {/* empty */}
+    connection.terminate()
+    logger.log('info', 'Connection dropped, reconnecting.')
+  }
+}
+
+async function isAlive(connection) {
+  let alive = false
+  connection.ping('')
+  connection.once('pong', () => (alive = true))
+  await new Promise((resolve) => setTimeout(resolve, 10000))
+  return alive
+}
+
+async function connect(token, stream) {
   const response = await apiCall('rtm.connect')
 
   state = {
@@ -49,11 +72,12 @@ export async function connect(token) {
   }
 
   const connection = new WS(response.url)
-  const stream = createChannel()
   connection.on('message', (data) => stream.put(JSON.parse(data)))
+  await new Promise((resolve) => connection.once('open', resolve))
 
   logger.log('info', 'WS connection to Slack established', {...state, token: '[SECRET]'})
-  return stream
+
+  return connection
 }
 
 function nextUUID() {
@@ -108,7 +132,7 @@ PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`})
 
 }
 
-export async function listen(stream) {
+async function listen(stream) {
   for (;;) {
     const event = await stream.take()
     logger.log('verbose', `slack event ${event.type}`, event)

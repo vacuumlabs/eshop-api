@@ -1,8 +1,8 @@
 import c from './config'
 import express from 'express'
 import bodyParser from 'body-parser'
-import {expressHelpers, run} from 'yacol'
-import {connect, listen} from './slack'
+import {expressHelpers, run, createChannel} from 'yacol'
+import {init} from './slack'
 import logger from 'winston'
 
 logger.cli()
@@ -14,9 +14,9 @@ app.use(bodyParser.urlencoded())
 
 const {register, runApp} = expressHelpers
 
-let slackEvents
+const slackEvents = createChannel()
 
-/* eslint-disable require-await */
+// eslint-disable-next-line require-yield
 function* actions(req, res) {
   slackEvents.put({...JSON.parse(req.body.payload), type: 'action'})
   res.status(200).send()
@@ -34,8 +34,7 @@ register(app, 'post', r.actions, actions)
     logger.log('info', `App started on localhost:${c.port}.`)
   )
 
-  slackEvents = await connect(c.slack.botToken)
-  await listen(slackEvents)
+  await init(c.slack.botToken, slackEvents)
 })().catch((e) => {
   logger.log('error', e)
   process.exit(1)
