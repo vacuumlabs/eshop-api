@@ -10,8 +10,8 @@ const request = _request.defaults({
 
 const SCV='https://www.alza.sk/Services/EShopService.svc/'
 
-export function* login(credentials) {
-  return yield request.post(`${SCV}LoginUser`, {body: JSON.stringify(credentials)})
+export async function login(credentials) {
+  return await request.post(`${SCV}LoginUser`, {body: JSON.stringify(credentials)})
 }
 
 function getId(urlString) {
@@ -23,15 +23,15 @@ function getId(urlString) {
   return url.pathname.match(/d(\d*)(\.htm)?$/)[1]
 }
 
-export function* addToCart(id, count) {
-  return yield request.post(`${SCV}OrderCommodity`, {body: JSON.stringify(
+export async function addToCart(id, count) {
+  return await request.post(`${SCV}OrderCommodity`, {body: JSON.stringify(
     {id, count}
   )})
 }
 
-export function* getInfo(url) {
+export async function getInfo(url) {
   url = url.replace('m.alza.sk', 'alza.sk')
-  const $ = cheerio.load(yield request(url))
+  const $ = cheerio.load(await request(url))
   const name = $('meta[name="twitter:title"]').attr('content').trim().replace(/\s+/g, ' ')
   const price = parseFloat(
     $('span.price_withoutVat').text()

@@ -11,7 +11,7 @@ const {register, runApp} = expressHelpers
 
 let slackEvents
 
-/* eslint-disable require-yield */
+/* eslint-disable require-await */
 function* actions(req, res) {
   slackEvents.put({...JSON.parse(req.body.payload), type: 'action'})
   res.status(200).send()
@@ -23,7 +23,7 @@ const r = {
 
 register(app, 'post', r.actions, actions)
 
-run(function* () {
+;(async function() {
   run(runApp)
   app.listen(c.port, () =>
     /* eslint-disable no-console */
@@ -31,9 +31,9 @@ run(function* () {
     /* eslint-enable no-console */
   )
 
-  slackEvents = yield run(connect, c.slack.botToken)
-  yield run(listen, slackEvents)
-}).catch((e) => {
+  slackEvents = await connect(c.slack.botToken)
+  await listen(slackEvents)
+})().catch((e) => {
   /* eslint-disable no-console */
   console.log(e)
   /* eslint-enable no-console */

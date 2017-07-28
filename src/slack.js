@@ -1,7 +1,7 @@
 import c from './config'
 import _knex from 'knex'
 import _request from 'request-promise'
-import {run, createChannel} from 'yacol'
+import {createChannel} from 'yacol'
 import {login, getInfo, addToCart} from './alza'
 import {create as createRecord} from './airtable'
 import WS from 'ws'
@@ -19,14 +19,14 @@ const formatter = new Intl.NumberFormat('en-US', {
 
 let state = {}
 
-export function* apiCall(name, data={}) {
+export async function apiCall(name, data={}) {
   for (const k in data) {
     if (typeof data[k] === 'object') data[k] = JSON.stringify(data[k])
   }
-  return JSON.parse(yield request.post(`${API}${name}`, {form: {...data, token: state.token}}))
+  return JSON.parse(await request.post(`${API}${name}`, {form: {...data, token: state.token}}))
 }
 
-export function* connect(token) {
+export async function connect(token) {
   state = {
     token,
     streams: {},
@@ -34,7 +34,7 @@ export function* connect(token) {
     actionsCount: 0,
   }
 
-  const response = yield run(apiCall, 'rtm.connect')
+  const response = await apiCall('rtm.connect')
 
   state = {
     ...state,
@@ -66,25 +66,25 @@ function isMessage(event) {
 function streamForUser(userId) {
   if (state.streams[userId] == null) {
     state.streams[userId] = createChannel()
-    run(listenUser, state.streams[userId], userId)
+    listenUser(state.streams[userId], userId)
   }
   return state.streams[userId]
 }
 
-function* announceToAll(message) {
+async function announceToAll(message) {
   const users =
-    (yield run(apiCall, 'users.list'))
+    (await apiCall('users.list'))
       .members
       .filter((u) => u.is_bot === false)
 
   for (const u of users) {
-    if (message === 'help') yield run(greetNewUser, u.id)
-    else yield run(apiCall, 'chat.postMessage', {channel: u.id, as_user: true, text: message})
+    if (message === 'help') await greetNewUser(u.id)
+    else await apiCall('chat.postMessage', {channel: u.id, as_user: true, text: message})
   }
 }
 
-function* greetNewUser(user) {
-  yield run(apiCall, 'chat.postMessage', {channel: user, as_user: true, text:
+async function greetNewUser(user) {
+  await apiCall('chat.postMessage', {channel: user, as_user: true, text:
     `Hi!
 I will get you anything from www.alza.sk. Use me for both your personal and company orders.
 
@@ -100,47 +100,47 @@ PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`})
 
 }
 
-export function* listen(stream) {
+export async function listen(stream) {
   for (;;) {
-    const event = yield stream.take()
+    const event = await stream.take()
     if (isMessage(event) && amIMentioned(event)) {
       streamForUser(event.user).put(event)
       continue
     }
 
     if (isMessage(event) && event.channel === c.newsChannel) {
-      yield run(announceToAll, event.text)
+      await announceToAll(event.text)
       continue
     }
 
     if (event.type === 'team_join') {
-      yield run(greetNewUser, event.user.id)
+      await greetNewUser(event.user.id)
       continue
     }
 
     if (event.type === 'action') {
       if (event.callback_id.startsWith('O')) {
-        yield run(handleOrderAction, event)
-          .catch((e) => run(showError, event.channel.id, null, 'Something went wrong.'))
+        await handleOrderAction(event)
+          .catch((e) => showError(event.channel.id, null, 'Something went wrong.'))
         continue
       }
 
       const actionStream = state.pendingActions[event.callback_id]
       if (actionStream) {actionStream.put(event)} else {
-        yield run(showError, event.channel.id, event.original_message.ts,
+        await showError(event.channel.id, event.original_message.ts,
           'The order has timed out. Create a new order please.')
       }
     }
   }
 }
 
-function* showError(channel, ts, msg) {
-  yield run(apiCall, ts ? 'chat.update' : 'chat.postMessage', {
+async function showError(channel, ts, msg) {
+  await apiCall(ts ? 'chat.update' : 'chat.postMessage', {
     channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: [],
   })
 }
 
-function* listenUser(stream, user) {
+async function listenUser(stream, user) {
   const newOrder = () => ({
     id: null,
     items: new Map(),
@@ -162,16 +162,16 @@ function* listenUser(stream, user) {
     let order = newOrder()
 
     for (;;) {
-      const event = yield stream.take()
+      const event = await stream.take()
 
       if (event.type === 'action') {
-        yield run(finishOrder, stream, order, event.actions[0].name, user)
+        await finishOrder(stream, order, event.actions[0].name, user)
         break
       }
 
       if (event.type === 'message') {
         order = setId(order, nextUUID())
-        order = yield run(updateOrder, order, event, user)
+        order = await updateOrder(order, event, user)
       }
     }
 
@@ -179,45 +179,45 @@ function* listenUser(stream, user) {
   }
 }
 
-function* handleOrderAction(event) {
+async function handleOrderAction(event) {
   const orderId = event.actions[0].value
-  const items = yield knex.select('shopId', 'count').from('orderItem').where('order', orderId)
+  const items = await knex.select('shopId', 'count').from('orderItem').where('order', orderId)
 
   const msg = event.original_message
   const attachment = msg.attachments[0]
   const action = attachment.actions[0]
 
-  yield run(apiCall, 'chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
+  await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
     ...attachment,
     actions: [{...action, text: 'Add to Cart Again', style: 'default'}],
   }]})
 
-  yield run(login, c.alza.credentials)
-  for (const item of items) yield run(addToCart, item.shopId, item.count)
+  await login(c.alza.credentials)
+  for (const item of items) await addToCart(item.shopId, item.count)
 }
 
-function* finishOrder(stream, order, action, user) {
+async function finishOrder(stream, order, action, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
-  function* updateMessage(attachmentUpdate) {
-    yield run(apiCall, 'chat.update', {channel, ts, as_user: true,
+  async function updateMessage(attachmentUpdate) {
+    await apiCall('chat.update', {channel, ts, as_user: true,
       attachments: [{...attachment, ...attachmentUpdate}],
     })
   }
 
-  function* cancelOrder() {
-    yield run(updateMessage, {
+  async function cancelOrder() {
+    await updateMessage({
       pretext: ':no_entry_sign: Order canceled:',
       color: 'danger',
       actions: [],
     })
   }
 
-  if (action === 'cancel') yield run(cancelOrder)
+  if (action === 'cancel') await cancelOrder()
 
   if (action === 'personal') {
-    const dbId = yield run(storeOrder, {user, ts, isCompany: false}, order.items)
-    yield run(notifyOfficeManager, order, dbId, user, false)
-    yield run(updateMessage, {
+    const dbId = await storeOrder({user, ts, isCompany: false}, order.items)
+    await notifyOfficeManager(order, dbId, user, false)
+    await updateMessage({
       pretext: ':woman: Personal order finished:',
       color: 'good',
       actions: [],
@@ -225,38 +225,38 @@ function* finishOrder(stream, order, action, user) {
   }
 
   if (action === 'company') {
-    yield run(updateMessage, {
+    await updateMessage({
       actions: [
         {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'},
       ],
     })
-    yield run(apiCall, 'chat.postMessage', {
+    await apiCall('chat.postMessage', {
       channel: user, as_user: true, text:
         order.totalPrice < c.approvalTreshold
           ? ':question: Why do you need these items?'
           : ':question: This order is pretty high, who approved it?\n:question: Why do you need it?',
     })
 
-    const event = yield stream.take()
+    const event = await stream.take()
 
     if (event.type === 'message') {
       order.reason = event.text
-      const dbId = yield run(storeOrder, {user, ts, isCompany: true, reason: order.reason}, order.items)
-      yield run(notifyOfficeManager, order, dbId, user, true)
-      yield run(updateMessage, {
+      const dbId = await storeOrder({user, ts, isCompany: true, reason: order.reason}, order.items)
+      await notifyOfficeManager(order, dbId, user, true)
+      await updateMessage({
         fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
         pretext: ':office: Company order finished:',
         color: 'good',
         actions: [],
       })
-      yield run(apiCall, 'chat.postMessage', {
+      await apiCall('chat.postMessage', {
         channel: user, as_user: true, text: ':office: Company order finished :point_up:',
       })
     }
 
     if (event.type === 'action') {
-      yield run(cancelOrder)
-      yield run(apiCall, 'chat.postMessage', {
+      await cancelOrder()
+      await apiCall('chat.postMessage', {
         channel: user, as_user: true, text: ':no_entry_sign: Canceling :point_up:',
       })
     }
@@ -264,7 +264,7 @@ function* finishOrder(stream, order, action, user) {
   }
 }
 
-function* notifyOfficeManager(order, dbId, user, isCompany) {
+async function notifyOfficeManager(order, dbId, user, isCompany) {
   const orderTypeText = isCompany ? ':office: Company' : ':woman: Personal'
 
   const orderAttachment = {
@@ -273,19 +273,19 @@ function* notifyOfficeManager(order, dbId, user, isCompany) {
     actions: [{name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'}],
   }
 
-  yield run(apiCall, 'chat.postMessage', {
+  await apiCall('chat.postMessage', {
     channel: c.officeManager, as_user: true,
     attachments: [orderAttachment],
   })
 }
 
-function* updateOrder(order, event, user) {
+async function updateOrder(order, event, user) {
   if (order.orderConfirmation) {
     const {channel, ts} = order.orderConfirmation
-    yield run(apiCall, 'chat.delete', {channel, ts})
+    await apiCall('chat.delete', {channel, ts})
   }
 
-  const [info, errors] = yield run(orderInfo, parseOrder(event.text))
+  const [info, errors] = await orderInfo(parseOrder(event.text))
 
   for (const i of info.items) {
     if (order.items.get(i.id)) order.items.get(i.id).count += i.count
@@ -299,14 +299,14 @@ function* updateOrder(order, event, user) {
   }
 
   if (errors.length > 0) {
-    yield run(apiCall, 'chat.postMessage', {
+    await apiCall('chat.postMessage', {
       channel: user,
       as_user: true,
       text: `:exclamation: I can't find these items:\n${errors.join('\n')}`,
     })
   }
 
-  const orderConfirmation = yield run(apiCall, 'chat.postMessage', {
+  const orderConfirmation = await apiCall('chat.postMessage', {
     channel: user,
     attachments: [orderAttachment],
     as_user: true,
@@ -359,29 +359,29 @@ function parseOrder(text) {
   return goods
 }
 
-function* orderInfo(items) {
+async function orderInfo(items) {
   const info = []
   const errors = []
   let totalPrice = 0
-  yield run(login, c.alza.credentials)
+  await login(c.alza.credentials)
   for (const item of items) {
-    yield run(function*() {
-      const itemInfo = yield run(getInfo, item.url)
+    await (async function() {
+      const itemInfo = await getInfo(item.url)
       info.push({...itemInfo, count: item.count, url: item.url})
       totalPrice += itemInfo.price * item.count
-    }).catch((e) => {
+    })().catch((e) => {
       errors.push(item.url)
     })
   }
   return [{items: info, totalPrice}, errors]
 }
 
-function* storeOrder(order, items) {
-  const id = yield knex.transaction((trx) => run(function*() {
-    const id = (yield trx.insert(order, 'id').into('order'))[0]
+async function storeOrder(order, items) {
+  const id = await knex.transaction((trx) => (async function() {
+    const id = (await trx.insert(order, 'id').into('order'))[0]
 
     for (const item of items.values()) {
-      yield trx.insert({
+      await trx.insert({
         order: id,
         shopId: item.id,
         count: item.count,
@@ -390,11 +390,11 @@ function* storeOrder(order, items) {
       }).into('orderItem')
     }
     return id
-  }))
+  })())
 
-  const user = (yield run(apiCall, 'users.info', {user: order.user})).user
+  const user = (await apiCall('users.info', {user: order.user})).user
 
-  const airtableOrder = yield run(createRecord, 'Orders', {
+  const airtableOrder = await createRecord('Orders', {
     id,
     'User': user.profile.real_name,
     'Company Order': order.isCompany,
@@ -403,7 +403,7 @@ function* storeOrder(order, items) {
   })
 
   for (const item of items.values()) {
-    yield run(createRecord, 'Items', {
+    await createRecord('Items', {
       Name: item.name,
       Url: item.url,
       Count: item.count,

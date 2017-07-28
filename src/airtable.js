@@ -1,6 +1,6 @@
 import Airtable from 'airtable'
 import c from './config'
-import {run, createChannel} from 'yacol'
+import {createChannel} from 'yacol'
 
 const base = new Airtable({apiKey: c.airtable.apiKey}).base(c.airtable.base)
 
@@ -14,24 +14,24 @@ function sleep(till) {
   return new Promise((resolve) => setTimeout(resolve(), till - Date.now()))
 }
 
-run(function* throttleRequests() {
+(async function throttleRequests() {
   for (;;) {
     while (times.length >= countLimit) {
-      yield sleep(times[0] + timeLimit)
+      await sleep(times[0] + timeLimit)
       times.shift()
     }
 
-    (yield pendingRequests.take())()
+    (await pendingRequests.take())()
     times.push(Date.now())
   }
-})
+})()
 
 
 function waitForRequest() {
   return new Promise((resolve) => pendingRequests.put(resolve))
 }
 
-export function* create(table, record) {
-  yield waitForRequest()
-  return yield base(table).create(record)
+export async function create(table, record) {
+  await waitForRequest()
+  return await base(table).create(record)
 }

@@ -16,7 +16,7 @@ import c from './src/config'
   }
 })*/
 
-run(function* () {
-  yield run(connect, c.slack.botToken)
-  console.log(yield run(apiCall, 'users.list'))
-})
+(async function() {
+  await run(connect, c.slack.botToken)
+  console.log(await apiCall('users.list'))
+})()
