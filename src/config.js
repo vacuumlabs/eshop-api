@@ -5,6 +5,7 @@ export default transenv()(({str, bool, num}) => {
 
   return {
     env,
+    logLevel: str('log_level', isDevelopment ? 'debug' : 'error'),
     port: str('PORT'),
     approvalTreshold: num('approval_treshold'),
     officeManager: str('office_manager'),

@@ -5,6 +5,7 @@ import {createChannel} from 'yacol'
 import {login, getInfo, addToCart} from './alza'
 import {create as createRecord} from './airtable'
 import WS from 'ws'
+import logger from 'winston'
 
 const API = 'https://slack.com/api/'
 
@@ -23,7 +24,12 @@ export async function apiCall(name, data={}) {
   for (const k in data) {
     if (typeof data[k] === 'object') data[k] = JSON.stringify(data[k])
   }
-  return JSON.parse(await request.post(`${API}${name}`, {form: {...data, token: state.token}}))
+
+  logger.log('verbose', `call slack.api.${name}`, data)
+  const response = JSON.parse(await request.post(`${API}${name}`, {form: {...data, token: state.token}}))
+  logger.log('verbose', `response slack.api.${name}`, {args: data, response})
+
+  return response
 }
 
 export async function connect(token) {
@@ -45,6 +51,8 @@ export async function connect(token) {
   const connection = new WS(response.url)
   const stream = createChannel()
   connection.on('message', (data) => stream.put(JSON.parse(data)))
+
+  logger.log('info', 'WS connection to Slack established', {...state, token: '[SECRET]'})
   return stream
 }
 
@@ -103,6 +111,8 @@ PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`})
 export async function listen(stream) {
   for (;;) {
     const event = await stream.take()
+    logger.log('verbose', `slack event ${event.type}`, event)
+
     if (isMessage(event) && amIMentioned(event)) {
       streamForUser(event.user).put(event)
       continue

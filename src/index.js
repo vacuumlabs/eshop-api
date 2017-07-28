@@ -3,6 +3,11 @@ import express from 'express'
 import bodyParser from 'body-parser'
 import {expressHelpers, run} from 'yacol'
 import {connect, listen} from './slack'
+import logger from 'winston'
+
+logger.cli()
+logger.level = c.logLevel
+logger.setLevels(logger.config.npm.levels)
 
 const app = express()
 app.use(bodyParser.urlencoded())
@@ -26,16 +31,12 @@ register(app, 'post', r.actions, actions)
 ;(async function() {
   run(runApp)
   app.listen(c.port, () =>
-    /* eslint-disable no-console */
-    console.log(`App started on localhost:${c.port}.`)
-    /* eslint-enable no-console */
+    logger.log('info', `App started on localhost:${c.port}.`)
   )
 
   slackEvents = await connect(c.slack.botToken)
   await listen(slackEvents)
 })().catch((e) => {
-  /* eslint-disable no-console */
-  console.log(e)
-  /* eslint-enable no-console */
+  logger.log('error', e)
   process.exit(1)
 })
