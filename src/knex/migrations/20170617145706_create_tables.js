@@ -1,4 +1,4 @@
-exports.up = async(knex) => {
+exports.up = async (knex) => {
 
   await knex.schema.createTableIfNotExists('order', (table) => {
     table.increments('id').primary()
@@ -18,7 +18,7 @@ exports.up = async(knex) => {
   })
 }
 
-exports.down = async(knex) => {
+exports.down = async (knex) => {
   await knex.schema.dropTable('order')
   await knex.schema.dropTable('orderItem')
 }
