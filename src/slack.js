@@ -126,6 +126,8 @@ DM me with Alza links and I'll order them. Like this:
 Do you want to order 3 Cool Coolers and 2 Cool Smartphones? Just tell me so:
 > 3 https://www.alza.sk/cool-cooler 2 https://www.alza.sk/cool-smartphone
 
+Although I work the best with Alza, I’m also able to get you items from other eshops, if need be. Just paste the link and I’ll handle it.
+
 Happy shopping!
 
 PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`})
