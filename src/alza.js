@@ -32,7 +32,11 @@ export async function addToCart(id, count) {
 export async function getInfo(url) {
   url = url.replace('m.alza.sk', 'alza.sk')
   const $ = cheerio.load(await request(url))
-  const name = $('meta[name="twitter:title"]').attr('content').trim().replace(/\s+/g, ' ')
+  const name = (
+    $('meta[name="twitter:title"]').attr('content') ||
+    $('meta[property="og:title"]').attr('content')
+  ).replace(/\| Alza.sk\s*$/, '').trim().replace(/\s+/g, ' ')
+
   const price = parseFloat(
     $('span.price_withoutVat').text()
       .replace(/[^\d,]/g, '')
