@@ -37,10 +37,10 @@ export async function getInfo(url) {
     $('meta[property="og:title"]').attr('content')
   ).replace(/\| Alza.sk\s*$/, '').trim().replace(/\s+/g, ' ')
 
-  const price = parseFloat(
-    $('span.price_withoutVat').text()
-      .replace(/[^\d,]/g, '')
-      .replace(/,/g, '.')
+  const price =parseFloat((
+    $('span.price_withoutVat').text() ||
+    $('tr.pricenormal').find('td.c2').find('span').text()
+  ).replace(/[^\d,]/g, '').replace(/,/g, '.')
   )
   const description = $('div.nameextc').text()
 
