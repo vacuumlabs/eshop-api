@@ -2,13 +2,20 @@ import _request from 'request-promise'
 import cheerio from 'cheerio'
 import {URL} from 'url'
 
+const BASE_URL = 'https://www.alza.sk/'
+
 const jar = _request.jar()
+jar.setCookie(_request.cookie(`refer3=${encodeURIComponent(`${BASE_URL};`)}`), BASE_URL)
+
 const request = _request.defaults({
-  headers: {'Content-Type': 'application/json'},
+  headers: {
+    'Content-Type': 'application/json',
+    referer: BASE_URL,
+  },
   jar,
 })
 
-const SCV='https://www.alza.sk/Services/EShopService.svc/'
+const SCV=`${BASE_URL}Services/EShopService.svc/`
 
 export async function login(credentials) {
   return await request.post(`${SCV}LoginUser`, {body: JSON.stringify(credentials)})
