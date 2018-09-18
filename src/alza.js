@@ -10,7 +10,7 @@ jar.setCookie(_request.cookie(`refer3=${encodeURIComponent(`${BASE_URL};`)}`), B
 const request = _request.defaults({
   headers: {
     'Content-Type': 'application/json',
-    referer: BASE_URL,
+    'referer': BASE_URL,
   },
   jar,
 })
