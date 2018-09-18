@@ -4,6 +4,7 @@ import bodyParser from 'body-parser'
 import {expressHelpers, run, createChannel} from 'yacol'
 import {init} from './slack'
 import logger from 'winston'
+import {login} from './alza'
 
 logger.cli()
 logger.level = c.logLevel
@@ -27,6 +28,19 @@ const r = {
 }
 
 register(app, 'post', r.actions, actions)
+
+app.get('/login', (req, res) => {
+  const data = {...c.alza.credentials}
+
+  if (req.query.code) {
+    data.validationCode = req.query.code
+  }
+
+  login(data).then(resp => {
+    console.log(resp)
+    res.send(resp)
+  })
+})
 
 ;(async function() {
   run(runApp)
