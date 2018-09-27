@@ -3,6 +3,7 @@ import express from 'express'
 import bodyParser from 'body-parser'
 import {expressHelpers, run, createChannel} from 'yacol'
 import {init} from './slack'
+import {alzaCode} from './alza'
 import logger from 'winston'
 
 logger.cli()
@@ -24,9 +25,11 @@ function* actions(req, res) {
 
 const r = {
   actions: '/actions',
+  alzaCode: '/alzaCode', // TODO: make lowercase :(
 }
 
 register(app, 'post', r.actions, actions)
+register(app, 'get', r.alzaCode, alzaCode)
 
 ;(async function() {
   run(runApp)

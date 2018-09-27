@@ -8,6 +8,25 @@ import WS from 'ws'
 import logger from 'winston'
 
 const API = 'https://slack.com/api/'
+const OFFICES = ['Bratislava', 'Košice', 'Praha', 'Brno']
+
+const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
+
+const ORDER_TYPE_ACTIONS = [
+  {name: 'personal', text: 'Make Personal Order', type: 'button', value: 'personal'},
+  {name: 'company', text: 'Make Company Order', type: 'button', value: 'company'},
+  CANCEL_ORDER_ACTION,
+]
+
+const ORDER_OFFICE_ACTIONS = [
+  ...OFFICES.map((office) => ({
+    name: 'office',
+    text: office,
+    type: 'button',
+    value: office,
+  })),
+  CANCEL_ORDER_ACTION,
+]
 
 const request = _request.defaults({})
 const knex = _knex(c.knex)
@@ -179,6 +198,7 @@ async function listenUser(stream, user) {
     id: null,
     items: new Map(),
     totalPrice: 0,
+    office: null,
     orderConfirmation: null,
   })
 
@@ -199,8 +219,17 @@ async function listenUser(stream, user) {
       const event = await stream.take()
 
       if (event.type === 'action') {
-        await finishOrder(stream, order, event.actions[0].name, user)
-        break
+        const finished = await finishOrder(
+          stream,
+          order,
+          event.actions[0].name,
+          event.actions[0].value,
+          user,
+        )
+
+        if (finished) {
+          break
+        }
       }
 
       if (event.type === 'message') {
@@ -230,7 +259,7 @@ async function handleOrderAction(event) {
   for (const item of items) await addToCart(item.shopId, item.count)
 }
 
-async function finishOrder(stream, order, action, user) {
+async function finishOrder(stream, order, action, actionValue, user) {
   const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
   async function updateMessage(attachmentUpdate) {
     await apiCall('chat.update', {channel, ts, as_user: true,
@@ -246,23 +275,35 @@ async function finishOrder(stream, order, action, user) {
     })
   }
 
-  if (action === 'cancel') await cancelOrder()
+  if (action === 'office') {
+    order.office = actionValue
+    await updateMessage({
+      fields: getOrderFields(order),
+      actions: ORDER_TYPE_ACTIONS,
+    })
+
+    return false
+  }
+
+  if (action === 'cancel') {
+    await cancelOrder()
+    return true
+  }
 
   if (action === 'personal') {
-    const dbId = await storeOrder({user, ts, isCompany: false}, order.items)
+    const dbId = await storeOrder({user, ts, isCompany: false, office: order.office}, order.items)
     await notifyOfficeManager(order, dbId, user, false)
     await updateMessage({
       pretext: ':woman: Personal order finished:',
       color: 'good',
       actions: [],
     })
+    return true
   }
 
   if (action === 'company') {
     await updateMessage({
-      actions: [
-        {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'},
-      ],
+      actions: [CANCEL_ORDER_ACTION],
     })
     await apiCall('chat.postMessage', {
       channel: user, as_user: true, text:
@@ -275,7 +316,16 @@ async function finishOrder(stream, order, action, user) {
 
     if (event.type === 'message') {
       order.reason = event.text
-      const dbId = await storeOrder({user, ts, isCompany: true, reason: order.reason}, order.items)
+      const dbId = await storeOrder(
+        {
+          user,
+          ts,
+          isCompany: true,
+          reason: order.reason,
+          office: order.office,
+        },
+        order.items,
+      )
       await notifyOfficeManager(order, dbId, user, true)
       await updateMessage({
         fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
@@ -295,20 +345,27 @@ async function finishOrder(stream, order, action, user) {
       })
     }
 
+    return true
   }
+
+  return false
 }
 
 async function notifyOfficeManager(order, dbId, user, isCompany) {
   const orderTypeText = isCompany ? ':office: Company' : ':woman: Personal'
 
-  const orderAttachment = {
-    ...orderToAttachment(order, `${orderTypeText} order from <@${user}>`),
-    callback_id: `O${dbId}`,
-    actions: [{name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'}],
-  }
+  const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, getOrderFields(order))
 
   await apiCall('chat.postMessage', {
     channel: c.officeManager, as_user: true,
+    attachments: [{
+      ...orderAttachment,
+      callback_id: `O${dbId}`,
+      actions: [{name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'}],
+    }],
+  })
+  await apiCall('chat.postMessage', {
+    channel: c.ordersChannel,
     attachments: [orderAttachment],
   })
 }
@@ -328,8 +385,15 @@ async function updateOrder(order, event, user) {
   order.totalPrice += info.totalPrice
 
   const orderAttachment = {
-    ...orderToAttachment(order, 'Please confirm your order:'),
-    ...makeOrderActions(order),
+    ...orderToAttachment(
+      'Please confirm your order:',
+      [
+        ...getOrderFields(order),
+        !order.office && {title: 'Where do you want to pickup the order?'},
+      ].filter(Boolean),
+    ),
+    callback_id: order.id,
+    actions: order.office ? ORDER_TYPE_ACTIONS : ORDER_OFFICE_ACTIONS,
   }
 
   if (errors.length > 0) {
@@ -358,26 +422,20 @@ function itemsField(order) {
   return {title: 'Items', value: itemLines.join('\n'), short: false}
 }
 
-function makeOrderActions(order) {
-  return {
-    callback_id: order.id,
-    actions: [
-      {name: 'personal', text: 'Make Personal Order', type: 'button', value: 'personal'},
-      {name: 'company', text: 'Make Company Order', type: 'button', value: 'company'},
-      {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'},
-    ],
-  }
+function getOrderFields(order) {
+  return [
+    itemsField(order),
+    {title: 'Total value', value: formatter.format(order.totalPrice)},
+    order.office && {title: 'Office', value: order.office},
+    order.reason && {title: 'Reason', value: order.reason},
+  ]
 }
 
-function orderToAttachment(order, text) {
+function orderToAttachment(text, fields) {
   return {
     title: 'Order summary',
     pretext: text,
-    fields: [
-      itemsField(order),
-      {title: 'Total value', value: formatter.format(order.totalPrice)},
-      order.reason && {title: 'Reason', value: order.reason},
-    ],
+    fields,
     mrkdwn_in: ['fields'],
   }
 }
@@ -399,6 +457,7 @@ async function orderInfo(items) {
   let totalPrice = 0
   await login(c.alza.credentials)
   for (const item of items) {
+    // eslint-disable-next-line no-loop-func
     await (async function() {
       const itemInfo = await getInfo(item.url)
       info.push({...itemInfo, count: item.count, url: item.url})
@@ -432,6 +491,7 @@ async function storeOrder(order, items) {
     id,
     'User': user.profile.real_name,
     'Company Order': order.isCompany,
+    'Office': order.office,
     'Reason': order.reason,
     'Status': 'Requested',
   })

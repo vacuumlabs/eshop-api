@@ -1,6 +1,7 @@
 import _request from 'request-promise'
 import cheerio from 'cheerio'
 import {URL} from 'url'
+import c from './config'
 
 const BASE_URL = 'https://www.alza.sk/'
 
@@ -52,4 +53,20 @@ export async function getInfo(url) {
   const description = $('div.nameextc').text()
 
   return {id: getId(url), name, price, description}
+}
+
+export function alzaCode(req, res) {
+  const data = {...c.alza.credentials}
+
+  if (req.query.code) {
+    data.validationCode = req.query.code
+  }
+
+  login(data)
+    .then((resp) => {
+      res.send(resp)
+    })
+    .catch((err) => {
+      res.send(`Login failed: ${err.message}`)
+    })
 }

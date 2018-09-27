@@ -10,6 +10,7 @@ export default transenv()(({str, bool, num}) => {
     approvalTreshold: num('approval_treshold'),
     officeManager: str('office_manager'),
     newsChannel: str('news_channel'),
+    ordersChannel: str('orders_channel'),
     alza: {
       credentials: {
         userName: str('alza_username'),
