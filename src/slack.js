@@ -2,7 +2,8 @@ import c from './config'
 import _knex from 'knex'
 import _request from 'request-promise'
 import {createChannel} from 'yacol'
-import {login, getInfo, addToCart} from './alza'
+import {getInfo, addToCartAll} from './alza'
+import {format} from './currency'
 import {create as createRecord} from './airtable'
 import WS from 'ws'
 import logger from 'winston'
@@ -30,12 +31,6 @@ const ORDER_OFFICE_ACTIONS = [
 
 const request = _request.defaults({})
 const knex = _knex(c.knex)
-
-const formatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'EUR',
-  minimumFractionDigits: 2,
-})
 
 let state = {}
 
@@ -243,20 +238,39 @@ async function listenUser(stream, user) {
 }
 
 async function handleOrderAction(event) {
+  const actionName = event.actions[0].name
   const orderId = event.actions[0].value
-  const items = await knex.select('shopId', 'count').from('orderItem').where('order', orderId)
-
   const msg = event.original_message
   const attachment = msg.attachments[0]
-  const action = attachment.actions[0]
 
-  await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
-    ...attachment,
-    actions: [{...action, text: 'Add to Cart Again', style: 'default'}],
-  }]})
+  if (actionName === 'notify-user') {
+    const userId = attachment.pretext.match(/<@(.+)>/)[1]
 
-  await login(c.alza.credentials)
-  for (const item of items) await addToCart(item.shopId, item.count)
+    if (!userId) {
+      logger.log('error', `Failed to parse user ID from '${attachment.pretext}`)
+      await addReaction('no_bell', event.channel.id, msg.ts)
+      return
+    }
+
+    const notifyOk = await notifyUser(userId, {attachments: [orderToAttachment('Your order has arrived :truck: Come pick it up during office hours', attachment.fields.slice(0, 3))]})
+
+    if (notifyOk) {
+      await addReaction('incoming_envelope', event.channel.id, msg.ts)
+    } else {
+      await addReaction('no_bell', event.channel.id, msg.ts)
+    }
+  } else {
+    const [addToCartAction, ...otherActions] = attachment.actions
+
+    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
+      ...attachment,
+      actions: [{...addToCartAction, text: 'Add to Cart Again', style: 'default'}, ...otherActions],
+    }]})
+
+    const items = await knex.select('shopId', 'count', 'url').from('orderItem').where('order', orderId)
+
+    await addToCartAll(items)
+  }
 }
 
 async function finishOrder(stream, order, action, actionValue, user) {
@@ -278,8 +292,8 @@ async function finishOrder(stream, order, action, actionValue, user) {
   if (action === 'office') {
     order.office = actionValue
     await updateMessage({
-      fields: getOrderFields(order),
       actions: ORDER_TYPE_ACTIONS,
+      fields: getOrderFields(order),
     })
 
     return false
@@ -297,6 +311,7 @@ async function finishOrder(stream, order, action, actionValue, user) {
       pretext: ':woman: Personal order finished:',
       color: 'good',
       actions: [],
+      fields: getOrderFields(order),
     })
     return true
   }
@@ -304,6 +319,7 @@ async function finishOrder(stream, order, action, actionValue, user) {
   if (action === 'company') {
     await updateMessage({
       actions: [CANCEL_ORDER_ACTION],
+      fields: getOrderFields(order),
     })
     await apiCall('chat.postMessage', {
       channel: user, as_user: true, text:
@@ -328,7 +344,7 @@ async function finishOrder(stream, order, action, actionValue, user) {
       )
       await notifyOfficeManager(order, dbId, user, true)
       await updateMessage({
-        fields: [...attachment.fields, {title: 'Reason', value: event.text, short: false}],
+        fields: [getOrderFields(order), {title: 'Reason', value: event.text, short: false}],
         pretext: ':office: Company order finished:',
         color: 'good',
         actions: [],
@@ -361,13 +377,49 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
     attachments: [{
       ...orderAttachment,
       callback_id: `O${dbId}`,
-      actions: [{name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'}],
+      actions: [
+        {name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'},
+        {name: 'notify-user', text: 'Notify user', type: 'button', value: dbId, style: 'default'},
+      ],
     }],
   })
   await apiCall('chat.postMessage', {
     channel: c.ordersChannel,
     attachments: [orderAttachment],
   })
+}
+
+async function notifyUser(userId, message) {
+  const {channel: {id: channelId}, error: channelError} = await apiCall('conversations.open', {users: userId})
+
+  if (!channelId) {
+    logger.log('error', `Failed to open conversation with user '${userId}': ${channelError}`)
+    return false
+  }
+
+  const {error: notifyError} = await apiCall('chat.postMessage', {
+    ...message,
+    channel: channelId,
+    as_user: true,
+  })
+
+  if (notifyError) {
+    logger.log('error', `Failed to notify user '${userId}': ${notifyError}`)
+    return false
+  }
+
+  return true
+}
+
+async function addReaction(name, channel, timestamp) {
+  const {ok, error} = await apiCall('reactions.add', {name, channel, timestamp})
+
+  if (ok === false && error !== 'already_reacted') {
+    logger.log('error', `Failed to add reaction '${name}'`)
+    return false
+  }
+
+  return true
 }
 
 async function updateOrder(order, event, user) {
@@ -413,10 +465,11 @@ async function updateOrder(order, event, user) {
   return {...order, orderConfirmation}
 }
 
-function itemsField(order) {
-  const itemLines = [...order.items.values()].map((item) => {
-    const itemPrice = formatter.format(item.price).padStart(10)
-    return `\`${itemPrice}\` <${item.url}|${item.count} x ${item.name}>`
+function itemsField(items) {
+  const itemLines = [...items.values()].map((item) => {
+    const itemPrice = format(item.price, c.currency).padStart(10)
+    const itemPriceOrig = item.currency === c.currency ? '' : format(item.priceOrig, item.currency)
+    return `\`${itemPrice}\` ${itemPriceOrig ? ` (${itemPriceOrig})` : ''} <${item.url}|${item.count} x ${item.name}>`
   })
 
   return {title: 'Items', value: itemLines.join('\n'), short: false}
@@ -424,8 +477,8 @@ function itemsField(order) {
 
 function getOrderFields(order) {
   return [
-    itemsField(order),
-    {title: 'Total value', value: formatter.format(order.totalPrice)},
+    itemsField(order.items),
+    {title: 'Total value', value: format(order.totalPrice, c.currency)},
     order.office && {title: 'Office', value: order.office},
     order.reason && {title: 'Reason', value: order.reason},
   ]
@@ -455,7 +508,6 @@ async function orderInfo(items) {
   const info = []
   const errors = []
   let totalPrice = 0
-  await login(c.alza.credentials)
   for (const item of items) {
     // eslint-disable-next-line no-loop-func
     await (async function() {

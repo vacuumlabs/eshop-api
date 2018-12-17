@@ -13,8 +13,14 @@ export default transenv()(({str, bool, num}) => {
     ordersChannel: str('orders_channel'),
     alza: {
       credentials: {
-        userName: str('alza_username'),
-        password: str('alza_password'),
+        sk: {
+          userName: str('alza_username'),
+          password: str('alza_password'),
+        },
+        cz: {
+          userName: str('alza_cz_username'),
+          password: str('alza_cz_password'),
+        },
       },
     },
     knex: {
@@ -42,5 +48,6 @@ export default transenv()(({str, bool, num}) => {
       apiKey: str('airtable_api_key'),
       base: str('airtable_base'),
     },
+    currency: str('currency', 'EUR'),
   }
 })

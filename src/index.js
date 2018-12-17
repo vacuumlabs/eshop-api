@@ -25,7 +25,7 @@ function* actions(req, res) {
 
 const r = {
   actions: '/actions',
-  alzaCode: '/alzaCode', // TODO: make lowercase :(
+  alzaCode: '/alzacode',
 }
 
 register(app, 'post', r.actions, actions)
