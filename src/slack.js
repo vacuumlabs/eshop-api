@@ -4,7 +4,7 @@ import _request from 'request-promise'
 import {createChannel} from 'yacol'
 import {getInfo, addToCartAll} from './alza'
 import {format} from './currency'
-import {create as createRecord} from './airtable'
+import {create as createRecord, updateByFilter as updateRecord} from './airtable'
 import WS from 'ws'
 import logger from 'winston'
 
@@ -254,11 +254,19 @@ async function handleOrderAction(event) {
 
     const notifyOk = await notifyUser(userId, {attachments: [orderToAttachment('Your order has arrived :truck: Come pick it up during office hours', attachment.fields.slice(0, 3))]})
 
-    if (notifyOk) {
-      await addReaction('incoming_envelope', event.channel.id, msg.ts)
-    } else {
+    if (!notifyOk) {
       await addReaction('no_bell', event.channel.id, msg.ts)
+      return
     }
+
+    await addReaction('incoming_envelope', event.channel.id, msg.ts)
+
+    await updateRecord('Orders', `id = ${orderId}`, {Status: 'DELIVERED'})
+      .catch((err) => {
+        logger.log('error', 'Failed tu update airtable', err)
+        addReaction('x', event.channel.id, msg.ts)
+      })
+      .then(() => addReaction('inbox_tray', event.channel.id, msg.ts))
   } else {
     const [addToCartAction, ...otherActions] = attachment.actions
 

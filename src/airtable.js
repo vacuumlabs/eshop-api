@@ -31,7 +31,31 @@ function waitForRequest() {
   return new Promise((resolve) => pendingRequests.put(resolve))
 }
 
+function toPromise(fn) {
+  return new Promise((resolve, reject) => {
+    fn((err, result) => {
+      if (err) {
+        return reject(err)
+      }
+
+      return resolve(result)
+    })
+  })
+}
+
 export async function create(table, record) {
   await waitForRequest()
   return await base(table).create(record)
+}
+
+export async function updateByFilter(table, formula, newFields) {
+  await waitForRequest()
+  const tableBase = base(table)
+  const records = await toPromise(
+    (callback) => tableBase.select({filterByFormula: formula}).all(callback),
+  )
+  for (const record of records) {
+    await waitForRequest()
+    await tableBase.update(record.getId(), newFields)
+  }
 }

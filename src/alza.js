@@ -33,7 +33,7 @@ class Alza {
     if (!data && Date.now() - this.lastLoggedIn < LOGGED_IN_TIME) {
       return Promise.resolve(null)
     }
-console.log("ALZA LOGGING IN")
+
     return this.request.post(`${this.SVC}LoginUser`, {
       headers: {
         'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ console.log("ALZA LOGGING IN")
           logger.log('error', 'Failed to login to alza', err)
         }
       }
-console.log("ALZA LOG IN RESULT", resp)
+
       return resp
     })
   }
@@ -65,15 +65,25 @@ console.log("ALZA LOG IN RESULT", resp)
     await this.login()
 
     for (const item of items) {
-      await this.request.post(`${this.SVC}OrderCommodity`, {
+      const resp = await this.request.post(`${this.SVC}OrderCommodity`, {
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: item.id,
+          id: item.shopId,
           count: item.count,
         }),
       })
+
+      try {
+        const respObj = JSON.parse(resp)
+
+        if (respObj.d.ErrorLevel !== 0) {
+          logger.log('error', 'Failed to add to cart', resp)
+        }
+      } catch (err) {
+        logger.log('error', 'Failed to add to cart', err)
+      }
     }
   }
 
@@ -161,12 +171,14 @@ function groupItemsByLang(items) {
     }
   }
 
-  return items
+  return carts
 }
 
 export async function addToCartAll(items) {
   for (const [lang, langItems] of Object.entries(groupItemsByLang(items))) {
-    await langItems.length > 0 && SHOPS[lang].addToCartAll(langItems)
+    if (langItems.length > 0) {
+      await SHOPS[lang].addToCartAll(langItems)
+    }
   }
 }
 
@@ -182,24 +194,43 @@ export function getCurrencyByLink(link) {
   return lang && VERSIONS[lang] && VERSIONS[lang].currency
 }
 
-export function alzaCode(req, res) {
-  const lang = req.query.lang
+export async function alzaCode(req, res) {
+  const {lang, code} = req.query
 
-  if (!lang) {
-    res.send('Specify lang parameter')
-    return
+  let msg = ''
+
+  if (lang && !SHOPS[lang]) {
+    msg = 'Unknown language!'
   }
 
-  if (!SHOPS[lang]) {
-    res.send(`Unknown lang '${lang}`)
-    return
+  if (lang && SHOPS[lang]) {
+    await SHOPS[lang].login(code ? {validationCode: code} : {})
+      .then((resp) => {
+        const respObj = JSON.parse(resp)
+
+        if (respObj.d.ErrorLevel === 0) {
+          msg = `Login success: ${resp}`
+        } else {
+          msg = `Login failed: ${resp}`
+        }
+      })
+      .catch((err) => {
+        msg = `Login failed: ${err.message}`
+      })
   }
 
-  SHOPS[lang].login({validationCode: req.query.code})
-    .then((resp) => {
-      res.send(resp)
-    })
-    .catch((err) => {
-      res.send(`Login failed: ${err.message}`)
-    })
+  res.send(`
+<html>
+  <div>${msg}<div>
+  <br>
+  <form method="get" action="/alzacode">
+    <div>Language: <select name="lang">
+      <option value="">- - -</option>
+      ${Object.entries(VERSIONS).map(([l, settings]) => `<option value="${l}"${lang === l ? ' selected="selected"' : ''}>${settings.domain} (${l})</option>`)}
+    </select></div>
+    <div>Code: <input type="text" name="code" value="${code || ''}" /></div>
+    <div><button type="submit">Submit</button></div>
+  </form>
+</html>
+  `)
 }
