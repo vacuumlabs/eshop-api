@@ -132,13 +132,13 @@ async function announceToAll(message) {
 async function greetNewUser(user) {
   await apiCall('chat.postMessage', {channel: user, as_user: true, text:
     `Hi!
-I will get you anything from www.alza.sk. Use me for both your personal and company orders.
+I will get you any computer or phone equipment from Alza. Use me for both your personal and company orders.
 
 DM me with Alza links and I'll order them. Like this:
 > https://www.alza.sk/cool-smartphone https://www.alza.sk/cool-chopter https://www.alza.sk/cool-cooler
 
 Do you want to order 3 Cool Coolers and 2 Cool Smartphones? Just tell me so:
-> 3 https://www.alza.sk/cool-cooler 2 https://www.alza.sk/cool-smartphone
+> 3 https://www.alza.cz/cool-cooler 2 https://www.alza.cz/cool-smartphone
 
 Happy shopping!
 
