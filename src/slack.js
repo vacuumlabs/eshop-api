@@ -457,10 +457,14 @@ async function updateOrder(order, event, user) {
   }
 
   if (errors.length > 0) {
+    errors.forEach((e) => {
+      logger.error('Failed to fetch item info', e.url, e.err.message)
+    })
+
     await apiCall('chat.postMessage', {
       channel: user,
       as_user: true,
-      text: `:exclamation: I can't find these items:\n${errors.join('\n')}`,
+      text: `:exclamation: I can't find these items:\n${errors.map((e) => e.url).join('\n')}`,
     })
   }
 
@@ -523,7 +527,10 @@ async function orderInfo(items) {
       info.push({...itemInfo, count: item.count, url: item.url})
       totalPrice += itemInfo.price * item.count
     })().catch((e) => {
-      errors.push(item.url)
+      errors.push({
+        url: item.url,
+        err: e,
+      })
     })
   }
   return [{items: info, totalPrice}, errors]

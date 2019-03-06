@@ -1,6 +1,7 @@
 import _request from 'request-promise'
 
-const API_URL = 'http://free.currencyconverterapi.com/api/v5/convert?q={from}_{to}&compact=y'
+const API_KEY = 'dc83e359499aaafb2fa9'
+const API_URL = `http://free.currencyconverterapi.com/api/v5/convert?q={from}_{to}&compact=y&apiKey=${API_KEY}`
 const FRESH_MAX = 30 * 60 * 1000
 const RATES = {}
 const FORMATTERS = {}
