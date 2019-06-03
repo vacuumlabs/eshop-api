@@ -9,7 +9,7 @@ import WS from 'ws'
 import logger from 'winston'
 
 const API = 'https://slack.com/api/'
-const OFFICES = ['Bratislava', 'Košice', 'Praha', 'Brno']
+const OFFICES = ['Bratislava', 'Košice', 'Prešov', 'Praha', 'Brno']
 
 const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
 
@@ -261,7 +261,7 @@ async function handleOrderAction(event) {
 
     await addReaction('incoming_envelope', event.channel.id, msg.ts)
 
-    await updateRecord('Orders', `id = ${orderId}`, {Status: 'DELIVERED'})
+    await updateRecord('Orders', `id = ${orderId}`, {Status: 'Delivered'})
       .catch((err) => {
         logger.log('error', 'Failed tu update airtable', err)
         addReaction('x', event.channel.id, msg.ts)
