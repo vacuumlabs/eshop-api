@@ -392,10 +392,10 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
       ],
     }],
   })
-  await apiCall('chat.postMessage', {
-    channel: c.ordersChannel,
-    attachments: [orderAttachment],
-  })
+  // await apiCall('chat.postMessage', {
+  //   channel: c.ordersChannel,
+  //   attachments: [orderAttachment],
+  // })
 }
 
 async function notifyUser(userId, message) {
