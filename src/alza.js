@@ -111,7 +111,7 @@ class Alza {
       (
         $('span.price_withoutVat').text() ||
         $('tr.pricenormal').find('td.c2').find('span').text()
-      ).replace(/[^\d,]/g, '').replace(/,/g, '.')
+      ).replace(/[^\d,.]/g, '').replace(/,/g, '.')
     )
 
     const priceConverted = await convert(price, this.currency, c.currency)
