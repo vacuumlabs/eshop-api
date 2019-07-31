@@ -34,7 +34,7 @@ class Alza {
       return Promise.resolve(null)
     }
 
-    return this.request.post(`${this.SVC}LoginUser`, {
+    return this.request.post(`${this.baseUrl}Api/identity/v2/login`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -47,7 +47,7 @@ class Alza {
         try {
           const respObj = JSON.parse(resp)
 
-          if (respObj.d.ErrorLevel === 0) {
+          if (respObj.ErrorLevel === 0) {
             this.lastLoggedIn = Date.now()
           } else {
             logger.log('error', 'Failed to login to alza', resp)
@@ -116,7 +116,7 @@ class Alza {
 
     const priceConverted = await convert(price, this.currency, c.currency)
 
-    const description = $('div.nameextc').text()
+    const description = $('div.nameextc').text().trim()
 
     return {
       id,
@@ -208,7 +208,7 @@ export async function alzaCode(req, res) {
       .then((resp) => {
         const respObj = JSON.parse(resp)
 
-        if (respObj.d.ErrorLevel === 0) {
+        if (respObj.ErrorLevel === 0) {
           msg = `Login success: ${resp}`
         } else {
           msg = `Login failed: ${resp}`
