@@ -21,6 +21,10 @@ export default transenv()(({str, bool, num}) => {
           userName: str('alza_cz_username'),
           password: str('alza_cz_password'),
         },
+        hu: {
+          userName: str('alza_hu_username'),
+          password: str('alza_hu_password'),
+        },
       },
     },
     knex: {

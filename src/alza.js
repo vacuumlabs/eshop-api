@@ -138,6 +138,10 @@ const VERSIONS = {
     domain: 'alza.cz',
     currency: 'CZK',
   },
+  hu: {
+    domain: 'alza.hu',
+    currency: 'HUF',
+  },
 }
 
 const SHOPS = Object.entries(VERSIONS).reduce((acc, [lang, settings]) => ({

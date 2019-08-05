@@ -9,7 +9,20 @@ import WS from 'ws'
 import logger from 'winston'
 
 const API = 'https://slack.com/api/'
-const OFFICES = ['Bratislava', 'Košice', 'Prešov', 'Praha', 'Brno']
+const OFFICES = {
+  sk: {
+    name: 'Slovakia',
+    options: ['Bratislava', 'Košice', 'Prešov'],
+  },
+  cz: {
+    name: 'Czech republic',
+    options: ['Praha', 'Brno'],
+  },
+  hu: {
+    name: 'Hungary',
+    options: ['Budapest'],
+  },
+}
 
 const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
 
@@ -19,15 +32,29 @@ const ORDER_TYPE_ACTIONS = [
   CANCEL_ORDER_ACTION,
 ]
 
-const ORDER_OFFICE_ACTIONS = [
-  ...OFFICES.map((office) => ({
-    name: 'office',
-    text: office,
+const ORDER_COUNTRY_ACTIONS = [
+  ...Object.keys(OFFICES).map((country) => ({
+    name: 'country',
+    text: `${OFFICES[country].name}${OFFICES[country].options.length === 1 ? ` - ${OFFICES[country].options[0]}` : ''}`,
     type: 'button',
-    value: office,
+    value: country,
   })),
   CANCEL_ORDER_ACTION,
 ]
+
+const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
+  acc[country] = [
+    ...OFFICES[country].options.map((office) => ({
+      name: 'office',
+      text: office,
+      type: 'button',
+      value: office,
+    })),
+    CANCEL_ORDER_ACTION,
+  ]
+
+  return acc
+}, {})
 
 const request = _request.defaults({})
 const knex = _knex(c.knex)
@@ -193,6 +220,7 @@ async function listenUser(stream, user) {
     id: null,
     items: new Map(),
     totalPrice: 0,
+    country: null,
     office: null,
     orderConfirmation: null,
   })
@@ -295,6 +323,26 @@ async function finishOrder(stream, order, action, actionValue, user) {
       color: 'danger',
       actions: [],
     })
+  }
+
+  if (action === 'country') {
+    order.country = actionValue
+
+    if (OFFICES[actionValue].options.length === 1) {
+      order.office = OFFICES[actionValue].options[0]
+      await updateMessage({
+        actions: ORDER_TYPE_ACTIONS,
+        fields: getOrderFields(order),
+      })
+    } else {
+      await updateMessage({
+        title: 'Where do you want to pickup the order?',
+        actions: ORDER_OFFICE_ACTIONS[actionValue],
+        fields: getOrderFields(order),
+      })
+    }
+
+    return false
   }
 
   if (action === 'office') {
@@ -431,6 +479,18 @@ async function addReaction(name, channel, timestamp) {
   return true
 }
 
+function getOrderActions(order) {
+  if (!order.country) {
+    return ORDER_COUNTRY_ACTIONS
+  }
+
+  if (!order.office) {
+    return ORDER_OFFICE_ACTIONS
+  }
+
+  return ORDER_TYPE_ACTIONS
+}
+
 async function updateOrder(order, event, user) {
   if (order.orderConfirmation) {
     const {channel, ts} = order.orderConfirmation
@@ -454,7 +514,7 @@ async function updateOrder(order, event, user) {
       ].filter(Boolean),
     ),
     callback_id: order.id,
-    actions: order.office ? ORDER_TYPE_ACTIONS : ORDER_OFFICE_ACTIONS,
+    actions: getOrderActions(order),
   }
 
   if (errors.length > 0) {
