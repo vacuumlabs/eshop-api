@@ -271,41 +271,64 @@ async function handleOrderAction(event) {
   const msg = event.original_message
   const attachment = msg.attachments[0]
 
-  if (actionName === 'notify-user') {
-    const userId = attachment.pretext.match(/<@(.+)>/)[1]
+  if (actionName === 'add-to-cart') {
+    await removeReaction('shopping_trolley', event.channel.id, msg.ts)
 
-    if (!userId) {
-      logger.log('error', `Failed to parse user ID from '${attachment.pretext}`)
-      await addReaction('no_bell', event.channel.id, msg.ts)
-      return
-    }
+    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
+      ...attachment,
+      actions: [
+        {name: 'ordered', text: 'Ordered', type: 'button', value: orderId, style: 'primary'},
+        {name: 'add-to-cart', text: 'Add to Cart Again', type: 'button', value: orderId, style: 'default'},
+        {name: 'notify-user', text: 'Notify user', type: 'button', value: orderId, style: 'default'},
+      ],
+    }]})
 
-    const notifyOk = await notifyUser(userId, {attachments: [orderToAttachment('Your order has arrived :truck: Come pick it up during office hours', attachment.fields.slice(0, 3))]})
+    const items = await knex.select('shopId', 'count', 'url').from('orderItem').where('order', orderId)
 
-    if (!notifyOk) {
-      await addReaction('no_bell', event.channel.id, msg.ts)
-      return
-    }
+    await addToCartAll(items)
 
-    await addReaction('incoming_envelope', event.channel.id, msg.ts)
+    await addReaction('shopping_trolley', event.channel.id, msg.ts)
+  } else if (actionName === 'ordered') {
+    await Promise.all([
+      removeReaction('x', event.channel.id, msg.ts),
+      removeReaction('page_with_curl', event.channel.id, msg.ts),
+    ])
+
+    await sendUserInfo(event, 'Your order was sent to Alza :alza: You will be notified when it arrives')
+
+    await updateRecord('Orders', `id = ${orderId}`, {Status: 'Ordered'})
+      .catch((err) => {
+        logger.log('error', 'Failed tu update airtable', err)
+        addReaction('x', event.channel.id, msg.ts)
+      })
+      .then(() => apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
+        ...attachment,
+        actions: [
+          {name: 'notify-user', text: 'Delivered', type: 'button', value: orderId, style: 'primary'},
+          {name: 'ordered', text: 'Ordered Again', type: 'button', value: orderId, style: 'default'},
+          {name: 'add-to-cart', text: 'Add to Cart Again', type: 'button', value: orderId, style: 'default'},
+        ],
+      }]}))
+      .then(() => addReaction('page_with_curl', event.channel.id, msg.ts))
+  } else if (actionName === 'notify-user') {
+    await removeReaction('inbox_tray', event.channel.id, msg.ts)
+
+    await sendUserInfo(event, 'Your order has arrived :truck: Come pick it up during office hours')
 
     await updateRecord('Orders', `id = ${orderId}`, {Status: 'Delivered'})
       .catch((err) => {
         logger.log('error', 'Failed tu update airtable', err)
         addReaction('x', event.channel.id, msg.ts)
       })
+      .then(() => apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
+        ...attachment,
+        actions: [
+          {name: 'notify-user', text: 'Delivered Again', type: 'button', value: orderId, style: 'default'},
+          {name: 'ordered', text: 'Ordered Again', type: 'button', value: orderId, style: 'default'},
+          {name: 'add-to-cart', text: 'Add to Cart Again', type: 'button', value: orderId, style: 'default'},
+        ],
+      }]}))
       .then(() => addReaction('inbox_tray', event.channel.id, msg.ts))
-  } else {
-    const [addToCartAction, ...otherActions] = attachment.actions
-
-    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
-      ...attachment,
-      actions: [{...addToCartAction, text: 'Add to Cart Again', style: 'default'}, ...otherActions],
-    }]})
-
-    const items = await knex.select('shopId', 'count', 'url').from('orderItem').where('order', orderId)
-
-    await addToCartAll(items)
   }
 }
 
@@ -436,6 +459,7 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
       callback_id: `O${dbId}`,
       actions: [
         {name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'},
+        {name: 'ordered', text: 'Ordered Again', type: 'button', value: dbId, style: 'default'},
         {name: 'notify-user', text: 'Notify user', type: 'button', value: dbId, style: 'default'},
       ],
     }],
@@ -444,6 +468,37 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
   //   channel: c.ordersChannel,
   //   attachments: [orderAttachment],
   // })
+}
+
+async function sendUserInfo(event, text) {
+  const msg = event.original_message
+  const attachment = msg.attachments[0]
+
+  const userId = attachment.pretext.match(/<@(.+)>/)[1]
+
+  await Promise.all([
+    removeReaction('no_bell', event.channel.id, msg.ts),
+    removeReaction('incoming_envelope', event.channel.id, msg.ts),
+  ])
+
+  if (!userId) {
+    logger.log('error', `Failed to parse user ID from '${attachment.pretext}`)
+    await addReaction('no_bell', event.channel.id, msg.ts)
+    return false
+  }
+
+  const notifyOk = await notifyUser(userId, {
+    attachments: [orderToAttachment(text, attachment.fields.slice(0, 3))],
+  })
+
+  if (!notifyOk) {
+    await addReaction('no_bell', event.channel.id, msg.ts)
+    return false
+  }
+
+  await addReaction('incoming_envelope', event.channel.id, msg.ts)
+
+  return true
 }
 
 async function notifyUser(userId, message) {
@@ -473,6 +528,17 @@ async function addReaction(name, channel, timestamp) {
 
   if (ok === false && error !== 'already_reacted') {
     logger.log('error', `Failed to add reaction '${name}'`)
+    return false
+  }
+
+  return true
+}
+
+async function removeReaction(name, channel, timestamp) {
+  const {ok, error} = await apiCall('reactions.remove', {name, channel, timestamp})
+
+  if (ok === false && error !== 'no_reaction') {
+    logger.log('error', `Failed to remove reaction '${name}'`)
     return false
   }
 
