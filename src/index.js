@@ -4,11 +4,7 @@ import bodyParser from 'body-parser'
 import {expressHelpers, run, createChannel} from 'yacol'
 import {init} from './slack'
 import {alzaCode} from './alza'
-import logger from 'winston'
-
-logger.cli()
-logger.level = c.logLevel
-logger.setLevels(logger.config.npm.levels)
+import logger from './logger'
 
 const app = express()
 app.use(bodyParser.urlencoded())

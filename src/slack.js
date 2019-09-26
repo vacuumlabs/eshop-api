@@ -6,7 +6,7 @@ import {getInfo, addToCartAll} from './alza'
 import {format} from './currency'
 import {create as createRecord, updateByFilter as updateRecord} from './airtable'
 import WS from 'ws'
-import logger from 'winston'
+import logger from './logger'
 
 const API = 'https://slack.com/api/'
 const OFFICES = {

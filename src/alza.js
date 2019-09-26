@@ -3,7 +3,7 @@ import cheerio from 'cheerio'
 import {URL} from 'url'
 import c from './config'
 import {convert} from './currency'
-import logger from 'winston'
+import logger from './logger'
 
 const LOGGED_IN_TIME = 60 * 1000
 
