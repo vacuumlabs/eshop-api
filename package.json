@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "babel-eslint": "^7.2.3",
-    "eslint": "^4.0.0",
+    "eslint": "^4.18.2",
     "eslint-config-vacuumlabs": "^1.3.3",
     "eslint-plugin-import": "^2.3.0",
     "eslint-plugin-react": "^7.1.0"
