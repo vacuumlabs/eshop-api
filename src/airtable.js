@@ -59,3 +59,10 @@ export async function updateByFilter(table, formula, newFields) {
     await tableBase.update(record.getId(), newFields)
   }
 }
+
+export async function find(table, formula) {
+  await waitForRequest()
+  return await toPromise(
+    (callback) => base(table).select({filterByFormula: formula}).all(callback)
+  )
+}

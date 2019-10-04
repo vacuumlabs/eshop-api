@@ -4,7 +4,7 @@ import _request from 'request-promise'
 import {createChannel} from 'yacol'
 import {getInfo, addToCartAll} from './alza'
 import {format} from './currency'
-import {create as createRecord, updateByFilter as updateRecord} from './airtable'
+import {create as createRecord, updateByFilter as updateRecord, find as findRecord} from './airtable'
 import WS from 'ws'
 import logger from './logger'
 
@@ -270,8 +270,18 @@ async function handleOrderAction(event) {
   const orderId = event.actions[0].value
   const msg = event.original_message
   const attachment = msg.attachments[0]
+  const otherButtons = attachment.actions.slice(3)
 
-  if (actionName === 'add-to-cart') {
+  if (actionName === 'subsidy') {
+    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
+      ...attachment,
+      actions: attachment.actions.filter((action) => action.name !== 'subsidy'),
+    }]})
+
+    await addSubsidy(orderId)
+
+    await addReaction('money_with_wings', event.channel.id, msg.ts)
+  } else if (actionName === 'add-to-cart') {
     await removeReaction('shopping_trolley', event.channel.id, msg.ts)
 
     await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
@@ -280,6 +290,7 @@ async function handleOrderAction(event) {
         {name: 'ordered', text: 'Ordered', type: 'button', value: orderId, style: 'primary'},
         {name: 'add-to-cart', text: 'Add to Cart Again', type: 'button', value: orderId, style: 'default'},
         {name: 'notify-user', text: 'Notify user', type: 'button', value: orderId, style: 'default'},
+        ...otherButtons,
       ],
     }]})
 
@@ -307,6 +318,7 @@ async function handleOrderAction(event) {
           {name: 'notify-user', text: 'Delivered', type: 'button', value: orderId, style: 'primary'},
           {name: 'ordered', text: 'Ordered Again', type: 'button', value: orderId, style: 'default'},
           {name: 'add-to-cart', text: 'Add to Cart Again', type: 'button', value: orderId, style: 'default'},
+          ...otherButtons,
         ],
       }]}))
       .then(() => addReaction('page_with_curl', event.channel.id, msg.ts))
@@ -326,6 +338,7 @@ async function handleOrderAction(event) {
           {name: 'notify-user', text: 'Delivered Again', type: 'button', value: orderId, style: 'default'},
           {name: 'ordered', text: 'Ordered Again', type: 'button', value: orderId, style: 'default'},
           {name: 'add-to-cart', text: 'Add to Cart Again', type: 'button', value: orderId, style: 'default'},
+          ...otherButtons,
         ],
       }]}))
       .then(() => addReaction('inbox_tray', event.channel.id, msg.ts))
@@ -461,6 +474,7 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
         {name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'},
         {name: 'ordered', text: 'Ordered Again', type: 'button', value: dbId, style: 'default'},
         {name: 'notify-user', text: 'Notify user', type: 'button', value: dbId, style: 'default'},
+        {name: 'subsidy', text: 'SUBSIDY', type: 'button', value: dbId, style: 'danger'},
       ],
     }],
   })
@@ -701,4 +715,29 @@ async function storeOrder(order, items) {
   }
 
   return id
+}
+
+async function addSubsidy(id) {
+  const orders = await findRecord('Orders', `{id} = ${id}`)
+  const order = orders[0]
+
+  if (!order) {
+    throw new Error(`Order ${id} not found!`)
+  }
+
+  const {Items} = order.fields
+
+  for (const item of Items) {
+    const items = await findRecord('Items', `RECORD_ID() = "${item}"`)
+    const itemData = items[0]
+
+    if (!itemData) {
+      throw new Error(`Item ${item} in order ${id} not found!`)
+    }
+
+    await createRecord('Subsidies', {
+      Value: itemData.fields['Total Price'],
+      Items: [item],
+    })
+  }
 }
