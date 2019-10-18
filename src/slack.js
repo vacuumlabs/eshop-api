@@ -565,7 +565,7 @@ function getOrderActions(order) {
   }
 
   if (!order.office) {
-    return ORDER_OFFICE_ACTIONS
+    return ORDER_OFFICE_ACTIONS[order.country]
   }
 
   return ORDER_TYPE_ACTIONS
