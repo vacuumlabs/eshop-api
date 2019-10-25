@@ -2,7 +2,7 @@ import c from './config'
 import _knex from 'knex'
 import _request from 'request-promise'
 import {createChannel} from 'yacol'
-import {getInfo, addToCartAll} from './alza'
+import {getInfo, addToCartAll, getLangByLink} from './alza'
 import {format} from './currency'
 import {create as createRecord, updateByFilter as updateRecord, find as findRecord} from './airtable'
 import WS from 'ws'
@@ -32,16 +32,6 @@ const ORDER_TYPE_ACTIONS = [
   CANCEL_ORDER_ACTION,
 ]
 
-const ORDER_COUNTRY_ACTIONS = [
-  ...Object.keys(OFFICES).map((country) => ({
-    name: 'country',
-    text: `${OFFICES[country].name}${OFFICES[country].options.length === 1 ? ` - ${OFFICES[country].options[0]}` : ''}`,
-    type: 'button',
-    value: country,
-  })),
-  CANCEL_ORDER_ACTION,
-]
-
 const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
   acc[country] = [
     ...OFFICES[country].options.map((office) => ({
@@ -61,7 +51,7 @@ const knex = _knex(c.knex)
 
 let state = {}
 
-export async function apiCall(name, data={}) {
+export async function apiCall(name, data = {}) {
   for (const k in data) {
     if (typeof data[k] === 'object') data[k] = JSON.stringify(data[k])
   }
@@ -361,26 +351,6 @@ async function finishOrder(stream, order, action, actionValue, user) {
     })
   }
 
-  if (action === 'country') {
-    order.country = actionValue
-
-    if (OFFICES[actionValue].options.length === 1) {
-      order.office = OFFICES[actionValue].options[0]
-      await updateMessage({
-        actions: ORDER_TYPE_ACTIONS,
-        fields: getOrderFields(order),
-      })
-    } else {
-      await updateMessage({
-        title: 'Where do you want to pickup the order?',
-        actions: ORDER_OFFICE_ACTIONS[actionValue],
-        fields: getOrderFields(order),
-      })
-    }
-
-    return false
-  }
-
   if (action === 'office') {
     order.office = actionValue
     await updateMessage({
@@ -560,10 +530,6 @@ async function removeReaction(name, channel, timestamp) {
 }
 
 function getOrderActions(order) {
-  if (!order.country) {
-    return ORDER_COUNTRY_ACTIONS
-  }
-
   if (!order.office) {
     return ORDER_OFFICE_ACTIONS[order.country]
   }
@@ -577,20 +543,25 @@ async function updateOrder(order, event, user) {
     await apiCall('chat.delete', {channel, ts})
   }
 
-  const [info, errors] = await orderInfo(parseOrder(event.text))
+  const [info, errors] = await orderInfo(parseOrder(event.text), order.country)
 
   for (const i of info.items) {
     if (order.items.get(i.id)) order.items.get(i.id).count += i.count
     else order.items.set(i.id, i)
   }
+
   order.totalPrice += info.totalPrice
+  order.country = info.country
 
   const orderAttachment = {
     ...orderToAttachment(
-      'Please confirm your order:',
+      [
+        info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
+        'Please confirm your order:',
+      ].filter(Boolean).join('\n'),
       [
         ...getOrderFields(order),
-        !order.office && {title: 'Where do you want to pickup the order?'},
+        !order.office && {title: 'Where do you want to pickup the order?\n(Country was chosen according to used Alza version)'},
       ].filter(Boolean),
     ),
     callback_id: order.id,
@@ -657,16 +628,28 @@ function parseOrder(text) {
   return goods
 }
 
-async function orderInfo(items) {
+async function orderInfo(items, country) {
   const info = []
   const errors = []
   let totalPrice = 0
+  let wrongCountry = false
+  let orderCountry = country
   for (const item of items) {
     // eslint-disable-next-line no-loop-func
     await (async function() {
-      const itemInfo = await getInfo(item.url)
-      info.push({...itemInfo, count: item.count, url: item.url})
-      totalPrice += itemInfo.price * item.count
+      const itemCountry = getLangByLink(item.url)
+
+      if (!orderCountry) {
+        orderCountry = itemCountry
+      }
+
+      if (orderCountry !== itemCountry) {
+        wrongCountry = true
+      } else {
+        const itemInfo = await getInfo(item.url)
+        info.push({...itemInfo, count: item.count, url: item.url})
+        totalPrice += itemInfo.price * item.count
+      }
     })().catch((e) => {
       errors.push({
         url: item.url,
@@ -674,7 +657,7 @@ async function orderInfo(items) {
       })
     })
   }
-  return [{items: info, totalPrice}, errors]
+  return [{items: info, totalPrice, country: orderCountry, wrongCountry}, errors]
 }
 
 async function storeOrder(order, items) {

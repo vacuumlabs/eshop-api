@@ -155,7 +155,7 @@ function getId(urlString) {
   return dq || url.pathname.match(/d(\d*)(\.htm)?$/)[1]
 }
 
-function getLangByLink(link) {
+export function getLangByLink(link) {
   const url = new URL(link)
 
   return Object.keys(VERSIONS).find((lang) => url.hostname.endsWith(VERSIONS[lang].domain))
