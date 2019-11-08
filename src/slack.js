@@ -551,7 +551,9 @@ async function updateOrder(order, event, user) {
   }
 
   order.totalPrice += info.totalPrice
-  order.country = info.country
+  if (order.items.size > 0) {
+    order.country = info.country
+  }
 
   const orderAttachment = {
     ...orderToAttachment(
@@ -651,6 +653,7 @@ async function orderInfo(items, country) {
         totalPrice += itemInfo.price * item.count
       }
     })().catch((e) => {
+      console.log(e)
       errors.push({
         url: item.url,
         err: e,

@@ -1,4 +1,4 @@
-import _request from 'request-promise'
+import _request from 'request'
 import cheerio from 'cheerio'
 import {URL} from 'url'
 import c from './config'
@@ -29,12 +29,32 @@ class Alza {
     this.lastLoggedIn = 0
   }
 
+  makeRequest(opts) {
+    return new Promise((resolve, reject) => {
+      this.request(opts, (err, response, body) => {
+        if (err) {
+          return reject(err)
+        }
+
+        if (!(/^2/.test(String(response.statusCode)))) {
+          const error = new Error(`Wrong status code: ${response.statusCode}`)
+          error.response = response
+          return reject(error)
+        }
+
+        return resolve(body)
+      })
+    })
+  }
+
   login(data) {
     if (!data && Date.now() - this.lastLoggedIn < LOGGED_IN_TIME) {
       return Promise.resolve(null)
     }
 
-    return this.request.post(`${this.baseUrl}Api/identity/v2/login`, {
+    return this.makeRequest({
+      url: `${this.baseUrl}Api/identity/v2/login`,
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -65,7 +85,9 @@ class Alza {
     await this.login()
 
     for (const item of items) {
-      const resp = await this.request.post(`${this.SVC}OrderCommodity`, {
+      const resp = await this.makeRequest({
+        url: `${this.SVC}OrderCommodity`,
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -100,7 +122,8 @@ class Alza {
 
     await this.login()
 
-    const $ = cheerio.load(await this.request(this.parseUrl(url)))
+    const content = await this.makeRequest({url: this.parseUrl(url)})
+    const $ = cheerio.load(content)
 
     const name = (
       $('meta[name="twitter:title"]').attr('content') ||
@@ -219,7 +242,13 @@ export async function alzaCode(req, res) {
         }
       })
       .catch((err) => {
-        msg = `Login failed: ${err.message}`
+        if (err.response && err.response.headers.location) {
+          const url = err.response.headers.location
+
+          msg = `Manual action required. Go to <a href="${url}">${url}</a> and try again.`
+        } else {
+          msg = `Login failed: ${err.message}`
+        }
       })
   }
 
