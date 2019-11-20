@@ -8,7 +8,6 @@ export default transenv()(({str, bool, num}) => {
     logLevel: str('log_level', isDevelopment ? 'debug' : 'error'),
     port: str('PORT'),
     approvalTreshold: num('approval_treshold'),
-    officeManager: str('office_manager'),
     newsChannel: str('news_channel'),
     ordersChannel: str('orders_channel'),
     alza: {

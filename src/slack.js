@@ -435,7 +435,7 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
   const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, getOrderFields(order))
 
   await apiCall('chat.postMessage', {
-    channel: c.ordersChannel, // c.officeManager,
+    channel: c.ordersChannel,
     as_user: true,
     attachments: [{
       ...orderAttachment,
