@@ -724,6 +724,7 @@ async function addSubsidy(id) {
     await createRecord('Subsidies', {
       Value: itemData.fields['Total Price'],
       Items: [item],
+      Order: [id],
     })
   }
 }
