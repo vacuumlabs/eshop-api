@@ -3,6 +3,7 @@
   "name": "eshop-api",
   "type": "npm",
   "alias": "alzabot.vacuumlabs.com",
+  "regions": ["bru"],
   "scale": {
       "bru1": {
           "min": 1,
