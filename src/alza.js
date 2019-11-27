@@ -120,7 +120,7 @@ class Alza {
       return null
     }
 
-    await this.login()
+    // await this.login()
 
     const content = await this.makeRequest({url: this.parseUrl(url)})
     const $ = cheerio.load(content)
