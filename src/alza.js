@@ -7,6 +7,14 @@ import logger from './logger'
 
 const LOGGED_IN_TIME = 60 * 1000
 
+const userAgentPool = [
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36',
+  'Mozilla/5.0 (Linux; U; Android 4.4.2; zh-cn; GT-I9500 Build/KOT49H) AppleWebKit/537.36 (KHTML, like Gecko)Version/4.0 MQQBrowser/5.0 QQ-URL-Manager Mobile Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/601.5.17 (KHTML, like Gecko) Version/9.1 Safari/601.5.17',
+  'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:54.0) Gecko/20100101 Firefox/54.0',
+]
+
 class Alza {
   constructor({domain, currency}, credentials) {
     this.domain = domain
@@ -31,7 +39,13 @@ class Alza {
 
   makeRequest(opts) {
     return new Promise((resolve, reject) => {
-      this.request(opts, (err, response, body) => {
+      this.request({
+        ...opts,
+        headers: {
+          'User-Agent': userAgentPool[Math.floor(Math.random() * userAgentPool.length)],
+          ...(opts.headers || {}),
+        },
+      }, (err, response, body) => {
         if (err) {
           return reject(err)
         }
@@ -120,24 +134,24 @@ class Alza {
       return null
     }
 
-    // await this.login()
+    let withoutLogin = false
+
+    try {
+      await this.login()
+    } catch (err) {
+      withoutLogin = true
+    }
 
     const content = await this.makeRequest({url: this.parseUrl(url)})
     const $ = cheerio.load(content)
 
-    const name = (
-      $('meta[name="twitter:title"]').attr('content') ||
-      $('meta[property="og:title"]').attr('content')
-    ).replace(new RegExp(`\\| ${this.domain}\\s*$`, 'i'), '').trim().replace(/\s+/g, ' ')
+    const nameTxt = $('meta[name="twitter:title"]').attr('content') || $('meta[property="og:title"]').attr('content')
+    const name = nameTxt ? nameTxt.replace(new RegExp(`\\| ${this.domain}\\s*$`, 'i'), '').trim().replace(/\s+/g, ' ') : url
 
-    const price = parseFloat(
-      (
-        $('span.price_withoutVat').text() ||
-        $('tr.pricenormal').find('td.c2').find('span').text()
-      ).replace(/[^\d,.]/g, '').replace(/,/g, '.')
-    )
+    const priceTxt = $('span.price_withoutVat').text() || $('tr.pricenormal').find('td.c2').find('span').text()
+    const price = priceTxt ? parseFloat(priceTxt.replace(/[^\d,.]/g, '').replace(/,/g, '.')) : 0
 
-    const priceConverted = await convert(price, this.currency, c.currency)
+    const priceConverted = price && await convert(price, this.currency, c.currency)
 
     const description = $('div.nameextc').text().trim()
 
@@ -148,6 +162,7 @@ class Alza {
       price: priceConverted,
       priceOrig: price,
       currency: this.currency,
+      withoutLogin,
     }
   }
 }

@@ -10,6 +10,7 @@
       }
   },
   "env": {
+      "NODE_ENV": "production",
       "PORT": "8000",
       "approval_treshold": "200",
       "news_channel": "G5ZB3NNLA",

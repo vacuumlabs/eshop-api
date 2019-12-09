@@ -555,10 +555,14 @@ async function updateOrder(order, event, user) {
     order.country = info.country
   }
 
+  const orderItems = Array.from(order.items.values())
+
   const orderAttachment = {
     ...orderToAttachment(
       [
         info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
+        orderItems.some((item) => item.withoutLogin) && ':warning: Prices might be inaccurate',
+        orderItems.some((item) => !item.price || isNaN(item.price)) && ':warning: Data of some products could not be retrieved, but you can continue with the order',
         'Please confirm your order:',
       ].filter(Boolean).join('\n'),
       [
@@ -591,10 +595,14 @@ async function updateOrder(order, event, user) {
   return {...order, orderConfirmation}
 }
 
+function formatPrice(price, currency) {
+  return price && !isNaN(price) ? format(price, currency) : '???'
+}
+
 function itemsField(items) {
   const itemLines = [...items.values()].map((item) => {
-    const itemPrice = format(item.price, c.currency).padStart(10)
-    const itemPriceOrig = item.currency === c.currency ? '' : format(item.priceOrig, item.currency)
+    const itemPrice = formatPrice(item.price, c.currency).padStart(10)
+    const itemPriceOrig = item.currency === c.currency ? '' : formatPrice(item.priceOrig, item.currency)
     return `\`${itemPrice}\` ${itemPriceOrig ? ` (${itemPriceOrig})` : ''} <${item.url}|${item.count} x ${item.name}>`
   })
 
@@ -604,7 +612,7 @@ function itemsField(items) {
 function getOrderFields(order) {
   return [
     itemsField(order.items),
-    {title: 'Total value', value: format(order.totalPrice, c.currency)},
+    {title: 'Total value', value: formatPrice(order.totalPrice, c.currency)},
     order.office && {title: 'Office', value: order.office},
     order.reason && {title: 'Reason', value: order.reason},
   ]
@@ -650,7 +658,10 @@ async function orderInfo(items, country) {
       } else {
         const itemInfo = await getInfo(item.url)
         info.push({...itemInfo, count: item.count, url: item.url})
-        totalPrice += itemInfo.price * item.count
+
+        if (itemInfo.price && !isNaN(itemInfo.price)) {
+          totalPrice += itemInfo.price * item.count
+        }
       }
     })().catch((e) => {
       console.log(e)
@@ -692,11 +703,12 @@ async function storeOrder(order, items) {
 
   for (const item of items.values()) {
     await createRecord('Items', {
-      Name: item.name,
-      Url: item.url,
-      Count: item.count,
-      Price: item.price,
-      Order: [airtableOrder.getId()],
+      'Name': item.name,
+      'Url': item.url,
+      'Count': item.count,
+      ...(item.price ? {Price: item.price} : null),
+      'Order': [airtableOrder.getId()],
+      'Verified Price': !item.withoutLogin && item.price,
     })
   }
 
