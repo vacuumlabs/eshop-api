@@ -708,7 +708,7 @@ async function storeOrder(order, items) {
       'Count': item.count,
       ...(item.price ? {Price: item.price} : null),
       'Order': [airtableOrder.getId()],
-      'Verified Price': !item.withoutLogin && item.price,
+      'Verified Price': !item.withoutLogin && Boolean(item.price),
     })
   }
 
