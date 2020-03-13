@@ -267,7 +267,7 @@ export async function getOrderAndItemsFromDb(orderId) {
     )[0]
 
     const items = await trx
-      .select('id', 'price')
+      .select('id', 'price', 'shopId', 'count', 'url')
       .from('orderItem')
       .where('order', orderId)
 
@@ -282,13 +282,13 @@ async function handleOrderAction(event) {
   const attachment = msg.attachments[0]
   const otherButtons = attachment.actions.slice(3)
 
+  const {order, items} = await getOrderAndItemsFromDb(orderId)
+
   if (actionName === 'subsidy') {
     await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
       ...attachment,
       actions: attachment.actions.filter((action) => action.name !== 'subsidy'),
     }]})
-
-    const {order, items} = await getOrderAndItemsFromDb(orderId)
 
     await addSubsidyToSheets(order, items)
 
@@ -306,8 +306,6 @@ async function handleOrderAction(event) {
       ],
     }]})
 
-    const items = await knex.select('shopId', 'count', 'url').from('orderItem').where('order', orderId)
-
     await addToCartAll(items)
 
     await addReaction('shopping_trolley', event.channel.id, msg.ts)
@@ -319,11 +317,9 @@ async function handleOrderAction(event) {
 
     await sendUserInfo(event, 'Your order was sent to Alza :alza: You will be notified when it arrives')
 
-    const {order, items} = await getOrderAndItemsFromDb(orderId)
-
     await updateStatusInSheets(order, items, 'ordered')
       .catch((err) => {
-        logger.log('error', 'Failed tu update airtable', err)
+        logger.log('error', 'Failed to update sheet', err)
         addReaction('x', event.channel.id, msg.ts)
       })
       .then(() => apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
@@ -341,11 +337,9 @@ async function handleOrderAction(event) {
 
     await sendUserInfo(event, 'Your order has arrived :truck: Come pick it up during office hours')
 
-    const {order, items} = await getOrderAndItemsFromDb(orderId)
-
     await updateStatusInSheets(order, items, 'delivered')
       .catch((err) => {
-        logger.log('error', 'Failed tu update airtable', err)
+        logger.log('error', 'Failed to update sheet', err)
         addReaction('x', event.channel.id, msg.ts)
       })
       .then(() => apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
