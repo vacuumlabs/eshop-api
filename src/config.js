@@ -52,5 +52,10 @@ export default transenv()(({str, bool, num}) => {
       base: str('airtable_base'),
     },
     currency: str('currency', 'EUR'),
+    google: {
+      email: str('google_sheets_email'),
+      key: str('google_sheets_key'),
+      spreadsheetId: str('google_sheets_spreadsheet_id'),
+    },
   }
 })
