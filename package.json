@@ -24,7 +24,6 @@
     "eslint-plugin-react": "^7.14.3"
   },
   "dependencies": {
-    "airtable": "^0.7.1",
     "babel-cli": "^6.26.0",
     "babel-plugin-syntax-trailing-function-commas": "^6.22.0",
     "babel-plugin-transform-async-to-module-method": "^6.24.1",
