@@ -14,7 +14,7 @@
     "build": "babel src -d dist",
     "start": "node -- dist/index.js",
     "deploy-now": "now && now alias",
-    "deploy-dev": "now `sed 's/#.*$//;/^\\s*$/d;s/^/-e /' .env`"
+    "deploy-dev": "now `sed 's/#.*$//;/^\\s*$/d;s/^/-e /' .env` && now alias alzabot-test"
   },
   "devDependencies": {
     "babel-eslint": "^7.2.3",
@@ -24,7 +24,6 @@
     "eslint-plugin-react": "^7.14.3"
   },
   "dependencies": {
-    "airtable": "^0.7.1",
     "babel-cli": "^6.26.0",
     "babel-plugin-syntax-trailing-function-commas": "^6.22.0",
     "babel-plugin-transform-async-to-module-method": "^6.24.1",
@@ -35,6 +34,7 @@
     "body-parser": "^1.19.0",
     "cheerio": "^1.0.0-rc.3",
     "express": "^4.17.1",
+    "googleapis": "^47.0.0",
     "knex": "^0.19.5",
     "pg": "^7.12.1",
     "request": "^2.88.0",

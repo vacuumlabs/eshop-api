@@ -4,9 +4,11 @@ import _request from 'request-promise'
 import {createChannel} from 'yacol'
 import {getInfo, addToCartAll, getLangByLink} from './alza'
 import {format} from './currency'
-import {create as createRecord, updateByFilter as updateRecord, find as findRecord} from './airtable'
 import WS from 'ws'
 import logger from './logger'
+import {storeOrder as storeOrderToSheets} from './sheets/storeOrder'
+import {addSubsidy as addSubsidyToSheets} from './sheets/addSubsidy'
+import {updateStatus as updateStatusInSheets} from './sheets/updateStatus'
 
 const API = 'https://slack.com/api/'
 const OFFICES = {
@@ -237,7 +239,7 @@ async function listenUser(stream, user) {
           order,
           event.actions[0].name,
           event.actions[0].value,
-          user,
+          event.user,
         )
 
         if (finished) {
@@ -255,6 +257,24 @@ async function listenUser(stream, user) {
   }
 }
 
+export async function getOrderAndItemsFromDb(orderId) {
+  return await knex.transaction(async (trx) => {
+    const order = (
+      await trx
+        .select('id', 'isCompany')
+        .from('order')
+        .where('id', orderId)
+    )[0]
+
+    const items = await trx
+      .select('id', 'price', 'shopId', 'count', 'url')
+      .from('orderItem')
+      .where('order', orderId)
+
+    return {order, items}
+  })
+}
+
 async function handleOrderAction(event) {
   const actionName = event.actions[0].name
   const orderId = event.actions[0].value
@@ -262,13 +282,15 @@ async function handleOrderAction(event) {
   const attachment = msg.attachments[0]
   const otherButtons = attachment.actions.slice(3)
 
+  const {order, items} = await getOrderAndItemsFromDb(orderId)
+
   if (actionName === 'subsidy') {
     await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
       ...attachment,
       actions: attachment.actions.filter((action) => action.name !== 'subsidy'),
     }]})
 
-    await addSubsidy(orderId)
+    await addSubsidyToSheets(order, items)
 
     await addReaction('money_with_wings', event.channel.id, msg.ts)
   } else if (actionName === 'add-to-cart') {
@@ -284,8 +306,6 @@ async function handleOrderAction(event) {
       ],
     }]})
 
-    const items = await knex.select('shopId', 'count', 'url').from('orderItem').where('order', orderId)
-
     await addToCartAll(items)
 
     await addReaction('shopping_trolley', event.channel.id, msg.ts)
@@ -297,9 +317,9 @@ async function handleOrderAction(event) {
 
     await sendUserInfo(event, 'Your order was sent to Alza :alza: You will be notified when it arrives')
 
-    await updateRecord('Orders', `id = ${orderId}`, {Status: 'Ordered'})
+    await updateStatusInSheets(order, items, 'ordered')
       .catch((err) => {
-        logger.log('error', 'Failed tu update airtable', err)
+        logger.log('error', 'Failed to update sheet', err)
         addReaction('x', event.channel.id, msg.ts)
       })
       .then(() => apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
@@ -317,9 +337,9 @@ async function handleOrderAction(event) {
 
     await sendUserInfo(event, 'Your order has arrived :truck: Come pick it up during office hours')
 
-    await updateRecord('Orders', `id = ${orderId}`, {Status: 'Delivered'})
+    await updateStatusInSheets(order, items, 'delivered')
       .catch((err) => {
-        logger.log('error', 'Failed tu update airtable', err)
+        logger.log('error', 'Failed to update sheet', err)
         addReaction('x', event.channel.id, msg.ts)
       })
       .then(() => apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
@@ -368,7 +388,7 @@ async function finishOrder(stream, order, action, actionValue, user) {
 
   if (action === 'personal') {
     const dbId = await storeOrder({user, ts, isCompany: false, office: order.office}, order.items)
-    await notifyOfficeManager(order, dbId, user, false)
+    await notifyOfficeManager(order, dbId, user.id, false)
     await updateMessage({
       pretext: ':woman: Personal order finished:',
       color: 'good',
@@ -384,7 +404,7 @@ async function finishOrder(stream, order, action, actionValue, user) {
       fields: getOrderFields(order),
     })
     await apiCall('chat.postMessage', {
-      channel: user, as_user: true, text:
+      channel: user.id, as_user: true, text:
         order.totalPrice < c.approvalTreshold
           ? ':question: Why do you need these items?'
           : ':question: This order is pretty high, who approved it?\n:question: Why do you need it?',
@@ -404,7 +424,7 @@ async function finishOrder(stream, order, action, actionValue, user) {
         },
         order.items,
       )
-      await notifyOfficeManager(order, dbId, user, true)
+      await notifyOfficeManager(order, dbId, user.id, true)
       await updateMessage({
         fields: [getOrderFields(order), {title: 'Reason', value: event.text, short: false}],
         pretext: ':office: Company order finished:',
@@ -412,14 +432,14 @@ async function finishOrder(stream, order, action, actionValue, user) {
         actions: [],
       })
       await apiCall('chat.postMessage', {
-        channel: user, as_user: true, text: ':office: Company order finished :point_up:',
+        channel: user.id, as_user: true, text: ':office: Company order finished :point_up:',
       })
     }
 
     if (event.type === 'action') {
       await cancelOrder()
       await apiCall('chat.postMessage', {
-        channel: user, as_user: true, text: ':no_entry_sign: Canceling :point_up:',
+        channel: user.id, as_user: true, text: ':no_entry_sign: Canceling :point_up:',
       })
     }
 
@@ -676,67 +696,23 @@ async function orderInfo(items, country) {
 
 async function storeOrder(order, items) {
   const id = await knex.transaction((trx) => (async function() {
-    const id = (await trx.insert(order, 'id').into('order'))[0]
+    order.id = (
+      await trx.insert({...order, user: order.user.id}, 'id').into('order')
+    )[0]
 
     for (const item of items.values()) {
-      await trx.insert({
-        order: id,
+      item.dbId = (await trx.insert({
+        order: order.id,
         shopId: item.id,
         count: item.count,
         url: item.url,
         price: item.price,
-      }).into('orderItem')
+      }, 'id').into('orderItem'))[0]
     }
-    return id
+    return order.id
   })())
 
-  const user = (await apiCall('users.info', {user: order.user})).user
-
-  const airtableOrder = await createRecord('Orders', {
-    id,
-    'User': user.profile.real_name,
-    'Company Order': order.isCompany,
-    'Office': order.office,
-    'Reason': order.reason,
-    'Status': 'Requested',
-  })
-
-  for (const item of items.values()) {
-    await createRecord('Items', {
-      'Name': item.name,
-      'Url': item.url,
-      'Count': item.count,
-      ...(item.price ? {Price: item.price} : null),
-      'Order': [airtableOrder.getId()],
-      'Verified Price': !item.withoutLogin && Boolean(item.price),
-    })
-  }
+  storeOrderToSheets(order, Array.from(items.values()))
 
   return id
-}
-
-async function addSubsidy(id) {
-  const orders = await findRecord('Orders', `{id} = ${id}`)
-  const order = orders[0]
-
-  if (!order) {
-    throw new Error(`Order ${id} not found!`)
-  }
-
-  const {Items} = order.fields
-
-  for (const item of Items) {
-    const items = await findRecord('Items', `RECORD_ID() = "${item}"`)
-    const itemData = items[0]
-
-    if (!itemData) {
-      throw new Error(`Item ${item} in order ${id} not found!`)
-    }
-
-    await createRecord('Subsidies', {
-      Value: itemData.fields['Total Price'],
-      Items: [item],
-      Order: [id],
-    })
-  }
 }

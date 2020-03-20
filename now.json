@@ -29,7 +29,8 @@
       "db_schema": "alzabot",
       "slack_api_token": "@alzabot-slack-token",
       "slack_bot_token": "@alzabot-slack-bot-token",
-      "airtable_api_key": "@alzabot-airtable-api-key",
-      "airtable_base": "appMF1i6wyuTfucWg"
+      "google_sheets_email": "@alzabot-google-sheets-email",
+      "google_sheets_key": "@alzabot-google-sheets-key",
+      "google_sheets_spreadsheet_id": "@alzabot-google-sheets-spreadsheet-id"
   }
 }
