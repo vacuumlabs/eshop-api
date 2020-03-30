@@ -134,13 +134,13 @@ class Alza {
       return null
     }
 
-    let withoutLogin = false
+    let withoutLogin = true
 
-    try {
-      await this.login()
-    } catch (err) {
-      withoutLogin = true
-    }
+    // try {
+    //   await this.login()
+    // } catch (err) {
+    //   withoutLogin = true
+    // }
 
     const content = await this.makeRequest({url: this.parseUrl(url)})
     const $ = cheerio.load(content)
