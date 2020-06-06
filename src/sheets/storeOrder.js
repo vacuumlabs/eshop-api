@@ -1,11 +1,9 @@
-import {getValues, batchGetValues, batchUpdateValues} from './sheets.js'
+import {batchGetValues, appendRows} from './sheets.js'
 import {formatAsHyperlink, formatDate} from './utils'
 import {sheets} from './constants'
 
 export async function storeOrder(order, items) {
   const sheet = order.isCompany ? sheets.companyOrders : sheets.personalOrders
-
-  const newRowIndex = await getNextEmptyRowIndex(sheet)
 
   const user = order.user
   const userJiraId = await getUserJiraId(user.id, user.name)
@@ -24,27 +22,14 @@ export async function storeOrder(order, items) {
     for (let i = 0; i < item.count; i++) {
       data.push(itemToSheetData(
         item,
-        newRowIndex + itemIndex + i,
         order,
-        sheet.name,
         userJiraId,
         date,
       ))
     }
   }
 
-  await batchUpdateValues(sheet, {data, valueInputOption: 'USER_ENTERED'})
-}
-
-async function getNextEmptyRowIndex(sheet) {
-  const values = await getValues(sheet.idRange)
-  let firstEmpty = values.findIndex((v) => v.every((c) => !c))
-
-  if (firstEmpty === -1) {
-    firstEmpty = values.length
-  }
-
-  return firstEmpty + sheet.rowOffset + 1
+  await appendRows(sheet.name, data)
 }
 
 async function getUserJiraId(slackId, name) {
@@ -76,25 +61,18 @@ function mapPersonalOrderItemToSheetData(
   date,
 ) {
   return [
-    {
-      range: `${sheetName}!A${rowIndex}:L${rowIndex}`,
-      values: [
-        [
-          item.dbId,
-          formatAsHyperlink(item.url, item.name),
-          item.price,
-          null,
-          order.office,
-          'requested',
-          null,
-          null,
-          null,
-          userJiraId,
-          null,
-          formatDate(date),
-        ],
-      ],
-    },
+    item.dbId,
+    formatAsHyperlink(item.url, item.name),
+    item.price,
+    null,
+    order.office,
+    'requested',
+    null,
+    null,
+    null,
+    userJiraId,
+    null,
+    formatDate(date),
   ]
 }
 
@@ -107,26 +85,19 @@ function mapCompanyOrderItemToSheetData(
   date,
 ) {
   return [
-    {
-      range: `${sheetName}!A${rowIndex}:N${rowIndex}`,
-      values: [
-        [
-          item.dbId,
-          formatAsHyperlink(item.url, item.name),
-          item.price,
-          null,
-          null,
-          order.office,
-          order.reason,
-          'requested',
-          null,
-          null,
-          null,
-          userJiraId,
-          null,
-          formatDate(date),
-        ],
-      ],
-    },
+    item.dbId,
+    formatAsHyperlink(item.url, item.name),
+    item.price,
+    null,
+    null,
+    order.office,
+    order.reason,
+    'requested',
+    null,
+    null,
+    null,
+    userJiraId,
+    null,
+    formatDate(date),
   ]
 }

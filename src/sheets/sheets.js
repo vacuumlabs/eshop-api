@@ -32,6 +32,17 @@ export async function batchGetValues(ranges) {
   )
 }
 
+export function appendRows(sheetName, values) {
+  return sheetsApi.spreadsheets.values.append({
+    spreadsheetId: c.google.spreadsheetId,
+    range: `${sheetName}!A1:A1`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values,
+    },
+  })
+}
+
 export async function batchUpdateValues(sheet, requests) {
   await withLock(sheet, async () => {
     return (
