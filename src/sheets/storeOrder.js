@@ -71,14 +71,16 @@ function mapPersonalOrderItemToSheetData(
 ) {
   return [
     {
-      range: `${sheetName}!A${rowIndex}:J${rowIndex}`,
+      range: `${sheetName}!A${rowIndex}:L${rowIndex}`,
       values: [
         [
           item.dbId,
           formatAsHyperlink(item.url, item.name),
           item.price,
+          null,
           order.office,
           'requested',
+          null,
           null,
           null,
           userJiraId,
@@ -100,7 +102,7 @@ function mapCompanyOrderItemToSheetData(
 ) {
   return [
     {
-      range: `${sheetName}!A${rowIndex}:M${rowIndex}`,
+      range: `${sheetName}!A${rowIndex}:N${rowIndex}`,
       values: [
         [
           item.dbId,
@@ -111,6 +113,7 @@ function mapCompanyOrderItemToSheetData(
           order.office,
           order.reason,
           'requested',
+          null,
           null,
           null,
           userJiraId,
