@@ -1,7 +1,3 @@
-export function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 export function formatAsHyperlink(url, name) {
   return `=HYPERLINK("${url}", "${sheetsEscapeString(name)}")`
 }
