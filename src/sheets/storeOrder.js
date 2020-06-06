@@ -16,16 +16,22 @@ export async function storeOrder(order, items) {
     ? mapCompanyOrderItemToSheetData
     : mapPersonalOrderItemToSheetData
 
-  const data = items.map((item, index) => {
-    return itemToSheetData(
-      item,
-      newRowIndex + index,
-      order,
-      sheet.name,
-      userJiraId,
-      date,
-    )
-  })
+  const data = []
+
+  for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+    const item = items[itemIndex]
+
+    for (let i = 0; i < item.count; i++) {
+      data.push(itemToSheetData(
+        item,
+        newRowIndex + itemIndex + i,
+        order,
+        sheet.name,
+        userJiraId,
+        date,
+      ))
+    }
+  }
 
   await batchUpdateValues(sheet, {data, valueInputOption: 'USER_ENTERED'})
 }
