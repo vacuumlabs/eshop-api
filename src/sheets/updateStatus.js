@@ -10,7 +10,7 @@ export async function updateStatus(order, items, status) {
 
   const getPersonalItemData = (sheetName, rowIndex) => {
     return {
-      range: `${sheetName}!E${rowIndex}:E${rowIndex}`,
+      range: `${sheetName}!F${rowIndex}:F${rowIndex}`,
       values: [[status]],
     }
   }

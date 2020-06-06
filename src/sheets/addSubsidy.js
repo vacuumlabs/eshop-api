@@ -3,7 +3,7 @@ import {updateItems} from './updateItems'
 export async function addSubsidy(order, items) {
   const getCompanyItemData = (sheetName, rowIndex, item) => {
     return {
-      range: `${sheetName}!J${rowIndex}:J${rowIndex}`,
+      range: `${sheetName}!K${rowIndex}:K${rowIndex}`,
       values: [[item.price]],
     }
   }
