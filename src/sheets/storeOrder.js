@@ -32,7 +32,7 @@ export async function storeOrder(order, items) {
 
 async function getNextEmptyRowIndex(sheet) {
   const values = await getValues(sheet.idRange)
-  let firstEmpty = values.findIndex((v) => v[0] === '')
+  let firstEmpty = values.findIndex((v) => v.every((c) => !c))
 
   if (firstEmpty === -1) {
     firstEmpty = values.length
