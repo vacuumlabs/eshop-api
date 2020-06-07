@@ -6,14 +6,22 @@ const key = Buffer.from(c.google.key, 'base64').toString()
 const auth = new google.auth.JWT(c.google.email, null, key, scopes)
 const sheetsApi = google.sheets({version: 'v4', auth})
 
+async function tryCall(call) {
+  try {
+    return await call
+  } catch (reason) {
+    throw new Error(`Google API error: ${reason.result.error.message}`)
+  }
+}
+
 export async function getValues(range) {
   return (
     (
-      await sheetsApi.spreadsheets.values.get({
+      await tryCall(sheetsApi.spreadsheets.values.get({
         spreadsheetId: c.google.spreadsheetId,
         valueRenderOption: 'UNFORMATTED_VALUE',
         range,
-      })
+      }))
     ).data.values || []
   )
 }
@@ -33,29 +41,29 @@ export async function getFieldIndexMap(sheetName, fieldsRow) {
 export async function batchGetValues(ranges) {
   return (
     (
-      await sheetsApi.spreadsheets.values.batchGet({
+      await tryCall(sheetsApi.spreadsheets.values.batchGet({
         spreadsheetId: c.google.spreadsheetId,
         valueRenderOption: 'UNFORMATTED_VALUE',
         ranges,
-      })
+      }))
     ).data.valueRanges || []
   )
 }
 
 export function appendRows(sheetName, values) {
-  return sheetsApi.spreadsheets.values.append({
+  return tryCall(sheetsApi.spreadsheets.values.append({
     spreadsheetId: c.google.spreadsheetId,
     range: `${sheetName}!A1:A1`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values,
     },
-  })
+  }))
 }
 
-export async function batchUpdateValues(sheet, requests) {
-  await sheetsApi.spreadsheets.values.batchUpdate({
+export function batchUpdateValues(sheet, requests) {
+  return tryCall(sheetsApi.spreadsheets.values.batchUpdate({
     spreadsheetId: c.google.spreadsheetId,
     requestBody: requests,
-  })
+  }))
 }
