@@ -1,5 +1,4 @@
-import logger from '../logger'
-import {getFieldIndexMap, getValues, batchUpdateValues, batchGetValues} from './sheets.js'
+import {getFieldIndexMap, getValues, batchUpdateValues} from './sheets.js'
 import {getColumn} from './utils'
 import {sheets} from './constants'
 
@@ -50,28 +49,5 @@ export async function updateItems(
     return result
   }, [])
 
-  await batchUpdateValues(sheet, {data, valueInputOption: 'USER_ENTERED'})
-
-  const expectedValues = data.reduce((acc, data) => {
-    acc[data.range] = data.values
-    return acc
-  }, {})
-
-  const realValues = await batchGetValues(Object.keys(expectedValues))
-
-  const realValuesMap = realValues.reduce((acc, data) => {
-    acc[data.range] = data.values
-    return acc
-  }, {})
-
-  const updateValid = Object.entries(expectedValues).every(
-    ([key, value]) =>
-      realValuesMap[key] &&
-      JSON.stringify(value) === JSON.stringify(realValuesMap[key]),
-  )
-
-  if (!updateValid) {
-    logger.log('error', 'Updated values overwritten')
-    throw new Error('Updated values overwritten')
-  }
+  return batchUpdateValues(sheet, {data, valueInputOption: 'USER_ENTERED'})
 }
