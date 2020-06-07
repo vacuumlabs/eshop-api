@@ -18,6 +18,18 @@ export async function getValues(range) {
   )
 }
 
+export async function getFieldIndexMap(sheetName, fieldsRow) {
+  const [values] = await getValues(`${sheetName}!A${fieldsRow}:ZZ`)
+
+  return values.reduce((acc, value, index) => {
+    if (value && !acc[value]) {
+      acc[value] = index + 1
+    }
+
+    return acc
+  }, {})
+}
+
 export async function batchGetValues(ranges) {
   return (
     (

@@ -1,38 +1,54 @@
 import logger from '../logger'
-import {getValues, batchUpdateValues, batchGetValues} from './sheets.js'
+import {getFieldIndexMap, getValues, batchUpdateValues, batchGetValues} from './sheets.js'
+import {getColumn} from './utils'
 import {sheets} from './constants'
 
 export async function updateItems(
   isCompanyItem,
   items,
-  getCompanyItemData = () => null,
-  getPersonalItemData = () => null,
+  getItemData,
 ) {
   const sheet = isCompanyItem ? sheets.companyOrders : sheets.personalOrders
 
-  const itemsMap = new Map(items.map((item) => [item.id, item]))
+  const [fieldIndexMap, itemIdsFromSheet] = await Promise.all([
+    getFieldIndexMap(sheet.name, sheet.fieldsRow),
+    getValues(sheet.idRange),
+  ])
 
-  const itemIdsFromSheet = await getValues(sheet.idRange)
+  const idToRowMap = new Map(
+    itemIdsFromSheet
+      .map(([itemId], index) => itemId && [itemId, index + sheet.rowOffset + 1])
+      .filter(Boolean),
+  )
 
-  const data = itemIdsFromSheet.reduce((result, itemId, index) => {
-    if (itemsMap.has(itemId[0])) {
-      const rowIndex = index + sheet.rowOffset + 1
-
-      const itemData = isCompanyItem
-        ? getCompanyItemData(sheet.name, rowIndex, itemsMap.get(itemId[0]))
-        : getPersonalItemData(sheet.name, rowIndex, itemsMap.get(itemId[0]))
-
-      if (itemData) {
-        result.push(itemData)
-      }
+  const data = items.reduce((result, item) => {
+    if (!idToRowMap.has(item.id)) {
+      throw new Error('Item not found in sheet')
     }
+
+    const rowIndex = idToRowMap.get(item.id)
+
+    const itemData = getItemData(item)
+
+    if (!itemData) {
+      return result
+    }
+
+    Object.entries(itemData).forEach(([field, value]) => {
+      const fieldIndex = fieldIndexMap[field]
+
+      if (!fieldIndex) {
+        throw new Error(`Unknown field "${field}"`)
+      }
+
+      result.push({
+        range: `${sheet.name}!${getColumn(fieldIndex)}${rowIndex}`,
+        values: [[value]],
+      })
+    })
+
     return result
   }, [])
-
-  if (data.length === 0) {
-    logger.log('error', 'Item not found in sheet')
-    throw new Error('Item not found in sheet')
-  }
 
   await batchUpdateValues(sheet, {data, valueInputOption: 'USER_ENTERED'})
 

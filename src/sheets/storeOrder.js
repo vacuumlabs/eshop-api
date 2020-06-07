@@ -1,9 +1,11 @@
-import {batchGetValues, appendRows} from './sheets.js'
-import {formatAsHyperlink, formatDate} from './utils'
-import {sheets} from './constants'
+import {getFieldIndexMap, batchGetValues, appendRows} from './sheets.js'
+import {formatAsHyperlink, formatDate, mapFieldsToRow} from './utils'
+import {sheets, NEW_ORDER_STATUS} from './constants'
 
 export async function storeOrder(order, items) {
   const sheet = order.isCompany ? sheets.companyOrders : sheets.personalOrders
+
+  const fieldIndexMap = await getFieldIndexMap(sheet.name, sheet.fieldsRow)
 
   const user = order.user
   const userJiraId = await getUserJiraId(user.id, user.name)
@@ -20,12 +22,17 @@ export async function storeOrder(order, items) {
     const item = items[itemIndex]
 
     for (let i = 0; i < item.count; i++) {
-      data.push(itemToSheetData(
-        item,
-        order,
-        userJiraId,
-        date,
-      ))
+      data.push(
+        mapFieldsToRow(
+          fieldIndexMap,
+          itemToSheetData(
+            item,
+            order,
+            userJiraId,
+            date,
+          ),
+        ),
+      )
     }
   }
 
@@ -60,20 +67,15 @@ function mapPersonalOrderItemToSheetData(
   userJiraId,
   date,
 ) {
-  return [
-    item.dbId,
-    formatAsHyperlink(item.url, item.name),
-    item.price,
-    null,
-    order.office,
-    'requested',
-    null,
-    null,
-    null,
-    userJiraId,
-    null,
-    formatDate(date),
-  ]
+  return {
+    'UUID': item.dbId,
+    'Name': formatAsHyperlink(item.url, item.name),
+    'Value': item.price,
+    'Office': order.office,
+    'Status': NEW_ORDER_STATUS,
+    'User ID': userJiraId,
+    'ts': formatDate(date),
+  }
 }
 
 function mapCompanyOrderItemToSheetData(
@@ -84,20 +86,14 @@ function mapCompanyOrderItemToSheetData(
   userJiraId,
   date,
 ) {
-  return [
-    item.dbId,
-    formatAsHyperlink(item.url, item.name),
-    item.price,
-    null,
-    null,
-    order.office,
-    order.reason,
-    'requested',
-    null,
-    null,
-    null,
-    userJiraId,
-    null,
-    formatDate(date),
-  ]
+  return {
+    'UUID': item.dbId,
+    'Name': formatAsHyperlink(item.url, item.name),
+    'Value': item.price,
+    'Office': order.office,
+    'Reason': order.reason,
+    'Status': NEW_ORDER_STATUS,
+    'Requested by': userJiraId,
+    'ts': formatDate(date),
+  }
 }
