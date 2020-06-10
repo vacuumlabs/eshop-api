@@ -1,7 +1,7 @@
 import c from './config'
 import _knex from 'knex'
-import _request from 'request-promise'
 import {createChannel} from 'yacol'
+import {makeApiCall} from './slackApi'
 import {getInfo, addToCartAll, getLangByLink} from './alza'
 import {format} from './currency'
 import WS from 'ws'
@@ -10,7 +10,6 @@ import {storeOrder as storeOrderToSheets} from './sheets/storeOrder'
 import {addSubsidy as addSubsidyToSheets} from './sheets/addSubsidy'
 import {updateStatus as updateStatusInSheets} from './sheets/updateStatus'
 
-const API = 'https://slack.com/api/'
 const OFFICES = {
   sk: {
     name: 'Slovakia',
@@ -48,18 +47,13 @@ const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
   return acc
 }, {})
 
-const request = _request.defaults({})
 const knex = _knex(c.knex)
 
 let state = {}
 
 export async function apiCall(name, data = {}) {
-  for (const k in data) {
-    if (typeof data[k] === 'object') data[k] = JSON.stringify(data[k])
-  }
-
   logger.log('verbose', `call slack.api.${name}`, data)
-  const response = JSON.parse(await request.post(`${API}${name}`, {form: {...data, token: state.token}}))
+  const response = JSON.parse(await makeApiCall(name, data))
   logger.log('verbose', `response slack.api.${name}`, {args: data, response})
 
   return response
