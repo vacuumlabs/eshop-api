@@ -663,11 +663,22 @@ async function orderInfo(items, country) {
     await (async function() {
       const itemCountry = getLangByLink(item.url)
 
-      if (!orderCountry) {
+      if (itemCountry && !orderCountry) {
         orderCountry = itemCountry
       }
 
-      if (orderCountry !== itemCountry) {
+      if (!itemCountry) {
+        info.push({
+          id: item.url,
+          name: item.url,
+          description: '',
+          price: 0,
+          currency: 'EUR',
+          withoutLogin: true,
+          count: item.count,
+          url: item.url,
+        })
+      } else if (orderCountry !== itemCountry) {
         wrongCountry = true
       } else {
         const itemInfo = await getInfo(item.url)
@@ -695,14 +706,21 @@ async function storeOrder(order, items) {
     )[0]
 
     for (const item of items.values()) {
-      item.dbId = (await trx.insert({
-        order: order.id,
-        shopId: item.id,
-        count: item.count,
-        url: item.url,
-        price: item.price,
-      }, 'id').into('orderItem'))[0]
+      item.dbIds = []
+
+      for (let i = 0; i < item.count; i++) {
+        item.dbIds.push(
+          (await trx.insert({
+            order: order.id,
+            shopId: item.id,
+            count: 1,
+            url: item.url,
+            price: item.price,
+          }, 'id').into('orderItem'))[0],
+        )
+      }
     }
+
     return order.id
   })())
 

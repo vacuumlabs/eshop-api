@@ -26,6 +26,7 @@ export async function storeOrder(order, items) {
         mapFieldsToRow(
           fieldIndexMap,
           itemToSheetData(
+            item.dbIds[i],
             item,
             order,
             userJiraId,
@@ -60,15 +61,14 @@ async function getUserJiraId(slackId, name) {
 }
 
 function mapPersonalOrderItemToSheetData(
+  dbId,
   item,
-  rowIndex,
   order,
-  sheetName,
   userJiraId,
   date,
 ) {
   return {
-    'UUID': item.dbId,
+    'UUID': dbId,
     'Name': formatAsHyperlink(item.url, item.name),
     'Value': item.price,
     'Office': order.office,
@@ -79,15 +79,14 @@ function mapPersonalOrderItemToSheetData(
 }
 
 function mapCompanyOrderItemToSheetData(
+  dbId,
   item,
-  rowIndex,
   order,
-  sheetName,
   userJiraId,
   date,
 ) {
   return {
-    'UUID': item.dbId,
+    'UUID': dbId,
     'Name': formatAsHyperlink(item.url, item.name),
     'Value': item.price,
     'Office': order.office,

@@ -14,18 +14,24 @@ export async function updateItems(
     getValues(sheet.idRange),
   ])
 
-  const idToRowMap = new Map(
-    itemIdsFromSheet
-      .map(([itemId], index) => itemId && [itemId, index + sheet.rowOffset + 1])
-      .filter(Boolean),
-  )
+  const idToRowsMap = {}
+
+  itemIdsFromSheet.forEach(([itemId], index) => {
+    if (itemId) {
+      if (!idToRowsMap[itemId]) {
+        idToRowsMap[itemId] = []
+      }
+
+      idToRowsMap[itemId].push(index + sheet.rowOffset + 1)
+    }
+  })
 
   const data = items.reduce((result, item) => {
-    if (!idToRowMap.has(item.id)) {
+    if (itemIdsFromSheet[item.id]) {
       throw new Error('Item not found in sheet')
     }
 
-    const rowIndex = idToRowMap.get(item.id)
+    const rowIndexes = itemIdsFromSheet[item.id]
 
     const itemData = getItemData(item)
 
@@ -40,9 +46,11 @@ export async function updateItems(
         throw new Error(`Unknown field "${field}"`)
       }
 
-      result.push({
-        range: `${sheet.name}!${getColumn(fieldIndex)}${rowIndex}`,
-        values: [[value]],
+      rowIndexes.forEach((rowIndex) => {
+        result.push({
+          range: `${sheet.name}!${getColumn(fieldIndex)}${rowIndex}`,
+          values: [[value]],
+        })
       })
     })
 
