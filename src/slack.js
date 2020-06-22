@@ -5,7 +5,7 @@ import {makeApiCall} from './slackApi'
 import {getInfo, addToCartAll, getLangByLink} from './alza'
 import {format} from './currency'
 import WS from 'ws'
-import logger from './logger'
+import logger, {logError, logOrder} from './logger'
 import {storeOrder as storeOrderToSheets} from './sheets/storeOrder'
 import {addSubsidy as addSubsidyToSheets} from './sheets/addSubsidy'
 import {updateStatus as updateStatusInSheets} from './sheets/updateStatus'
@@ -192,7 +192,13 @@ async function listen(stream) {
     if (event.type === 'action') {
       if (event.callback_id.startsWith('O')) {
         await handleOrderAction(event)
-          .catch((e) => showError(event.channel.id, null, 'Something went wrong.'))
+          .catch((e) => {
+            logError(e, 'Admin action error', event.user.id, {
+              action: event.actions[0].name,
+              orderId: event.actions[0].value,
+            })
+            showError(event.channel.id, null, 'Something went wrong.')
+          })
         continue
       }
 
@@ -238,22 +244,39 @@ async function listenUser(stream, user) {
       const event = await stream.take()
 
       if (event.type === 'action') {
-        const finished = await finishOrder(
-          stream,
-          order,
-          event.actions[0].name,
-          event.actions[0].value,
-          event.user,
-        )
+        try {
+          const finished = await finishOrder(
+            stream,
+            order,
+            event.actions[0].name,
+            event.actions[0].value,
+            event.user,
+          )
 
-        if (finished) {
-          break
+          if (finished) {
+            break
+          }
+        } catch (err) {
+          logError(err, 'User action error', event.user.id, {
+            action: event.actions[0].name,
+            value: event.actions[0].value,
+            order: logOrder(order),
+          })
+          showError(order.orderConfirmation.channel, 'Something went wrong, please try again.')
         }
       }
 
       if (event.type === 'message') {
-        order = setId(order, nextUUID())
-        order = await updateOrder(order, event, user)
+        try {
+          order = setId(order, nextUUID())
+          order = await updateOrder(order, event, user)
+        } catch (err) {
+          logError(err, 'User order error', user.id, {
+            msg: event.text,
+            order: logOrder(order),
+          })
+          showError(user, 'Something went wrong, please try again.')
+        }
       }
     }
 
