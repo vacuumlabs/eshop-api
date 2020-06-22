@@ -14,14 +14,17 @@ const OFFICES = {
   sk: {
     name: 'Slovakia',
     options: ['Bratislava', 'Košice', 'Prešov'],
+    ordersChannel: c.ordersChannel,
   },
   cz: {
     name: 'Czech republic',
     options: ['Praha', 'Brno'],
+    ordersChannel: c.ordersChannelCZ,
   },
   hu: {
     name: 'Hungary',
     options: ['Budapest'],
+    ordersChannel: c.ordersChannelHU,
   },
 }
 
@@ -32,6 +35,13 @@ const ORDER_TYPE_ACTIONS = [
   {name: 'company', text: 'Make Company Order', type: 'button', value: 'company'},
   CANCEL_ORDER_ACTION,
 ]
+
+const ORDER_COUNTRY_ACTIONS = Object.keys(OFFICES).map((country) => ({
+  name: 'country',
+  text: OFFICES[country].name,
+  type: 'button',
+  value: country,
+}))
 
 const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
   acc[country] = [
@@ -365,6 +375,19 @@ async function finishOrder(stream, order, action, actionValue, user) {
     })
   }
 
+  if (action === 'country') {
+    order.country = actionValue
+    await updateMessage({
+      actions: ORDER_OFFICE_ACTIONS[order.country],
+      fields: [
+        ...getOrderFields(order),
+        {title: 'Where do you want to pickup the order?'},
+      ],
+    })
+
+    return false
+  }
+
   if (action === 'office') {
     order.office = actionValue
     await updateMessage({
@@ -449,7 +472,7 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
   const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, getOrderFields(order))
 
   await apiCall('chat.postMessage', {
-    channel: c.ordersChannel,
+    channel: OFFICES[order.country].ordersChannel,
     as_user: true,
     attachments: [{
       ...orderAttachment,
@@ -544,6 +567,10 @@ async function removeReaction(name, channel, timestamp) {
 }
 
 function getOrderActions(order) {
+  if (!order.country) {
+    return ORDER_COUNTRY_ACTIONS
+  }
+
   if (!order.office) {
     return ORDER_OFFICE_ACTIONS[order.country]
   }
@@ -581,7 +608,8 @@ async function updateOrder(order, event, user) {
       ].filter(Boolean).join('\n'),
       [
         ...getOrderFields(order),
-        !order.office && {title: 'Where do you want to pickup the order?\n(Country was chosen according to used Alza version)'},
+        !order.country && {title: 'In which country is your office?'},
+        order.country && !order.office && {title: 'Where do you want to pickup the order?'},
       ].filter(Boolean),
     ),
     callback_id: order.id,
