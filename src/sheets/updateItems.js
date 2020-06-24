@@ -31,7 +31,7 @@ export async function updateItems(
       throw new Error('Item not found in sheet')
     }
 
-    const rowIndexes = itemIdsFromSheet[item.id]
+    const rowIndexes = idToRowsMap[item.id]
 
     const itemData = getItemData(item)
 
