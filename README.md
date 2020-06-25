@@ -9,7 +9,12 @@ There is a Google Sheet for testing and also a test Slack App.
 _Ask for access to AlzaBot-Test Slack app_ [here](https://api.slack.com/apps/AEV7B5Y5D/interactive-messages?).\
 _Ask for access to Google Sheets ElectornicsDev sheet._
 
-Create two new slack channels. One for _news_channel_ another for _order_channel_. Add the _alzabottest_ app to both channels.
+There is a Google Sheet for testing and also a test Slack App. However, the dev Google Sheet is currently out of sync with the production one, so I suggest carefuly testing against that and reverting all your changes after you are done.
+
+_Ask for access to AlzaBot-Test Slack app_ [here](https://api.slack.com/apps/AEV7B5Y5D/interactive-messages?).\
+_Ask for access to Google Sheets ElectornicsDev and Electronics sheet._
+
+Create three new slack channels. For _news_channel_, _order_channel_ and _support_channel_. Add the _alzabottest_ app to all channels.
 Make a copy of `.env-dev` called `.env` and replace placeholders with actual values (ask for any values you cannot obtain yourself).
 
 ### Running locally
