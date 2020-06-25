@@ -1,11 +1,11 @@
-import {getValues, batchGetValues, batchUpdateValues} from './sheets.js'
-import {formatAsHyperlink, formatDate} from './utils'
-import {sheets} from './constants'
+import {getFieldIndexMap, batchGetValues, appendRows} from './sheets.js'
+import {formatAsHyperlink, formatDate, mapFieldsToRow} from './utils'
+import {sheets, NEW_ORDER_STATUS} from './constants'
 
 export async function storeOrder(order, items) {
   const sheet = order.isCompany ? sheets.companyOrders : sheets.personalOrders
 
-  const newRowIndex = await getNextEmptyRowIndex(sheet)
+  const fieldIndexMap = await getFieldIndexMap(sheet.name, sheet.fieldsRow)
 
   const user = order.user
   const userJiraId = await getUserJiraId(user.id, user.name)
@@ -16,29 +16,28 @@ export async function storeOrder(order, items) {
     ? mapCompanyOrderItemToSheetData
     : mapPersonalOrderItemToSheetData
 
-  const data = items.map((item, index) => {
-    return itemToSheetData(
-      item,
-      newRowIndex + index,
-      order,
-      sheet.name,
-      userJiraId,
-      date,
-    )
-  })
+  const data = []
 
-  await batchUpdateValues(sheet, {data, valueInputOption: 'USER_ENTERED'})
-}
+  for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+    const item = items[itemIndex]
 
-async function getNextEmptyRowIndex(sheet) {
-  const values = await getValues(sheet.idRange)
-  let firstEmpty = values.findIndex((v) => v[0] === '')
-
-  if (firstEmpty === -1) {
-    firstEmpty = values.length
+    for (let i = 0; i < item.count; i++) {
+      data.push(
+        mapFieldsToRow(
+          fieldIndexMap,
+          itemToSheetData(
+            item.dbIds[i],
+            item,
+            order,
+            userJiraId,
+            date,
+          ),
+        ),
+      )
+    }
   }
 
-  return firstEmpty + sheet.rowOffset + 1
+  await appendRows(sheet.name, data)
 }
 
 async function getUserJiraId(slackId, name) {
@@ -62,62 +61,38 @@ async function getUserJiraId(slackId, name) {
 }
 
 function mapPersonalOrderItemToSheetData(
+  dbId,
   item,
-  rowIndex,
   order,
-  sheetName,
   userJiraId,
   date,
 ) {
-  return [
-    {
-      range: `${sheetName}!A${rowIndex}:J${rowIndex}`,
-      values: [
-        [
-          item.dbId,
-          formatAsHyperlink(item.url, item.name),
-          item.price,
-          order.office,
-          'requested',
-          null,
-          null,
-          userJiraId,
-          null,
-          formatDate(date),
-        ],
-      ],
-    },
-  ]
+  return {
+    'UUID': dbId,
+    'Name': formatAsHyperlink(item.url, item.name),
+    'Value': item.price,
+    'Office': order.office,
+    'Status': NEW_ORDER_STATUS,
+    'User ID': userJiraId,
+    'ts': formatDate(date),
+  }
 }
 
 function mapCompanyOrderItemToSheetData(
+  dbId,
   item,
-  rowIndex,
   order,
-  sheetName,
   userJiraId,
   date,
 ) {
-  return [
-    {
-      range: `${sheetName}!A${rowIndex}:M${rowIndex}`,
-      values: [
-        [
-          item.dbId,
-          formatAsHyperlink(item.url, item.name),
-          item.price,
-          null,
-          null,
-          order.office,
-          order.reason,
-          'requested',
-          null,
-          null,
-          userJiraId,
-          null,
-          formatDate(date),
-        ],
-      ],
-    },
-  ]
+  return {
+    'UUID': dbId,
+    'Name': formatAsHyperlink(item.url, item.name),
+    'Value': item.price,
+    'Office': order.office,
+    'Reason': order.reason,
+    'Status': NEW_ORDER_STATUS,
+    'Requested by': userJiraId,
+    'ts': formatDate(date),
+  }
 }

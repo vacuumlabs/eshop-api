@@ -1,28 +1,30 @@
 import c from './config'
 import _knex from 'knex'
-import _request from 'request-promise'
 import {createChannel} from 'yacol'
+import {makeApiCall} from './slackApi'
 import {getInfo, addToCartAll, getLangByLink} from './alza'
 import {format} from './currency'
 import WS from 'ws'
-import logger from './logger'
+import logger, {logError, logOrder} from './logger'
 import {storeOrder as storeOrderToSheets} from './sheets/storeOrder'
 import {addSubsidy as addSubsidyToSheets} from './sheets/addSubsidy'
 import {updateStatus as updateStatusInSheets} from './sheets/updateStatus'
 
-const API = 'https://slack.com/api/'
 const OFFICES = {
   sk: {
     name: 'Slovakia',
     options: ['Bratislava', 'Košice', 'Prešov'],
+    ordersChannel: c.ordersChannel,
   },
   cz: {
     name: 'Czech republic',
     options: ['Praha', 'Brno'],
+    ordersChannel: c.ordersChannelCZ,
   },
   hu: {
     name: 'Hungary',
     options: ['Budapest'],
+    ordersChannel: c.ordersChannelHU,
   },
 }
 
@@ -33,6 +35,13 @@ const ORDER_TYPE_ACTIONS = [
   {name: 'company', text: 'Make Company Order', type: 'button', value: 'company'},
   CANCEL_ORDER_ACTION,
 ]
+
+const ORDER_COUNTRY_ACTIONS = Object.keys(OFFICES).map((country) => ({
+  name: 'country',
+  text: OFFICES[country].name,
+  type: 'button',
+  value: country,
+}))
 
 const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
   acc[country] = [
@@ -48,18 +57,13 @@ const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
   return acc
 }, {})
 
-const request = _request.defaults({})
 const knex = _knex(c.knex)
 
 let state = {}
 
 export async function apiCall(name, data = {}) {
-  for (const k in data) {
-    if (typeof data[k] === 'object') data[k] = JSON.stringify(data[k])
-  }
-
   logger.log('verbose', `call slack.api.${name}`, data)
-  const response = JSON.parse(await request.post(`${API}${name}`, {form: {...data, token: state.token}}))
+  const response = JSON.parse(await makeApiCall(name, data))
   logger.log('verbose', `response slack.api.${name}`, {args: data, response})
 
   return response
@@ -188,7 +192,13 @@ async function listen(stream) {
     if (event.type === 'action') {
       if (event.callback_id.startsWith('O')) {
         await handleOrderAction(event)
-          .catch((e) => showError(event.channel.id, null, 'Something went wrong.'))
+          .catch((e) => {
+            logError(e, 'Admin action error', event.user.id, {
+              action: event.actions[0].name,
+              orderId: event.actions[0].value,
+            })
+            showError(event.channel.id, null, 'Something went wrong.')
+          })
         continue
       }
 
@@ -234,22 +244,39 @@ async function listenUser(stream, user) {
       const event = await stream.take()
 
       if (event.type === 'action') {
-        const finished = await finishOrder(
-          stream,
-          order,
-          event.actions[0].name,
-          event.actions[0].value,
-          event.user,
-        )
+        try {
+          const finished = await finishOrder(
+            stream,
+            order,
+            event.actions[0].name,
+            event.actions[0].value,
+            event.user,
+          )
 
-        if (finished) {
-          break
+          if (finished) {
+            break
+          }
+        } catch (err) {
+          logError(err, 'User action error', event.user.id, {
+            action: event.actions[0].name,
+            value: event.actions[0].value,
+            order: logOrder(order),
+          })
+          showError(order.orderConfirmation.channel, 'Something went wrong, please try again.')
         }
       }
 
       if (event.type === 'message') {
-        order = setId(order, nextUUID())
-        order = await updateOrder(order, event, user)
+        try {
+          order = setId(order, nextUUID())
+          order = await updateOrder(order, event, user)
+        } catch (err) {
+          logError(err, 'User order error', user.id, {
+            msg: event.text,
+            order: logOrder(order),
+          })
+          showError(user, 'Something went wrong, please try again.')
+        }
       }
     }
 
@@ -371,6 +398,19 @@ async function finishOrder(stream, order, action, actionValue, user) {
     })
   }
 
+  if (action === 'country') {
+    order.country = actionValue
+    await updateMessage({
+      actions: ORDER_OFFICE_ACTIONS[order.country],
+      fields: [
+        ...getOrderFields(order),
+        {title: 'Where do you want to pickup the order?'},
+      ],
+    })
+
+    return false
+  }
+
   if (action === 'office') {
     order.office = actionValue
     await updateMessage({
@@ -455,7 +495,7 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
   const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, getOrderFields(order))
 
   await apiCall('chat.postMessage', {
-    channel: c.ordersChannel,
+    channel: OFFICES[order.country].ordersChannel,
     as_user: true,
     attachments: [{
       ...orderAttachment,
@@ -550,6 +590,10 @@ async function removeReaction(name, channel, timestamp) {
 }
 
 function getOrderActions(order) {
+  if (!order.country) {
+    return ORDER_COUNTRY_ACTIONS
+  }
+
   if (!order.office) {
     return ORDER_OFFICE_ACTIONS[order.country]
   }
@@ -587,7 +631,8 @@ async function updateOrder(order, event, user) {
       ].filter(Boolean).join('\n'),
       [
         ...getOrderFields(order),
-        !order.office && {title: 'Where do you want to pickup the order?\n(Country was chosen according to used Alza version)'},
+        !order.country && {title: 'In which country is your office?'},
+        order.country && !order.office && {title: 'Where do you want to pickup the order?'},
       ].filter(Boolean),
     ),
     callback_id: order.id,
@@ -669,11 +714,22 @@ async function orderInfo(items, country) {
     await (async function() {
       const itemCountry = getLangByLink(item.url)
 
-      if (!orderCountry) {
+      if (itemCountry && !orderCountry) {
         orderCountry = itemCountry
       }
 
-      if (orderCountry !== itemCountry) {
+      if (!itemCountry) {
+        info.push({
+          id: item.url,
+          name: item.url,
+          description: '',
+          price: 0,
+          currency: 'EUR',
+          withoutLogin: true,
+          count: item.count,
+          url: item.url,
+        })
+      } else if (orderCountry !== itemCountry) {
         wrongCountry = true
       } else {
         const itemInfo = await getInfo(item.url)
@@ -701,14 +757,21 @@ async function storeOrder(order, items) {
     )[0]
 
     for (const item of items.values()) {
-      item.dbId = (await trx.insert({
-        order: order.id,
-        shopId: item.id,
-        count: item.count,
-        url: item.url,
-        price: item.price,
-      }, 'id').into('orderItem'))[0]
+      item.dbIds = []
+
+      for (let i = 0; i < item.count; i++) {
+        item.dbIds.push(
+          (await trx.insert({
+            order: order.id,
+            shopId: item.id,
+            count: 1,
+            url: item.url,
+            price: item.price,
+          }, 'id').into('orderItem'))[0],
+        )
+      }
     }
+
     return order.id
   })())
 

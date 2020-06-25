@@ -35,6 +35,6 @@ register(app, 'get', r.alzaCode, alzaCode)
 
   await init(c.slack.botToken, slackEvents)
 })().catch((e) => {
-  logger.log('error', e)
+  logger.log('error', 'Init error', e)
   process.exit(1)
 })
