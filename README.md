@@ -4,11 +4,6 @@ unified api to common eshops
 
 ## Development Setup
 
-There is a Google Sheet for testing and also a test Slack App.
-
-_Ask for access to AlzaBot-Test Slack app_ [here](https://api.slack.com/apps/AEV7B5Y5D/interactive-messages?).\
-_Ask for access to Google Sheets ElectornicsDev sheet._
-
 There is a Google Sheet for testing and also a test Slack App. However, the dev Google Sheet is currently out of sync with the production one, so I suggest carefuly testing against that and reverting all your changes after you are done.
 
 _Ask for access to AlzaBot-Test Slack app_ [here](https://api.slack.com/apps/AEV7B5Y5D/interactive-messages?).\
