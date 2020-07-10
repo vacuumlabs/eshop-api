@@ -31,14 +31,7 @@ export default transenv()(({str, bool, num}) => {
     },
     knex: {
       client: 'pg',
-      connection: {
-        host: str('db_host'),
-        port: str('db_port'),
-        ssl: bool('db_ssl'),
-        user: str('db_user'),
-        password: str('db_password'),
-        database: str('db_name'),
-      },
+      connection: process.env.DATABASE_URL,
       searchPath: str('db_schema'),
       schema: str('db_schema'),
       debug: isDevelopment,
