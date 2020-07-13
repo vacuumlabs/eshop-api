@@ -775,7 +775,7 @@ async function storeOrder(order, items) {
     return order.id
   })())
 
-  storeOrderToSheets(order, Array.from(items.values()))
+  await storeOrderToSheets(order, Array.from(items.values()))
 
   return id
 }
