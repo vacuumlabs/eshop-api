@@ -14,18 +14,24 @@ const OFFICES = {
   sk: {
     name: 'Slovakia',
     options: ['Bratislava', 'Košice', 'Prešov'],
-    ordersChannel: c.ordersChannel,
   },
   cz: {
     name: 'Czech republic',
     options: ['Praha', 'Brno'],
-    ordersChannel: c.ordersChannelCZ,
   },
   hu: {
     name: 'Hungary',
     options: ['Budapest'],
-    ordersChannel: c.ordersChannelHU,
   },
+}
+
+const OFFICE_CHANNELS = {
+  Bratislava: c.ordersChannelSkBa,
+  Košice: c.ordersChannelSkKe,
+  Prešov: c.ordersChannelSkPr,
+  Praha: c.ordersChannelCzPr,
+  Brno: c.ordersChannelCzBr,
+  Budapest: c.ordersChannelHuBu,
 }
 
 const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
@@ -307,19 +313,31 @@ async function handleOrderAction(event) {
   const orderId = event.actions[0].value
   const msg = event.original_message
   const attachment = msg.attachments[0]
-  const otherButtons = attachment.actions.slice(3)
+  const allButtons = attachment.actions.filter((action) => action.name !== 'forward-to-channel')
+  const otherButtons = allButtons.slice(3)
 
   const {order, items} = await getOrderAndItemsFromDb(orderId)
 
   if (actionName === 'subsidy') {
     await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
       ...attachment,
-      actions: attachment.actions.filter((action) => action.name !== 'subsidy'),
+      actions: allButtons.filter((action) => action.name !== 'subsidy'),
     }]})
 
     await addSubsidyToSheets(order, items)
 
     await addReaction('money_with_wings', event.channel.id, msg.ts)
+  } else if (actionName === 'forward-to-channel') {
+    await apiCall('chat.postMessage', {
+      channel: OFFICE_CHANNELS[order.office],
+      as_user: true,
+      attachments: [{
+        ...attachment,
+        actions: attachment.actions.slice(1),
+      }],
+    })
+
+    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, text: 'Order forwarded to office channel :incoming_envelope:'})
   } else if (actionName === 'add-to-cart') {
     await removeReaction('shopping_trolley', event.channel.id, msg.ts)
 
@@ -495,12 +513,13 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
   const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, getOrderFields(order))
 
   await apiCall('chat.postMessage', {
-    channel: OFFICES[order.country].ordersChannel,
+    channel: c.ordersChannel,
     as_user: true,
     attachments: [{
       ...orderAttachment,
       callback_id: `O${dbId}`,
       actions: [
+        ...(OFFICE_CHANNELS[order.office] ? {name: 'forward-to-channel', text: `Forward to ${order.office}`, type: 'button', value: dbId, style: 'primary'} : null),
         {name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'},
         {name: 'ordered', text: 'Ordered Again', type: 'button', value: dbId, style: 'default'},
         {name: 'notify-user', text: 'Notify user', type: 'button', value: dbId, style: 'default'},
