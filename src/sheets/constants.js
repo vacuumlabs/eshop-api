@@ -11,14 +11,14 @@ export const sheets = {
     id: 0,
     name: 'Electronics',
     rowOffset: 2,
-    fieldsRow: 2,
+    fieldsRow: 1,
     idRange: 'Electronics!A3:A',
   },
   settings: {
     id: 1276502073,
     name: 'Settings',
-    jiraIdRange: 'Settings!D2:D',
-    slackIdRange: 'Settings!I2:I',
+    jiraIdRange: 'Settings!F2:F',
+    slackIdRange: 'Settings!K2:K',
   },
 }
 
