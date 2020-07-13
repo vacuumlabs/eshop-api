@@ -17,8 +17,8 @@ export const sheets = {
   settings: {
     id: 1276502073,
     name: 'Settings',
-    jiraIdRange: 'Settings!D2:D',
-    slackIdRange: 'Settings!I2:I',
+    jiraIdRange: 'Settings!F2:F',
+    slackIdRange: 'Settings!K2:K',
   },
 }
 
