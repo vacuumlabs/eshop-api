@@ -519,7 +519,7 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
       ...orderAttachment,
       callback_id: `O${dbId}`,
       actions: [
-        ...(OFFICE_CHANNELS[order.office] ? {name: 'forward-to-channel', text: `Forward to ${order.office}`, type: 'button', value: dbId, style: 'primary'} : null),
+        ...(OFFICE_CHANNELS[order.office] ? [{name: 'forward-to-channel', text: `Forward to ${order.office}`, type: 'button', value: dbId, style: 'primary'}] : []),
         {name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'},
         {name: 'ordered', text: 'Ordered Again', type: 'button', value: dbId, style: 'default'},
         {name: 'notify-user', text: 'Notify user', type: 'button', value: dbId, style: 'default'},
