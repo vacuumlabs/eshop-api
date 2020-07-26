@@ -14,34 +14,40 @@ const logger = winston.createLogger({
 export default logger
 
 export function logError(e, msg, userId, data) {
-  makeApiCall('chat.postMessage', {
+  return makeApiCall('chat.postMessage', {
     channel: c.supportChannel,
-    blocks: [
+    attachments: [
       {
-        type: 'section',
-        text: {
-          type: 'plain_text',
-          text: `<@channel> <@${userId}>: ${msg}`,
-        },
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'plain_text',
-          text: JSON.stringify(data, null, 2),
-        },
-      },
-      {
-        type: 'context',
-        elements: [
+        pretext: `@${userId}: ${msg}`,
+        text: JSON.stringify(data, null, 2),
+        fields: [
           {
-            type: 'plain_text',
-            text: `${e.message} at ${e.stack}`,
+            title: 'Error',
+            value: e.message,
+            short: false,
+          },
+          {
+            title: 'Stack',
+            value: e.stack,
+            short: false,
           },
         ],
       },
     ],
   })
+    .then((data) => {
+      try {
+        const resp = JSON.parse(data)
+
+        if (resp.error) {
+          logger.error('logError', resp.error)
+        }
+      } catch (err) {
+        logger.error('logError', err)
+      }
+    }).catch((err) => {
+      logger.error('logError', err)
+    })
 }
 
 export function logOrder(order) {

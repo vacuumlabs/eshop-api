@@ -67,10 +67,14 @@ const knex = _knex(c.knex)
 
 let state = {}
 
-export async function apiCall(name, data = {}) {
+export async function apiCall(name, data = {}, passError = false) {
   logger.log('verbose', `call slack.api.${name}`, data)
   const response = JSON.parse(await makeApiCall(name, data))
   logger.log('verbose', `response slack.api.${name}`, {args: data, response})
+
+  if (!passError && response.error) {
+    throw new Error(`slack.api.${name}: ${response.error}`)
+  }
 
   return response
 }
@@ -198,13 +202,15 @@ async function listen(stream) {
     if (event.type === 'action') {
       if (event.callback_id.startsWith('O')) {
         await handleOrderAction(event)
-          .catch((e) => {
-            logError(e, 'Admin action error', event.user.id, {
-              action: event.actions[0].name,
-              orderId: event.actions[0].value,
-            })
-            showError(event.channel.id, null, 'Something went wrong.')
-          })
+          .catch((e) =>
+            Promise.all([
+              logError(e, 'Admin action error', event.user.id, {
+                action: event.actions[0].name,
+                orderId: event.actions[0].value,
+              }),
+              showError(event.channel.id, null, 'Something went wrong.')
+            ])
+          )
         continue
       }
 
@@ -217,8 +223,8 @@ async function listen(stream) {
   }
 }
 
-async function showError(channel, ts, msg) {
-  await apiCall(ts ? 'chat.update' : 'chat.postMessage', {
+function showError(channel, ts, msg) {
+  return apiCall(ts ? 'chat.update' : 'chat.postMessage', {
     channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: [],
   })
 }
@@ -263,12 +269,12 @@ async function listenUser(stream, user) {
             break
           }
         } catch (err) {
-          logError(err, 'User action error', event.user.id, {
+          await logError(err, 'User action error', event.user.id, {
             action: event.actions[0].name,
             value: event.actions[0].value,
             order: logOrder(order),
           })
-          showError(order.orderConfirmation.channel, 'Something went wrong, please try again.')
+          await showError(order.orderConfirmation.channel, 'Something went wrong, please try again.')
         }
       }
 
@@ -277,11 +283,11 @@ async function listenUser(stream, user) {
           order = setId(order, nextUUID())
           order = await updateOrder(order, event, user)
         } catch (err) {
-          logError(err, 'User order error', user.id, {
+          await logError(err, 'User order error', user.id, {
             msg: event.text,
             order: logOrder(order),
           })
-          showError(user, 'Something went wrong, please try again.')
+          await showError(user, 'Something went wrong, please try again.')
         }
       }
     }
@@ -294,7 +300,7 @@ export async function getOrderAndItemsFromDb(orderId) {
   return await knex.transaction(async (trx) => {
     const order = (
       await trx
-        .select('id', 'isCompany')
+        .select('id', 'isCompany', 'user', 'office')
         .from('order')
         .where('id', orderId)
     )[0]
@@ -337,7 +343,10 @@ async function handleOrderAction(event) {
       }],
     })
 
-    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, text: 'Order forwarded to office channel :incoming_envelope:'})
+    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, text: 'Order forwarded to office channel :incoming_envelope:', attachments: [{
+      ...attachment,
+      actions: null,
+    }]})
   } else if (actionName === 'add-to-cart') {
     await removeReaction('shopping_trolley', event.channel.id, msg.ts)
 
@@ -587,7 +596,7 @@ async function notifyUser(userId, message) {
 }
 
 async function addReaction(name, channel, timestamp) {
-  const {ok, error} = await apiCall('reactions.add', {name, channel, timestamp})
+  const {ok, error} = await apiCall('reactions.add', {name, channel, timestamp}, true)
 
   if (ok === false && error !== 'already_reacted') {
     logger.log('error', `Failed to add reaction '${name}'`)
@@ -598,7 +607,7 @@ async function addReaction(name, channel, timestamp) {
 }
 
 async function removeReaction(name, channel, timestamp) {
-  const {ok, error} = await apiCall('reactions.remove', {name, channel, timestamp})
+  const {ok, error} = await apiCall('reactions.remove', {name, channel, timestamp}, true)
 
   if (ok === false && error !== 'no_reaction') {
     logger.log('error', `Failed to remove reaction '${name}'`)
