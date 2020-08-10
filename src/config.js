@@ -52,6 +52,7 @@ export default transenv()(({str, bool, num}) => {
       email: str('google_sheets_email'),
       key: str('google_sheets_key'),
       spreadsheetId: str('google_sheets_spreadsheet_id'),
+      orderIdSuffix: str('google_sheets_order_id_suffix', ''),
     },
   }
 })

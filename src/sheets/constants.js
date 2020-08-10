@@ -19,6 +19,12 @@ export const sheets = {
     name: 'Settings',
     jiraIdRange: 'Settings!F2:F',
     slackIdRange: 'Settings!K2:K',
+    markedCell: {
+      startRowIndex: 1,
+      endRowIndex: 2,
+      startColumnIndex: 11,
+      endColumnIndex: 12,
+    },
   },
 }
 
