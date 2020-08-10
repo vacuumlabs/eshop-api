@@ -1,6 +1,7 @@
 import {getFieldIndexMap, batchGetValues, appendRows} from './sheets.js'
 import {formatAsHyperlink, formatDate, mapFieldsToRow} from './utils'
 import {sheets, NEW_ORDER_STATUS} from './constants'
+import c from '../config'
 
 export async function storeOrder(order, items) {
   const sheet = order.isCompany ? sheets.companyOrders : sheets.personalOrders
@@ -26,7 +27,7 @@ export async function storeOrder(order, items) {
         mapFieldsToRow(
           fieldIndexMap,
           itemToSheetData(
-            item.dbIds[i],
+            `${item.dbIds[i]}${c.google.orderIdSuffix}`,
             item,
             order,
             userJiraId,
@@ -37,7 +38,7 @@ export async function storeOrder(order, items) {
     }
   }
 
-  await appendRows(sheet.name, data)
+  return appendRows(sheet.name, data)
 }
 
 async function getUserJiraId(slackId, name) {
@@ -70,7 +71,6 @@ function mapPersonalOrderItemToSheetData(
   return {
     'UUID': dbId,
     'Name': formatAsHyperlink(item.url, item.name),
-    'Value': item.price,
     'Office': order.office,
     'Status': NEW_ORDER_STATUS,
     'User ID': userJiraId,
@@ -88,7 +88,6 @@ function mapCompanyOrderItemToSheetData(
   return {
     'UUID': dbId,
     'Name': formatAsHyperlink(item.url, item.name),
-    'Value': item.price,
     'Office': order.office,
     'Reason': order.reason,
     'Status': NEW_ORDER_STATUS,

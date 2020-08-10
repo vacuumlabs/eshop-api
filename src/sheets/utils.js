@@ -16,7 +16,7 @@ function sheetsEscapeString(str) {
 export function mapFieldsToRow(fieldIndexMap, data) {
   const totalCols = Math.max(...Object.values(fieldIndexMap))
 
-  const result = (new Array(totalCols - 1)).fill(null)
+  const result = (new Array(totalCols - 1)).fill(undefined)
 
   Object.entries(data).forEach(([field, value]) => {
     if (!fieldIndexMap[field]) {

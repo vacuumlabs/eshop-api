@@ -9,19 +9,23 @@ import logger, {logError, logOrder} from './logger'
 import {storeOrder as storeOrderToSheets} from './sheets/storeOrder'
 import {addSubsidy as addSubsidyToSheets} from './sheets/addSubsidy'
 import {updateStatus as updateStatusInSheets} from './sheets/updateStatus'
+import {NEW_ORDER_STATUS} from './sheets/constants'
 
 const OFFICES = {
   sk: {
     name: 'Slovakia',
     options: ['Bratislava', 'Košice', 'Prešov'],
+    currency: 'EUR',
   },
   cz: {
     name: 'Czech republic',
     options: ['Praha', 'Brno'],
+    currency: 'CZK',
   },
   hu: {
     name: 'Hungary',
     options: ['Budapest'],
+    currency: 'HUF',
   },
 }
 
@@ -201,16 +205,15 @@ async function listen(stream) {
 
     if (event.type === 'action') {
       if (event.callback_id.startsWith('O')) {
-        await handleOrderAction(event)
-          .catch((e) =>
-            Promise.all([
-              logError(e, 'Admin action error', event.user.id, {
-                action: event.actions[0].name,
-                orderId: event.actions[0].value,
-              }),
-              showError(event.channel.id, null, 'Something went wrong.')
-            ])
-          )
+        await handleOrderAction(event).catch((e) => {
+          logError(e, 'Admin action error', event.user.id, {
+            action: event.actions[0].name,
+            value: event.actions[0].value,
+            orderId: event.callback_id.substring(1),
+          })
+          showError(event.channel.id, null, 'Something went wrong.')
+        })
+
         continue
       }
 
@@ -256,39 +259,39 @@ async function listenUser(stream, user) {
       const event = await stream.take()
 
       if (event.type === 'action') {
-        try {
-          const finished = await finishOrder(
-            stream,
-            order,
-            event.actions[0].name,
-            event.actions[0].value,
-            event.user,
-          )
-
-          if (finished) {
-            break
-          }
-        } catch (err) {
-          await logError(err, 'User action error', event.user.id, {
+        const finished = await finishOrder(
+          stream,
+          order,
+          event.actions[0].name,
+          event.actions[0].value,
+          event.user,
+        ).catch((err) => {
+          logError(err, 'User action error', event.user.id, {
             action: event.actions[0].name,
             value: event.actions[0].value,
             order: logOrder(order),
           })
-          await showError(order.orderConfirmation.channel, 'Something went wrong, please try again.')
+          showError(order.orderConfirmation.channel, event.original_message.ts, 'Something went wrong, please try again.')
+
+          return true
+        })
+
+        if (finished) {
+          break
         }
       }
 
       if (event.type === 'message') {
-        try {
-          order = setId(order, nextUUID())
-          order = await updateOrder(order, event, user)
-        } catch (err) {
+        order = setId(order, nextUUID())
+        order = await updateOrder(order, event, user).catch(async (err) => {
           await logError(err, 'User order error', user.id, {
             msg: event.text,
             order: logOrder(order),
           })
-          await showError(user, 'Something went wrong, please try again.')
-        }
+          await showError(user, event.original_message.ts, 'Something went wrong, please try again.')
+
+          return order
+        })
       }
     }
 
@@ -314,98 +317,201 @@ export async function getOrderAndItemsFromDb(orderId) {
   })
 }
 
+function createOrderFromDb(orderData, itemsData) {
+  const country = Object.keys(OFFICES).find((off) => OFFICES[off] && OFFICES[off].options.includes(orderData.office)) || 'sk'
+
+  const items = new Map()
+
+  itemsData.forEach((item) => {
+    if (!items.has(item.url)) {
+      items.set(item.url, {
+        id: item.url,
+        name: item.url,
+        description: '',
+        price: item.price,
+        currency: OFFICES[country].currency,
+        withoutLogin: true,
+        count: 1,
+        url: item.url,
+      })
+    } else {
+      items.get(item.url).count += 1
+    }
+  })
+
+  return {
+    id: orderData.id,
+    items,
+    totalPrice: itemsData.reduce((acc, item) => acc + item.price, 0),
+    country,
+    office: orderData.office,
+    orderConfirmation: null,
+  }
+}
+
+function getAdminActions(orderId, primaryBtn, msgButtons) {
+  const buttons = (msgButtons || [
+    {name: 'add-to-cart', text: 'Add to Cart'},
+    {name: 'ordered', text: 'Notification - ordered'},
+    {name: 'delivered', text: 'Notification - delivered'},
+    {name: 'subsidy', text: 'Mark as Subsidy'},
+    {name: 'close', text: 'Close Order', type: 'button'},
+  ]).map((btn) => ({
+    ...btn,
+    type: 'button',
+    value: orderId,
+    style: primaryBtn === btn.name ? 'primary' : 'default',
+  }))
+
+  return [
+    {
+      text: 'Status',
+      actions: [{
+        type: 'select',
+        name: 'status',
+        text: 'Set status...',
+        options: ['requested', 'ordered', 'canceled', 'delivered', 'lost', 'sold', 'used', 'gift'].map((status) => ({
+          text: status,
+          value: status,
+        })),
+      }],
+      callback_id: `O${orderId}`,
+    },
+    {
+      text: '*Actions*',
+      actions: buttons,
+      callback_id: `O${orderId}`,
+    },
+  ]
+}
+
 async function handleOrderAction(event) {
   const actionName = event.actions[0].name
-  const orderId = event.actions[0].value
+  const orderId = event.callback_id.substring(1)
   const msg = event.original_message
-  const attachment = msg.attachments[0]
-  const allButtons = attachment.actions.filter((action) => action.name !== 'forward-to-channel')
-  const otherButtons = allButtons.slice(3)
+  const attachments = msg.attachments.length === 1
+    ? {...msg.attachments, actions: []} // legacy format
+    : msg.attachments.filter((att) => !att.actions)
+  const buttonsAtt = msg.attachments.find((att) => att.actions && att.actions[0].type === 'button')
+  const msgButtons = buttonsAtt && buttonsAtt.actions
 
   const {order, items} = await getOrderAndItemsFromDb(orderId)
 
-  if (actionName === 'subsidy') {
-    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
-      ...attachment,
-      actions: allButtons.filter((action) => action.name !== 'subsidy'),
-    }]})
-
-    await addSubsidyToSheets(order, items)
-
-    await addReaction('money_with_wings', event.channel.id, msg.ts)
-  } else if (actionName === 'forward-to-channel') {
+  if (actionName === 'forward-to-channel') { // Forward to office channel
     await apiCall('chat.postMessage', {
       channel: OFFICE_CHANNELS[order.office],
       as_user: true,
-      attachments: [{
-        ...attachment,
-        actions: attachment.actions.slice(1),
-      }],
+      attachments: [
+        ...attachments,
+        ...getAdminActions(orderId, 'add-to-cart'),
+      ],
     })
 
-    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, text: 'Order forwarded to office channel :incoming_envelope:', attachments: [{
-      ...attachment,
-      actions: null,
-    }]})
-  } else if (actionName === 'add-to-cart') {
-    await removeReaction('shopping_trolley', event.channel.id, msg.ts)
+    await apiCall('chat.delete', {channel: event.channel.id, ts: msg.ts})
+  } else if (actionName === 'decline') { // Notify user - decline
+    await removeReaction('no_entry_sign', event.channel.id, msg.ts)
 
-    await apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
-      ...attachment,
-      actions: [
-        {name: 'ordered', text: 'Ordered', type: 'button', value: orderId, style: 'primary'},
-        {name: 'add-to-cart', text: 'Add to Cart Again', type: 'button', value: orderId, style: 'default'},
-        {name: 'notify-user', text: 'Notify user', type: 'button', value: orderId, style: 'default'},
-        ...otherButtons,
-      ],
-    }]})
+    await sendUserInfo(event, 'There was an issue with your order. Somebody from backoffice will contact you about it soon.', createOrderFromDb(order, items))
+
+    await addReaction('no_entry_sign', event.channel.id, msg.ts)
+  } else if (actionName === 'discard') { // Discard order
+    await removeReaction('x', event.channel.id, msg.ts)
+
+    await updateStatusInSheets(order, items, 'discarded')
+      .then(() => apiCall('chat.delete', {channel: event.channel.id, ts: msg.ts}))
+      .catch((err) => {
+        logger.log('error', 'Failed to update sheet', err)
+        addReaction('x', event.channel.id, msg.ts)
+      })
+  } else if (actionName === 'add-to-cart') { // Add items to cart
+    await removeReaction('shopping_trolley', event.channel.id, msg.ts)
 
     await addToCartAll(items)
 
+    await apiCall('chat.update', {
+      channel: event.channel.id,
+      ts: msg.ts,
+      attachments: [
+        ...attachments,
+        ...getAdminActions(orderId, 'ordered', msgButtons),
+      ],
+    })
+
     await addReaction('shopping_trolley', event.channel.id, msg.ts)
-  } else if (actionName === 'ordered') {
-    await Promise.all([
-      removeReaction('x', event.channel.id, msg.ts),
-      removeReaction('page_with_curl', event.channel.id, msg.ts),
-    ])
+  } else if (actionName === 'ordered') { // Notify user - ordered
+    await removeReaction('page_with_curl', event.channel.id, msg.ts)
 
-    await sendUserInfo(event, 'Your order was sent to Alza :alza: You will be notified when it arrives')
+    await sendUserInfo(event, 'Your items were ordered. You will be notified when they arrive.', createOrderFromDb(order, items))
 
-    await updateStatusInSheets(order, items, 'ordered')
-      .catch((err) => {
-        logger.log('error', 'Failed to update sheet', err)
-        addReaction('x', event.channel.id, msg.ts)
-      })
-      .then(() => apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
-        ...attachment,
-        actions: [
-          {name: 'notify-user', text: 'Delivered', type: 'button', value: orderId, style: 'primary'},
-          {name: 'ordered', text: 'Ordered Again', type: 'button', value: orderId, style: 'default'},
-          {name: 'add-to-cart', text: 'Add to Cart Again', type: 'button', value: orderId, style: 'default'},
-          ...otherButtons,
-        ],
-      }]}))
-      .then(() => addReaction('page_with_curl', event.channel.id, msg.ts))
-  } else if (actionName === 'notify-user') {
+    await apiCall('chat.update', {
+      channel: event.channel.id,
+      ts: msg.ts,
+      attachments: [
+        ...attachments,
+        ...getAdminActions(orderId, 'delivered', msgButtons),
+      ],
+    })
+
+    await addReaction('page_with_curl', event.channel.id, msg.ts)
+  } else if (actionName === 'delivered') { // Notify user - delivered
     await removeReaction('inbox_tray', event.channel.id, msg.ts)
 
-    await sendUserInfo(event, 'Your order has arrived :truck: Come pick it up during office hours')
+    await sendUserInfo(event, 'Your order has arrived :truck: Come pick it up during office hours', createOrderFromDb(order, items))
 
-    await updateStatusInSheets(order, items, 'delivered')
+    await apiCall('chat.update', {
+      channel: event.channel.id,
+      ts: msg.ts,
+      attachments: [
+        ...attachments,
+        ...getAdminActions(orderId, 'subsidy', msgButtons),
+      ],
+    })
+
+    await addReaction('inbox_tray', event.channel.id, msg.ts)
+  } else if (actionName === 'subsidy') { // Mark subsidy
+    await removeReaction('money_with_wings', event.channel.id, msg.ts)
+
+    await addSubsidyToSheets(order, items)
+
+    await apiCall('chat.update', {
+      channel: event.channel.id,
+      ts: msg.ts,
+      attachments: [
+        ...attachments,
+        ...getAdminActions(orderId, 'close', msgButtons.filter((btn) => btn.name !== 'subsidy')),
+      ],
+    })
+
+    await addReaction('money_with_wings', event.channel.id, msg.ts)
+  } else if (actionName === 'close') { // Close order
+    await apiCall('chat.update', {
+      channel: event.channel.id,
+      ts: msg.ts,
+      attachments,
+    })
+
+    await addReaction('checkered_flag', event.channel.id, msg.ts)
+  } else if (actionName === 'status') { // Set order status
+    const status = event.actions[0].selected_options[0].value
+
+    await removeReaction('x', event.channel.id, msg.ts)
+
+    await updateStatusInSheets(order, items, status)
+      .then(() => apiCall('chat.update', {
+        channel: event.channel.id,
+        ts: msg.ts,
+        attachments: [
+          ...attachments.slice(0, -1),
+          {
+            text: `*Status*\n${status}`,
+          },
+          ...msg.attachments.filter((att) => Boolean(att.actions)),
+        ],
+      }))
       .catch((err) => {
         logger.log('error', 'Failed to update sheet', err)
         addReaction('x', event.channel.id, msg.ts)
       })
-      .then(() => apiCall('chat.update', {channel: event.channel.id, ts: msg.ts, attachments: [{
-        ...attachment,
-        actions: [
-          {name: 'notify-user', text: 'Delivered Again', type: 'button', value: orderId, style: 'default'},
-          {name: 'ordered', text: 'Ordered Again', type: 'button', value: orderId, style: 'default'},
-          {name: 'add-to-cart', text: 'Add to Cart Again', type: 'button', value: orderId, style: 'default'},
-          ...otherButtons,
-        ],
-      }]}))
-      .then(() => addReaction('inbox_tray', event.channel.id, msg.ts))
   }
 }
 
@@ -471,10 +577,9 @@ async function finishOrder(stream, order, action, actionValue, user) {
       fields: getOrderFields(order),
     })
     await apiCall('chat.postMessage', {
-      channel: user.id, as_user: true, text:
-        order.totalPrice < c.approvalTreshold
-          ? ':question: Why do you need these items?'
-          : ':question: This order is pretty high, who approved it?\n:question: Why do you need it?',
+      channel: user.id,
+      as_user: true,
+      text: ':question: Why do you need these items?',
     })
 
     const event = await stream.take()
@@ -519,30 +624,30 @@ async function finishOrder(stream, order, action, actionValue, user) {
 async function notifyOfficeManager(order, dbId, user, isCompany) {
   const orderTypeText = isCompany ? ':office: Company' : ':woman: Personal'
 
-  const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, getOrderFields(order))
+  const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, getOrderFields(order, true))
 
   await apiCall('chat.postMessage', {
     channel: c.ordersChannel,
     as_user: true,
-    attachments: [{
-      ...orderAttachment,
-      callback_id: `O${dbId}`,
-      actions: [
-        ...(OFFICE_CHANNELS[order.office] ? [{name: 'forward-to-channel', text: `Forward to ${order.office}`, type: 'button', value: dbId, style: 'primary'}] : []),
-        {name: 'add-to-cart', text: 'Add to Cart', type: 'button', value: dbId, style: 'primary'},
-        {name: 'ordered', text: 'Ordered Again', type: 'button', value: dbId, style: 'default'},
-        {name: 'notify-user', text: 'Notify user', type: 'button', value: dbId, style: 'default'},
-        {name: 'subsidy', text: 'SUBSIDY', type: 'button', value: dbId, style: 'danger'},
-      ],
-    }],
+    attachments: [
+      orderAttachment,
+      {
+        text: `*Status*\n${NEW_ORDER_STATUS}`,
+      },
+      {
+        text: '*Actions*',
+        callback_id: `O${dbId}`,
+        actions: [
+          ...(OFFICE_CHANNELS[order.office] ? [{name: 'forward-to-channel', text: `Forward to ${order.office}`, type: 'button', value: dbId, style: 'primary'}] : []),
+          {name: 'decline', text: 'Decline', type: 'button', value: dbId, style: 'default'},
+          {name: 'discard', text: 'Discard', type: 'button', value: dbId, style: 'danger'},
+        ],
+      },
+    ],
   })
-  // await apiCall('chat.postMessage', {
-  //   channel: c.ordersChannel,
-  //   attachments: [orderAttachment],
-  // })
 }
 
-async function sendUserInfo(event, text) {
+async function sendUserInfo(event, text, order) {
   const msg = event.original_message
   const attachment = msg.attachments[0]
 
@@ -560,7 +665,7 @@ async function sendUserInfo(event, text) {
   }
 
   const notifyOk = await notifyUser(userId, {
-    attachments: [orderToAttachment(text, attachment.fields.slice(0, 3))],
+    attachments: [orderToAttachment(text, getOrderFields(order))],
   })
 
   if (!notifyOk) {
@@ -647,14 +752,10 @@ async function updateOrder(order, event, user) {
     order.country = info.country
   }
 
-  const orderItems = Array.from(order.items.values())
-
   const orderAttachment = {
     ...orderToAttachment(
       [
         info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
-        orderItems.some((item) => item.withoutLogin) && ':warning: Prices might be inaccurate',
-        orderItems.some((item) => !item.price || isNaN(item.price)) && ':warning: Data of some products could not be retrieved, but you can continue with the order',
         'Please confirm your order:',
       ].filter(Boolean).join('\n'),
       [
@@ -692,20 +793,27 @@ function formatPrice(price, currency) {
   return price && !isNaN(price) ? format(price, currency) : '???'
 }
 
-function itemsField(items) {
+function itemsField(items, showPrice) {
   const itemLines = [...items.values()].map((item) => {
+    const itemDescription = `<${item.url}|${item.count} x ${item.name}>`
+
+    if (!showPrice) {
+      return itemDescription
+    }
+
     const itemPrice = formatPrice(item.price, c.currency).padStart(10)
     const itemPriceOrig = item.currency === c.currency ? '' : formatPrice(item.priceOrig, item.currency)
-    return `\`${itemPrice}\` ${itemPriceOrig ? ` (${itemPriceOrig})` : ''} <${item.url}|${item.count} x ${item.name}>`
+
+    return `\`${itemPrice}\` ${itemPriceOrig ? ` (${itemPriceOrig})` : ''} ${itemDescription}`
   })
 
   return {title: 'Items', value: itemLines.join('\n'), short: false}
 }
 
-function getOrderFields(order) {
+function getOrderFields(order, adminMsg = false) {
   return [
-    itemsField(order.items),
-    {title: 'Total value', value: formatPrice(order.totalPrice, c.currency)},
+    itemsField(order.items, adminMsg),
+    adminMsg && {title: 'Total value', value: formatPrice(order.totalPrice, c.currency)},
     order.office && {title: 'Office', value: order.office},
     order.reason && {title: 'Reason', value: order.reason},
   ]
@@ -768,7 +876,6 @@ async function orderInfo(items, country) {
         }
       }
     })().catch((e) => {
-      console.log(e)
       errors.push({
         url: item.url,
         err: e,
@@ -779,7 +886,7 @@ async function orderInfo(items, country) {
 }
 
 async function storeOrder(order, items) {
-  const id = await knex.transaction((trx) => (async function() {
+  const id = await knex.transaction(async (trx) => {
     order.id = (
       await trx.insert({...order, user: order.user.id}, 'id').into('order')
     )[0]
@@ -788,20 +895,20 @@ async function storeOrder(order, items) {
       item.dbIds = []
 
       for (let i = 0; i < item.count; i++) {
-        item.dbIds.push(
-          (await trx.insert({
-            order: order.id,
-            shopId: item.id,
-            count: 1,
-            url: item.url,
-            price: item.price,
-          }, 'id').into('orderItem'))[0],
-        )
+        const itemId = (await trx.insert({
+          order: order.id,
+          shopId: item.id,
+          count: 1,
+          url: item.url,
+          price: item.price,
+        }, 'id').into('orderItem'))[0]
+
+        item.dbIds.push(itemId)
       }
     }
 
     return order.id
-  })())
+  })
 
   await storeOrderToSheets(order, Array.from(items.values()))
 

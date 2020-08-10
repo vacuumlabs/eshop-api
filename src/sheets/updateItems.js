@@ -1,6 +1,7 @@
 import {getFieldIndexMap, getValues, batchUpdateValues} from './sheets.js'
 import {getColumn} from './utils'
 import {sheets} from './constants'
+import c from '../config'
 
 export async function updateItems(
   isCompanyItem,
@@ -27,11 +28,13 @@ export async function updateItems(
   })
 
   const data = items.reduce((result, item) => {
-    if (itemIdsFromSheet[item.id]) {
+    const sheetItemId = `${item.id}${c.google.orderIdSuffix}`
+
+    if (!idToRowsMap[sheetItemId]) {
       throw new Error('Item not found in sheet')
     }
 
-    const rowIndexes = idToRowsMap[item.id]
+    const rowIndexes = idToRowsMap[sheetItemId]
 
     const itemData = getItemData(item)
 
