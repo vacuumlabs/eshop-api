@@ -55,6 +55,7 @@ export function appendRows(sheetName, values) {
   return tryCall(() => sheetsApi.spreadsheets.values.append({
     spreadsheetId: c.google.spreadsheetId,
     range: `${sheetName}!A1:A1`,
+    insertDataOption: 'INSERT_ROWS',
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values,
