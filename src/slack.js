@@ -67,6 +67,20 @@ const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
   return acc
 }, {})
 
+const ORDER_URGENT_ACTIONS = [
+  {name: 'urgent', text: 'It\'s urgent, I will pay for delivery', type: 'button', value: 'urgent-yes'},
+  {name: 'urgent', text: 'It\'s not urgent, I can wait', type: 'button', value: 'urgent-no'},
+  CANCEL_ORDER_ACTION,
+]
+
+const NOTE_NO_ACTION = {name: 'note', text: 'Continue without note', type: 'button', value: 'note-no'}
+
+const ORDER_NOTE_ACTIONS = [
+  {name: 'note', text: 'Add note', type: 'button', value: 'note-yes'},
+  NOTE_NO_ACTION,
+  CANCEL_ORDER_ACTION,
+]
+
 const knex = _knex(c.knex)
 
 let state = {}
@@ -240,6 +254,8 @@ async function listenUser(stream, user) {
     country: null,
     office: null,
     orderConfirmation: null,
+    isCompany: null,
+    isUrgent: null,
   })
 
   function setId(order, newId) {
@@ -560,7 +576,61 @@ async function finishOrder(stream, order, action, actionValue, user) {
   }
 
   if (action === 'personal') {
-    const dbId = await storeOrder({user, ts, isCompany: false, office: order.office}, order.items)
+    order.isCompany = false
+    await updateMessage({
+      actions: ORDER_URGENT_ACTIONS,
+      fields: [...getOrderFields(order), {title: 'How urgent is your order?'}],
+    })
+
+    return false
+  }
+
+  if (action === 'urgent') {
+    order.isUrgent = actionValue === 'urgent-yes'
+    await updateMessage({
+      actions: ORDER_NOTE_ACTIONS,
+      fields: [...getOrderFields(order), {title: 'Do you want to add a note to the order?'}],
+    })
+
+    return false
+  }
+
+  if (action === 'note') {
+    let completeNewMsg = false
+
+    if (actionValue === 'note-yes') {
+      completeNewMsg = true
+
+      await updateMessage({
+        actions: [NOTE_NO_ACTION],
+        fields: getOrderFields(order),
+      })
+
+      await apiCall('chat.postMessage', {
+        channel: user.id,
+        as_user: true,
+        text: ':pencil: Send your comment in a message',
+      })
+
+      const event = await stream.take()
+
+      if (event.type === 'message') {
+        order.reason = event.text
+        completeNewMsg = true
+      } // anything else is considered as note cancelation
+    }
+
+    const dbId = await storeOrder(
+      {
+        user,
+        ts,
+        isCompany: false,
+        office: order.office,
+        reason: order.reason,
+        isUrgent: order.isUrgent,
+      },
+      order.items,
+    )
     await notifyOfficeManager(order, dbId, user.id, false)
     await updateMessage({
       pretext: ':woman: Personal order finished:',
@@ -568,10 +638,16 @@ async function finishOrder(stream, order, action, actionValue, user) {
       actions: [],
       fields: getOrderFields(order),
     })
+    if (completeNewMsg) {
+      await apiCall('chat.postMessage', {
+        channel: user.id, as_user: true, text: ':woman: Personal order finished :point_up:',
+      })
+    }
     return true
   }
 
   if (action === 'company') {
+    order.isCompany = true
     await updateMessage({
       actions: [CANCEL_ORDER_ACTION],
       fields: getOrderFields(order),
@@ -598,10 +674,10 @@ async function finishOrder(stream, order, action, actionValue, user) {
       )
       await notifyOfficeManager(order, dbId, user.id, true)
       await updateMessage({
-        fields: [getOrderFields(order), {title: 'Reason', value: event.text, short: false}],
         pretext: ':office: Company order finished:',
         color: 'good',
         actions: [],
+        fields: getOrderFields(order),
       })
       await apiCall('chat.postMessage', {
         channel: user.id, as_user: true, text: ':office: Company order finished :point_up:',
@@ -815,7 +891,8 @@ function getOrderFields(order, adminMsg = false) {
     itemsField(order.items, adminMsg),
     adminMsg && {title: 'Total value', value: formatPrice(order.totalPrice, c.currency)},
     order.office && {title: 'Office', value: order.office},
-    order.reason && {title: 'Reason', value: order.reason},
+    order.reason && {title: order.isCompany ? 'Reason' : 'Note', value: order.reason, short: false},
+    order.isUrgent !== null && {title: 'Urgent', value: order.isUrgent ? 'Yes' : 'No'},
   ]
 }
 

@@ -72,6 +72,8 @@ function mapPersonalOrderItemToSheetData(
     'UUID': dbId,
     'Name': formatAsHyperlink(item.url, item.name),
     'Office': order.office,
+    'Reason': order.reason,
+    'Urgent': Boolean(order.isUrgent),
     'Status': NEW_ORDER_STATUS,
     'User ID': userJiraId,
     'ts': formatDate(date),
