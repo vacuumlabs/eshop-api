@@ -319,7 +319,7 @@ export async function getOrderAndItemsFromDb(orderId) {
   return await knex.transaction(async (trx) => {
     const order = (
       await trx
-        .select('id', 'isCompany', 'user', 'office')
+        .select('id', 'isCompany', 'user', 'office', 'isUrgent')
         .from('order')
         .where('id', orderId)
     )[0]
