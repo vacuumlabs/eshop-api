@@ -29,6 +29,14 @@ const OFFICES = {
   },
 }
 
+const HOME_VALUE = 'Remote'
+
+const HOME_TO_OFFICE = {
+  sk: 'Bratislava',
+  cz: 'Brno',
+  hu: 'Budapest',
+}
+
 const OFFICE_CHANNELS = {
   Bratislava: c.ordersChannelSkBa,
   Košice: c.ordersChannelSkKe,
@@ -61,6 +69,12 @@ const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
       type: 'button',
       value: office,
     })),
+    {
+      name: 'office',
+      text: 'Home',
+      type: 'button',
+      value: HOME_VALUE,
+    },
     CANCEL_ORDER_ACTION,
   ]
 
@@ -256,6 +270,7 @@ async function listenUser(stream, user) {
     orderConfirmation: null,
     isCompany: null,
     isUrgent: null,
+    isHome: false,
   })
 
   function setId(order, newId) {
@@ -319,7 +334,7 @@ export async function getOrderAndItemsFromDb(orderId) {
   return await knex.transaction(async (trx) => {
     const order = (
       await trx
-        .select('id', 'isCompany', 'user', 'office', 'isUrgent')
+        .select('id', 'isCompany', 'user', 'office', 'isUrgent', 'isHome')
         .from('order')
         .where('id', orderId)
     )[0]
@@ -401,6 +416,41 @@ function getAdminActions(orderId, primaryBtn, msgButtons) {
   ]
 }
 
+async function changeStatus({
+  order,
+  items,
+  status,
+  channelId,
+  msgTs,
+  textAttachments,
+  actionsAttachments,
+  statusIcon,
+}) {
+  if (statusIcon) {
+    await removeReaction(statusIcon, channelId, msgTs)
+  }
+
+  await removeReaction('x', channelId, msgTs)
+
+  await updateStatusInSheets(order, items, status)
+    .then(() => apiCall('chat.update', {
+      channel: channelId,
+      ts: msgTs,
+      attachments: [
+        ...textAttachments.map((att) => att.text && att.text.startsWith('*Status*') ? {...att, text: `*Status*\n${status}`} : att),
+        ...actionsAttachments,
+      ],
+    }))
+    .catch((err) => {
+      logger.log('error', 'Failed to update sheet', err)
+      addReaction('x', channelId, msgTs)
+    })
+
+  if (statusIcon) {
+    await addReaction(statusIcon, channelId, msgTs)
+  }
+}
+
 async function handleOrderAction(event) {
   const actionName = event.actions[0].name
   const orderId = event.callback_id.substring(1)
@@ -455,35 +505,31 @@ async function handleOrderAction(event) {
 
     await addReaction('shopping_trolley', event.channel.id, msg.ts)
   } else if (actionName === 'ordered') { // Notify user - ordered
-    await removeReaction('page_with_curl', event.channel.id, msg.ts)
-
     await sendUserInfo(event, 'Your items were ordered. You will be notified when they arrive.', createOrderFromDb(order, items))
 
-    await apiCall('chat.update', {
-      channel: event.channel.id,
-      ts: msg.ts,
-      attachments: [
-        ...attachments,
-        ...getAdminActions(orderId, 'delivered', msgButtons),
-      ],
+    await changeStatus({
+      order,
+      items,
+      status: 'ordered',
+      channelId: event.channel.id,
+      msgTs: msg.ts,
+      textAttachments: attachments,
+      actionsAttachments: getAdminActions(orderId, 'delivered', msgButtons),
+      statusIcon: 'page_with_curl',
     })
-
-    await addReaction('page_with_curl', event.channel.id, msg.ts)
   } else if (actionName === 'delivered') { // Notify user - delivered
-    await removeReaction('inbox_tray', event.channel.id, msg.ts)
-
     await sendUserInfo(event, 'Your order has arrived :truck: Come pick it up during office hours', createOrderFromDb(order, items))
 
-    await apiCall('chat.update', {
-      channel: event.channel.id,
-      ts: msg.ts,
-      attachments: [
-        ...attachments,
-        ...getAdminActions(orderId, 'subsidy', msgButtons),
-      ],
+    await changeStatus({
+      order,
+      items,
+      status: 'ordered',
+      channelId: event.channel.id,
+      msgTs: msg.ts,
+      textAttachments: attachments,
+      actionsAttachments: getAdminActions(orderId, 'subsidy', msgButtons),
+      statusIcon: 'inbox_tray',
     })
-
-    await addReaction('inbox_tray', event.channel.id, msg.ts)
   } else if (actionName === 'subsidy') { // Mark subsidy
     await removeReaction('money_with_wings', event.channel.id, msg.ts)
 
@@ -510,24 +556,15 @@ async function handleOrderAction(event) {
   } else if (actionName === 'status') { // Set order status
     const status = event.actions[0].selected_options[0].value
 
-    await removeReaction('x', event.channel.id, msg.ts)
-
-    await updateStatusInSheets(order, items, status)
-      .then(() => apiCall('chat.update', {
-        channel: event.channel.id,
-        ts: msg.ts,
-        attachments: [
-          ...attachments.slice(0, -1),
-          {
-            text: `*Status*\n${status}`,
-          },
-          ...msg.attachments.filter((att) => Boolean(att.actions)),
-        ],
-      }))
-      .catch((err) => {
-        logger.log('error', 'Failed to update sheet', err)
-        addReaction('x', event.channel.id, msg.ts)
-      })
+    await changeStatus({
+      order,
+      items,
+      status,
+      channelId: event.channel.id,
+      msgTs: msg.ts,
+      textAttachments: attachments,
+      actionsAttachments: msg.attachments.filter((att) => Boolean(att.actions)),
+    })
   }
 }
 
@@ -539,12 +576,77 @@ async function finishOrder(stream, order, action, actionValue, user) {
     })
   }
 
+  async function submitOrder(commentMsg, forceComment) {
+    let completeNewMsg = false
+
+    if (commentMsg) {
+      completeNewMsg = true
+
+      await updateMessage({
+        actions: [forceComment ? null : NOTE_NO_ACTION, CANCEL_ORDER_ACTION].filter(Boolean),
+        fields: getOrderFields(order),
+      })
+
+      await apiCall('chat.postMessage', {
+        channel: user.id,
+        as_user: true,
+        text: `${commentMsg}${order.isHome ? ' Don\'t forget to tell us your address!' : ''}`,
+      })
+
+      const event = await stream.take()
+
+      if (event.type === 'message') {
+        order.reason = event.text
+        completeNewMsg = true
+      } else if (event.type === 'action' && event.actions[0].name === 'cancel') {
+        await cancelOrder()
+        await apiCall('chat.postMessage', {
+          channel: user.id,
+          as_user: true,
+          text: ':no_entry_sign: Canceling :point_up:',
+        })
+        return
+      }
+    }
+
+    const dbId = await storeOrder(
+      {
+        user,
+        ts,
+        isCompany: order.isCompany,
+        office: order.office,
+        reason: order.reason,
+        isUrgent: order.isUrgent,
+      },
+      order.items,
+    )
+    await notifyOfficeManager(order, dbId, user.id, order.isCompany)
+    await updateMessage({
+      pretext: order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:',
+      color: 'good',
+      actions: [],
+      fields: getOrderFields(order),
+    })
+    if (completeNewMsg) {
+      await apiCall('chat.postMessage', {
+        channel: user.id,
+        as_user: true,
+        text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
+      })
+    }
+  }
+
   async function cancelOrder() {
     await updateMessage({
       pretext: ':no_entry_sign: Order canceled:',
       color: 'danger',
       actions: [],
     })
+  }
+
+  if (action === 'cancel') {
+    await cancelOrder()
+    return true
   }
 
   if (action === 'country') {
@@ -561,18 +663,14 @@ async function finishOrder(stream, order, action, actionValue, user) {
   }
 
   if (action === 'office') {
-    order.office = actionValue
+    order.isHome = actionValue === HOME_VALUE
+    order.office = order.isHome ? HOME_TO_OFFICE[order.country] : actionValue
     await updateMessage({
       actions: ORDER_TYPE_ACTIONS,
       fields: getOrderFields(order),
     })
 
     return false
-  }
-
-  if (action === 'cancel') {
-    await cancelOrder()
-    return true
   }
 
   if (action === 'personal') {
@@ -587,110 +685,28 @@ async function finishOrder(stream, order, action, actionValue, user) {
 
   if (action === 'urgent') {
     order.isUrgent = actionValue === 'urgent-yes'
+
+    if (order.isHome) {
+      await submitOrder(':pencil: Add comment.', true)
+      return true
+    }
+
     await updateMessage({
       actions: ORDER_NOTE_ACTIONS,
-      fields: [...getOrderFields(order), {title: 'Do you want to add a note to the order?'}],
+      fields: [...getOrderFields(order), {title: ':pencil: Do you want to add a note to the order?'}],
     })
-
     return false
   }
 
   if (action === 'note') {
-    let completeNewMsg = false
-
-    if (actionValue === 'note-yes') {
-      completeNewMsg = true
-
-      await updateMessage({
-        actions: [NOTE_NO_ACTION],
-        fields: getOrderFields(order),
-      })
-
-      await apiCall('chat.postMessage', {
-        channel: user.id,
-        as_user: true,
-        text: ':pencil: Send your comment in a message',
-      })
-
-      const event = await stream.take()
-
-      if (event.type === 'message') {
-        order.reason = event.text
-        completeNewMsg = true
-      } // anything else is considered as note cancelation
-    }
-
-    const dbId = await storeOrder(
-      {
-        user,
-        ts,
-        isCompany: false,
-        office: order.office,
-        reason: order.reason,
-        isUrgent: order.isUrgent,
-      },
-      order.items,
-    )
-    await notifyOfficeManager(order, dbId, user.id, false)
-    await updateMessage({
-      pretext: ':woman: Personal order finished:',
-      color: 'good',
-      actions: [],
-      fields: getOrderFields(order),
-    })
-    if (completeNewMsg) {
-      await apiCall('chat.postMessage', {
-        channel: user.id, as_user: true, text: ':woman: Personal order finished :point_up:',
-      })
-    }
+    await submitOrder(actionValue === 'note-yes' ? ':pencil: Send your comment in a message.' : null)
     return true
   }
 
   if (action === 'company') {
     order.isCompany = true
-    await updateMessage({
-      actions: [CANCEL_ORDER_ACTION],
-      fields: getOrderFields(order),
-    })
-    await apiCall('chat.postMessage', {
-      channel: user.id,
-      as_user: true,
-      text: ':question: Why do you need these items?',
-    })
 
-    const event = await stream.take()
-
-    if (event.type === 'message') {
-      order.reason = event.text
-      const dbId = await storeOrder(
-        {
-          user,
-          ts,
-          isCompany: true,
-          reason: order.reason,
-          office: order.office,
-        },
-        order.items,
-      )
-      await notifyOfficeManager(order, dbId, user.id, true)
-      await updateMessage({
-        pretext: ':office: Company order finished:',
-        color: 'good',
-        actions: [],
-        fields: getOrderFields(order),
-      })
-      await apiCall('chat.postMessage', {
-        channel: user.id, as_user: true, text: ':office: Company order finished :point_up:',
-      })
-    }
-
-    if (event.type === 'action') {
-      await cancelOrder()
-      await apiCall('chat.postMessage', {
-        channel: user.id, as_user: true, text: ':no_entry_sign: Canceling :point_up:',
-      })
-    }
-
+    await submitOrder(':question: Why do you need these items?', true)
     return true
   }
 
@@ -890,7 +906,7 @@ function getOrderFields(order, adminMsg = false) {
   return [
     itemsField(order.items, adminMsg),
     adminMsg && {title: 'Total value', value: formatPrice(order.totalPrice, c.currency)},
-    order.office && {title: 'Office', value: order.office},
+    order.office && {title: 'Office', value: `${order.office}${order.isHome ? ' (home delivery)' : ''}`},
     order.reason && {title: order.isCompany ? 'Reason' : 'Note', value: order.reason, short: false},
     order.isUrgent !== null && {title: 'Urgent', value: order.isUrgent ? 'Yes' : 'No'},
   ]

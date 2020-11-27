@@ -13,7 +13,7 @@ exports.up = async (knex) => {
     table.integer('order').references('order.id')
     table.string('shopId').notNullable()
     table.integer('count').notNullable()
-    table.string('url').notNullable()
+    table.string('url', 1000).notNullable()
     table.decimal('price')
   })
 }
