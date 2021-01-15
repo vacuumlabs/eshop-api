@@ -16,6 +16,7 @@ export default transenv()(({str, bool, num}) => {
     ordersChannelCzPr: str('orders_channel_cz_pr', ''),
     ordersChannelCzBr: str('orders_channel_cz_br', ''),
     ordersChannelHuBu: str('orders_channel_hu_bu', ''),
+    archiveChannel: str('archive_channel'),
     supportChannel: str('support_channel'),
     alza: {
       credentials: {
@@ -44,7 +45,7 @@ export default transenv()(({str, bool, num}) => {
       },
     },
     slack: {
-      apiToken: str('slack_api_token'),
+      adminToken: str('slack_admin_token'),
       botToken: str('slack_bot_token'),
     },
     currency: str('currency', 'EUR'),

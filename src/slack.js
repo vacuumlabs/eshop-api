@@ -1,6 +1,7 @@
 import c from './config'
 import _knex from 'knex'
 import {createChannel} from 'yacol'
+import moment from 'moment-timezone'
 import {makeApiCall} from './slackApi'
 import {getInfo, addToCartAll, getLangByLink} from './alza'
 import {format} from './currency'
@@ -99,9 +100,14 @@ const knex = _knex(c.knex)
 
 let state = {}
 
-export async function apiCall(name, data = {}, passError = false) {
+export async function apiCall(name, data = {}, {
+  passError = false,
+  asAdmin = false,
+} = {}) {
   logger.log('verbose', `call slack.api.${name}`, data)
-  const response = JSON.parse(await makeApiCall(name, data))
+  const response = JSON.parse(
+    await makeApiCall(name, data, asAdmin ? c.slack.adminToken : c.slack.botToken),
+  )
   logger.log('verbose', `response slack.api.${name}`, {args: data, response})
 
   if (!passError && response.error) {
@@ -113,12 +119,77 @@ export async function apiCall(name, data = {}, passError = false) {
 
 // eslint-disable-next-line require-await
 export async function init(token, stream) {
+  const {user_id: botUserId} = await apiCall('auth.test')
+
   state = {
+    botUserId,
     token,
     streams: {},
     pendingActions: {},
     actionsCount: 0,
   }
+
+  const channels = [
+    c.ordersChannel,
+    c.ordersChannelSkBa,
+    c.ordersChannelSkKe,
+    c.ordersChannelSkPr,
+    c.ordersChannelCzPr,
+    c.ordersChannelCzBr,
+    c.ordersChannelHuBu,
+  ]
+
+  let index = 0
+
+  for (const channel of channels) {
+    let latest
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const {messages, has_more: hasMore} = await apiCall('conversations.history', {channel, latest}, {asAdmin: true})
+
+      for (const {user, attachments, ts} of messages) {
+        latest = ts
+
+        if (!attachments || user !== botUserId) continue
+
+        const archiveAtt = attachments.find((att) => att.text === 'Archive')
+
+        if (archiveAtt) continue
+
+        const actionsAtt = attachments.find((att) => att.actions)
+
+        const orderId = actionsAtt && actionsAtt.callback_id.substring(1)
+
+        await apiCall('chat.update', {channel, ts, attachments: [
+          ...attachments,
+          {
+            text: 'Archive',
+            actions: [
+              {
+                type: 'button',
+                name: 'archive',
+                text: orderId ? 'Archive' : 'Archive permanently',
+                value: orderId || '-',
+                style: 'default',
+              },
+            ],
+            callback_id: `O${orderId || '-'}`,
+          },
+        ]})
+
+        index++
+
+        if (index % 50 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 60))
+        }
+      }
+
+      if (!hasMore || !messages || messages.length === 0) break
+    }
+  }
+
+  console.log('Upgrade complete')
 
   listen(stream)
   maintainConnection(token, stream)
@@ -380,6 +451,24 @@ function createOrderFromDb(orderData, itemsData) {
   }
 }
 
+function getArchiveActions(orderId, toArchive) {
+  return [
+    {
+      text: 'Archive',
+      actions: [
+        {
+          type: 'button',
+          name: toArchive ? 'unarchive' : 'archive',
+          text: toArchive ? 'Unarchive' : 'Archive',
+          value: orderId,
+          style: 'default',
+        },
+      ],
+      callback_id: `O${orderId}`,
+    },
+  ]
+}
+
 function getAdminActions(orderId, primaryBtn, msgButtons) {
   const buttons = (msgButtons || [
     {name: 'add-to-cart', text: 'Add to Cart'},
@@ -413,6 +502,7 @@ function getAdminActions(orderId, primaryBtn, msgButtons) {
       actions: buttons,
       callback_id: `O${orderId}`,
     },
+    ...getArchiveActions(orderId, false),
   ]
 }
 
@@ -451,6 +541,87 @@ async function changeStatus({
   }
 }
 
+async function getComments(ts, channel) {
+  async function fetchComments(cursor) {
+    const {messages, response_metadata: {next_cursor: nextCursor} = {}} = await apiCall('conversations.replies', {channel, ts, cursor}, {asAdmin: true})
+
+    return nextCursor ? [...messages, ...await fetchComments(nextCursor)] : messages
+  }
+
+  const [mainMsg, ...comments] = await fetchComments()
+
+  return {mainMsg, comments}
+}
+
+async function getUsers(cursor) {
+  const {members, response_metadata: {next_cursor: nextCursor} = {}} = await apiCall('users.list', {cursor})
+
+  const membersMap = members.reduce((acc, {id, name}) => {
+    acc[id] = name
+    return acc
+  }, {})
+
+  return nextCursor ? {...membersMap, ...getUsers(nextCursor)} : membersMap
+}
+
+function msgTsToDate(ts) {
+  const [seconds] = ts.split('.')
+
+  return new Date(parseInt(seconds, 10) * 1000)
+}
+
+function getTS(date = new Date()) {
+  return moment(date).tz('Europe/Bratislava').format('YYYY-MM-DD HH:mm')
+}
+
+async function moveOrder(ts, fromChannel, toChannel, data) {
+  const {message: {ts: newTs}} = await apiCall('chat.postMessage', {
+    channel: toChannel,
+    as_user: true,
+    ...data,
+  })
+
+  const [{mainMsg, comments}, usersMap] = await Promise.all([
+    getComments(ts, fromChannel),
+    getUsers(),
+  ])
+
+  if (mainMsg.reactions) {
+    for (const {name: reaction} of mainMsg.reactions) {
+      await addReaction(reaction, toChannel, newTs)
+    }
+  }
+
+  for (const {user, text, ts: commentTs, reactions = [], files} of comments) {
+    const mainText = !user || user === state.botUserId ? (text || ' ') : `<@${user}> ${getTS(msgTsToDate(commentTs))}:\n\n${text}`
+    const filesText = files && files.map((file) => `${file.title}: ${file.permalink}`).join('\n')
+
+    const fullText = `${mainText}${filesText ? `\n\n${filesText}` : ''}`
+
+    const finalText = fullText.replace(
+      /<@([A-Z0-9]+)>/g,
+      (match, userId) =>
+        usersMap[userId]
+          ? `<https://vacuumlabs.slack.com/team/${userId}|${usersMap[userId]}>`
+          : `<@${userId}>`,
+    )
+
+    const {message: {ts: newCommentTs}} = await apiCall('chat.postMessage', {
+      channel: toChannel,
+      thread_ts: newTs,
+      text: finalText,
+    })
+
+    for (const {name: reaction} of reactions) {
+      await addReaction(reaction, toChannel, newCommentTs)
+    }
+
+    await apiCall('chat.delete', {channel: fromChannel, ts: commentTs}, {asAdmin: true})
+  }
+
+  await apiCall('chat.delete', {channel: fromChannel, ts}, {asAdmin: true})
+}
+
 async function handleOrderAction(event) {
   const actionName = event.actions[0].name
   const orderId = event.callback_id.substring(1)
@@ -458,22 +629,22 @@ async function handleOrderAction(event) {
   const attachments = msg.attachments.length === 1
     ? {...msg.attachments, actions: []} // legacy format
     : msg.attachments.filter((att) => !att.actions)
-  const buttonsAtt = msg.attachments.find((att) => att.actions && att.actions[0].type === 'button')
+  const buttonsAtt = msg.attachments.find((att) => att.actions && att.actions[0].type === 'button' && att.text !== 'Archive')
   const msgButtons = buttonsAtt && buttonsAtt.actions
 
-  const {order, items} = await getOrderAndItemsFromDb(orderId)
+  if (orderId === '-' && actionName !== 'archive') {
+    throw new Error(`Invalid order ID for action ${actionName}`)
+  }
+
+  const {order, items} = orderId === '-' ? {} : await getOrderAndItemsFromDb(orderId)
 
   if (actionName === 'forward-to-channel') { // Forward to office channel
-    await apiCall('chat.postMessage', {
-      channel: OFFICE_CHANNELS[order.office],
-      as_user: true,
+    await moveOrder(msg.ts, event.channel.id, OFFICE_CHANNELS[order.office], {
       attachments: [
         ...attachments,
         ...getAdminActions(orderId, 'add-to-cart'),
       ],
     })
-
-    await apiCall('chat.delete', {channel: event.channel.id, ts: msg.ts})
   } else if (actionName === 'decline') { // Notify user - decline
     await removeReaction('no_entry_sign', event.channel.id, msg.ts)
 
@@ -489,6 +660,29 @@ async function handleOrderAction(event) {
         logger.log('error', 'Failed to update sheet', err)
         addReaction('x', event.channel.id, msg.ts)
       })
+
+    await apiCall('chat.update', {
+      channel: event.channel.id,
+      ts: msg.ts,
+      attachments: [
+        ...attachments,
+        ...getArchiveActions(orderId, false),
+      ],
+    })
+  } else if (actionName === 'archive') { // Move to archive
+    await moveOrder(msg.ts, event.channel.id, c.archiveChannel, {
+      attachments: [
+        ...attachments,
+        ...(orderId === '-' ? [] : getArchiveActions(orderId, true)),
+      ],
+    })
+  } else if (actionName === 'unarchive') { // Move from archive
+    await moveOrder(msg.ts, event.channel.id, OFFICE_CHANNELS[order.office], {
+      attachments: [
+        ...attachments,
+        ...getAdminActions(orderId, 'add-to-cart'),
+      ],
+    })
   } else if (actionName === 'add-to-cart') { // Add items to cart
     await removeReaction('shopping_trolley', event.channel.id, msg.ts)
 
@@ -549,7 +743,10 @@ async function handleOrderAction(event) {
     await apiCall('chat.update', {
       channel: event.channel.id,
       ts: msg.ts,
-      attachments,
+      attachments: [
+        ...attachments,
+        ...getArchiveActions(orderId, false),
+      ],
     })
 
     await addReaction('checkered_flag', event.channel.id, msg.ts)
@@ -793,7 +990,7 @@ async function notifyUser(userId, message) {
 }
 
 async function addReaction(name, channel, timestamp) {
-  const {ok, error} = await apiCall('reactions.add', {name, channel, timestamp}, true)
+  const {ok, error} = await apiCall('reactions.add', {name, channel, timestamp}, {passError: true})
 
   if (ok === false && error !== 'already_reacted') {
     logger.log('error', `Failed to add reaction '${name}'`)
@@ -804,7 +1001,7 @@ async function addReaction(name, channel, timestamp) {
 }
 
 async function removeReaction(name, channel, timestamp) {
-  const {ok, error} = await apiCall('reactions.remove', {name, channel, timestamp}, true)
+  const {ok, error} = await apiCall('reactions.remove', {name, channel, timestamp}, {passError: true})
 
   if (ok === false && error !== 'no_reaction') {
     logger.log('error', `Failed to remove reaction '${name}'`)
