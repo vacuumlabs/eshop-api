@@ -55,12 +55,15 @@ const ORDER_TYPE_ACTIONS = [
   CANCEL_ORDER_ACTION,
 ]
 
-const ORDER_COUNTRY_ACTIONS = Object.keys(OFFICES).map((country) => ({
-  name: 'country',
-  text: OFFICES[country].name,
-  type: 'button',
-  value: country,
-}))
+const ORDER_COUNTRY_ACTIONS = [
+  ...Object.keys(OFFICES).map((country) => ({
+    name: 'country',
+    text: OFFICES[country].name,
+    type: 'button',
+    value: country,
+  })),
+  CANCEL_ORDER_ACTION,
+]
 
 const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
   acc[country] = [
@@ -1138,6 +1141,10 @@ async function orderInfo(items, country) {
   for (const item of items) {
     // eslint-disable-next-line no-loop-func
     await (async function() {
+      if (item.url.length > 255) {
+        throw new Error('URL cannot be longer than 255 characters. Try to remove unnecessary parameters')
+      }
+
       const itemCountry = getLangByLink(item.url)
 
       if (itemCountry && !orderCountry) {
