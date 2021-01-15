@@ -129,67 +129,67 @@ export async function init(token, stream) {
     actionsCount: 0,
   }
 
-  const channels = [
-    c.ordersChannel,
-    c.ordersChannelSkBa,
-    c.ordersChannelSkKe,
-    c.ordersChannelSkPr,
-    c.ordersChannelCzPr,
-    c.ordersChannelCzBr,
-    c.ordersChannelHuBu,
-  ]
+  // const channels = [
+  //   c.ordersChannel,
+  //   c.ordersChannelSkBa,
+  //   c.ordersChannelSkKe,
+  //   c.ordersChannelSkPr,
+  //   c.ordersChannelCzPr,
+  //   c.ordersChannelCzBr,
+  //   c.ordersChannelHuBu,
+  // ]
 
-  let index = 0
+  // let index = 0
 
-  for (const channel of channels) {
-    let latest
+  // for (const channel of channels) {
+  //   let latest
 
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const {messages, has_more: hasMore} = await apiCall('conversations.history', {channel, latest}, {asAdmin: true})
+  //   // eslint-disable-next-line no-constant-condition
+  //   while (true) {
+  //     const {messages, has_more: hasMore} = await apiCall('conversations.history', {channel, latest}, {asAdmin: true})
 
-      for (const {user, attachments, ts} of messages) {
-        latest = ts
+  //     for (const {user, attachments, ts} of messages) {
+  //       latest = ts
 
-        if (!attachments || user !== botUserId) continue
+  //       if (!attachments || user !== botUserId) continue
 
-        const archiveAtt = attachments.find((att) => att.text === 'Archive')
+  //       const archiveAtt = attachments.find((att) => att.text === 'Archive')
 
-        if (archiveAtt) continue
+  //       if (archiveAtt) continue
 
-        const actionsAtt = attachments.find((att) => att.actions)
+  //       const actionsAtt = attachments.find((att) => att.actions)
 
-        const orderId = actionsAtt && actionsAtt.callback_id.substring(1)
+  //       const orderId = actionsAtt && actionsAtt.callback_id.substring(1)
 
-        await apiCall('chat.update', {channel, ts, attachments: [
-          ...attachments,
-          {
-            text: 'Archive',
-            actions: [
-              {
-                type: 'button',
-                name: 'archive',
-                text: orderId ? 'Archive' : 'Archive permanently',
-                value: orderId || '-',
-                style: 'default',
-              },
-            ],
-            callback_id: `O${orderId || '-'}`,
-          },
-        ]})
+  //       await apiCall('chat.update', {channel, ts, attachments: [
+  //         ...attachments,
+  //         {
+  //           text: 'Archive',
+  //           actions: [
+  //             {
+  //               type: 'button',
+  //               name: 'archive',
+  //               text: orderId ? 'Archive' : 'Archive permanently',
+  //               value: orderId || '-',
+  //               style: 'default',
+  //             },
+  //           ],
+  //           callback_id: `O${orderId || '-'}`,
+  //         },
+  //       ]})
 
-        index++
+  //       index++
 
-        if (index % 50 === 0) {
-          await new Promise((resolve) => setTimeout(resolve, 60))
-        }
-      }
+  //       if (index % 50 === 0) {
+  //         await new Promise((resolve) => setTimeout(resolve, 60))
+  //       }
+  //     }
 
-      if (!hasMore || !messages || messages.length === 0) break
-    }
-  }
+  //     if (!hasMore || !messages || messages.length === 0) break
+  //   }
+  // }
 
-  console.log('Upgrade complete')
+  // console.log('Upgrade complete')
 
   listen(stream)
   maintainConnection(token, stream)
