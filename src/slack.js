@@ -1068,7 +1068,7 @@ async function updateOrder(order, event, user) {
     await apiCall('chat.postMessage', {
       channel: user,
       as_user: true,
-      text: `:exclamation: I can't find these items:\n${errors.map((e) => e.url).join('\n')}`,
+      text: `:exclamation: I can't find these items:\n${errors.map((e) => `${e.url}${e.err.customMsg ? ` - ${e.err.customMsg}` : ''}`).join('\n')}`,
     })
   }
 
@@ -1142,7 +1142,9 @@ async function orderInfo(items, country) {
     // eslint-disable-next-line no-loop-func
     await (async function() {
       if (item.url.length > 255) {
-        throw new Error('URL cannot be longer than 255 characters. Try to remove unnecessary parameters')
+        const err = new Error('URL too long')
+        err.customMsg = 'URL cannot be longer than 255 characters. Try to remove unnecessary parameters'
+        throw err
       }
 
       const itemCountry = getLangByLink(item.url)
