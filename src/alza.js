@@ -40,6 +40,7 @@ class Alza {
   makeRequest(opts) {
     return new Promise((resolve, reject) => {
       this.request({
+        timeout: 5000,
         ...opts,
         headers: {
           'User-Agent': userAgentPool[Math.floor(Math.random() * userAgentPool.length)],
