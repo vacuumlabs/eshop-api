@@ -478,7 +478,6 @@ function getAdminActions(orderId, primaryBtn, msgButtons) {
     {name: 'ordered', text: 'Notification - ordered'},
     {name: 'delivered', text: 'Notification - delivered'},
     {name: 'subsidy', text: 'Mark as Subsidy'},
-    {name: 'close', text: 'Close Order', type: 'button'},
   ]).map((btn) => ({
     ...btn,
     type: 'button',
