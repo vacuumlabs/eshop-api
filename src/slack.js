@@ -1039,8 +1039,27 @@ async function updateOrder(order, event, user) {
   }
 
   order.totalPrice += info.totalPrice
+
   if (order.items.size > 0) {
     order.country = info.country
+  }
+
+  if (errors.length > 0) {
+    errors.forEach((e) => {
+      logger.error('Failed to fetch item info', e.url, e.err.message)
+    })
+
+    await apiCall('chat.postMessage', {
+      channel: user,
+      as_user: true,
+      text: `:exclamation: I can't find these items:\n${errors.map((e) => `${e.url}${e.err.customMsg ? ` - ${e.err.customMsg}` : ''}`).join('\n')}`,
+    })
+  }
+
+  const totalCount = Array.from(order.items.entries()).reduce((acc, entry) => acc + entry[1], 0)
+
+  if (totalCount === 0) {
+    return {...order, orderConfirmation: null}
   }
 
   const orderAttachment = {
@@ -1057,18 +1076,6 @@ async function updateOrder(order, event, user) {
     ),
     callback_id: order.id,
     actions: getOrderActions(order),
-  }
-
-  if (errors.length > 0) {
-    errors.forEach((e) => {
-      logger.error('Failed to fetch item info', e.url, e.err.message)
-    })
-
-    await apiCall('chat.postMessage', {
-      channel: user,
-      as_user: true,
-      text: `:exclamation: I can't find these items:\n${errors.map((e) => `${e.url}${e.err.customMsg ? ` - ${e.err.customMsg}` : ''}`).join('\n')}`,
-    })
   }
 
   const orderConfirmation = await apiCall('chat.postMessage', {
