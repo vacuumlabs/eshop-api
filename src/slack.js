@@ -662,15 +662,6 @@ async function handleOrderAction(event) {
         logger.log('error', 'Failed to update sheet', err)
         addReaction('x', event.channel.id, msg.ts)
       })
-
-    await apiCall('chat.update', {
-      channel: event.channel.id,
-      ts: msg.ts,
-      attachments: [
-        ...attachments,
-        ...getArchiveActions(orderId, false),
-      ],
-    })
   } else if (actionName === 'archive') { // Move to archive
     await moveOrder(msg.ts, event.channel.id, c.archiveChannel, {
       attachments: [
