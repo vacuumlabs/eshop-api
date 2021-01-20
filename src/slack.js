@@ -1082,7 +1082,7 @@ function formatPrice(price, currency) {
   return price && !isNaN(price) ? format(price, currency) : '???'
 }
 
-function itemsField(items, showPrice) {
+function itemsField(items, showPrice, order) {
   const itemLines = [...items.values()].map((item) => {
     const itemDescription = `<${item.url}|${item.count} x ${item.name}>`
 
@@ -1096,12 +1096,22 @@ function itemsField(items, showPrice) {
     return `\`${itemPrice}\` ${itemPriceOrig ? ` (${itemPriceOrig})` : ''} ${itemDescription}`
   })
 
+  const value = itemLines.join('\n')
+
+  if (value.length < 5) {
+    logError(new Error('Empty items'), 'Empty items', '-', {
+      order: logOrder(order),
+      value,
+      adminMsg: showPrice,
+    })
+  }
+
   return {title: 'Items', value: itemLines.join('\n'), short: false}
 }
 
 function getOrderFields(order, adminMsg = false) {
   return [
-    itemsField(order.items, adminMsg),
+    itemsField(order.items, adminMsg, order),
     adminMsg && {title: 'Total value', value: formatPrice(order.totalPrice, c.currency)},
     order.office && {title: 'Office', value: `${order.office}${order.isHome ? ' (home delivery)' : ''}`},
     order.reason && {title: order.isCompany ? 'Reason' : 'Note', value: order.reason, short: false},
