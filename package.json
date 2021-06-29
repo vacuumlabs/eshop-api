@@ -41,7 +41,7 @@
     "request-promise": "^4.2.4",
     "transenv": "^1.0.3",
     "winston": "^3.2.1",
-    "ws": "^7.1.2",
+    "ws": "^7.4.6",
     "yacol": "^0.8.0"
   },
   "resolutions": {
