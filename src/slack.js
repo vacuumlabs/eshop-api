@@ -1182,11 +1182,23 @@ async function orderInfo(items, country) {
         }
       }
     })().catch((e) => {
-      console.log('ERROR', e)
-      errors.push({
+      logger.error('Failed to fetch item info', {url: item.url, err: e.message})
+
+      info.push({
+        id: item.url,
+        name: item.url,
+        description: '',
+        price: 0,
+        currency: 'EUR',
+        withoutLogin: true,
+        count: item.count,
         url: item.url,
-        err: e,
       })
+
+      // errors.push({
+      //  url: item.url,
+      //  err: e,
+      // })
     })
   }
   return [{items: info, totalPrice, country: orderCountry, wrongCountry}, errors]
