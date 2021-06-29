@@ -1182,6 +1182,7 @@ async function orderInfo(items, country) {
         }
       }
     })().catch((e) => {
+      console.log('ERROR', e)
       errors.push({
         url: item.url,
         err: e,
