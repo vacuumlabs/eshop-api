@@ -705,7 +705,7 @@ async function handleOrderAction(event) {
       statusIcon: 'page_with_curl',
     })
   } else if (actionName === 'delivered') { // Notify user - delivered
-    await sendUserInfo(event, 'Your order has arrived :truck: Come pick it up during office hours', createOrderFromDb(order, items))
+    await sendUserInfo(event, 'Your order has arrived :truck: Come pick it up during office hours. If it was a personal order, please bring the money in CASH.', createOrderFromDb(order, items))
 
     await changeStatus({
       order,
