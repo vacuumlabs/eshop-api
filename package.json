@@ -33,7 +33,7 @@
     "cheerio": "^1.0.0-rc.3",
     "express": "^4.17.1",
     "googleapis": "^47.0.0",
-    "knex": "^0.19.5",
+    "knex": "^0.95.10",
     "moment": "^2.29.1",
     "moment-timezone": "^0.5.32",
     "pg": "^7.12.1",
