@@ -37,10 +37,6 @@ export default transenv()(({str, bool, num}) => {
     knex: {
       client: 'pg',
       connection: `${str('DATABASE_URL')}`,
-      // config as of: https://devcenter.heroku.com/articles/heroku-postgresql#connecting-in-node-js
-      ssl: {
-        rejectUnauthorized: false,
-      },
       searchPath: str('db_schema'),
       schema: str('db_schema'),
       debug: isDevelopment,
