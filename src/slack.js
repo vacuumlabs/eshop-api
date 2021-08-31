@@ -11,6 +11,7 @@ import {storeOrder as storeOrderToSheets} from './sheets/storeOrder'
 import {addSubsidy as addSubsidyToSheets} from './sheets/addSubsidy'
 import {updateStatus as updateStatusInSheets} from './sheets/updateStatus'
 import {NEW_ORDER_STATUS} from './sheets/constants'
+import {MESSAGES} from './slack/constants'
 
 const OFFICES = {
   sk: {
@@ -238,8 +239,11 @@ function nextUUID() {
 }
 
 function amIMentioned(event) {
+  // ignore messages from the bot
   if (event.user === state.bot.id) return false
+  // user is writing the bot (D-irect message)
   if (event.channel[0] === 'D') return true
+  // the bot is mentioned
   if (event.text.match(`<@${state.bot.id}>`)) return true
   return false
 }
@@ -296,6 +300,7 @@ async function listen(stream) {
     }
 
     if (isMessage(event) && event.channel === c.newsChannel) {
+      // TODO: require confirmation before sending a company-wide message
       await announceToAll(event.text)
       continue
     }
@@ -780,7 +785,7 @@ async function finishOrder(stream, order, action, actionValue, user) {
       await apiCall('chat.postMessage', {
         channel: user.id,
         as_user: true,
-        text: `${commentMsg}${order.isHome ? ' Don\'t forget to tell us your address!' : ''}`,
+        text: commentMsg,
       })
 
       const event = await stream.take()
@@ -852,6 +857,7 @@ async function finishOrder(stream, order, action, actionValue, user) {
     return false
   }
 
+  // office/home
   if (action === 'office') {
     order.isHome = actionValue === HOME_VALUE
     order.office = order.isHome ? HOME_TO_OFFICE[order.country] : actionValue
@@ -863,6 +869,7 @@ async function finishOrder(stream, order, action, actionValue, user) {
     return false
   }
 
+  // ?-personal
   if (action === 'personal') {
     order.isCompany = false
     await updateMessage({
@@ -873,14 +880,17 @@ async function finishOrder(stream, order, action, actionValue, user) {
     return false
   }
 
+  // ?-personal-urgent
   if (action === 'urgent') {
     order.isUrgent = actionValue === 'urgent-yes'
 
+    // home-personal-urgent
     if (order.isHome) {
-      await submitOrder(':pencil: Add comment.', true)
+      await submitOrder(MESSAGES.home.personal, true)
       return true
     }
 
+    // office-personal-urgent
     await updateMessage({
       actions: ORDER_NOTE_ACTIONS,
       fields: [...getOrderFields(order), {title: ':pencil: Do you want to add a note to the order?'}],
@@ -888,15 +898,17 @@ async function finishOrder(stream, order, action, actionValue, user) {
     return false
   }
 
+  // office-personal-?-note
   if (action === 'note') {
-    await submitOrder(actionValue === 'note-yes' ? ':pencil: Send your comment in a message.' : null)
+    await submitOrder(actionValue === 'note-yes' ? MESSAGES.office.personal.note : null)
     return true
   }
 
+  // ?-company
   if (action === 'company') {
     order.isCompany = true
 
-    await submitOrder(':question: Why do you need these items?', true)
+    await submitOrder(order.isHome ? MESSAGES.home.company : MESSAGES.office.company, true)
     return true
   }
 
