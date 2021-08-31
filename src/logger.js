@@ -14,6 +14,7 @@ const logger = winston.createLogger({
 export default logger
 
 export function logError(e, msg, userId, data) {
+  logger.error('logError', e, msg, userId, data)
   return makeApiCall('chat.postMessage', {
     channel: c.supportChannel,
     attachments: [
