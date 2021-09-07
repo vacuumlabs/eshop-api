@@ -91,8 +91,6 @@ These configuration values are not used but they still need to be present:
 
 Logging in to Alza account was disabled because they use captcha, so usernames and passwords are technically not used.
 
-- **approval_treshold** - not used, TODO: remove
-
 ## Production environment
 
 App is deployed to Heroku _https://dashboard.heroku.com/apps/vacuumlabs-alzabot_ . Every merge to `master` is automatically deployed to production.

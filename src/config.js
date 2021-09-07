@@ -7,7 +7,6 @@ export default transenv()(({str, bool, num}) => {
     env,
     logLevel: str('log_level', isDevelopment ? 'debug' : 'error'),
     port: str('PORT'),
-    approvalTreshold: num('approval_treshold'),
     newsChannel: str('news_channel'),
     ordersChannel: str('orders_channel'),
     ordersChannelSkBa: str('orders_channel_sk_ba', ''),
