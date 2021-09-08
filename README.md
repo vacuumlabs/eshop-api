@@ -39,8 +39,9 @@ App is configured via environment variables
 
 ### Slack app
 
-- **slack_admin_token** - [user OAuth token from](https://api.slack.com/apps/A5WH547TR/install-on-team?)
-- **slack_bot_token** - [bot OAuth token from](https://api.slack.com/apps/A5WH547TR/install-on-team?)
+- **slack_admin_token** - user OAuth token from [OAuth page](https://api.slack.com/apps/A5WH547TR/install-on-team?)
+  - this is the user that installed the app. he needs to be a part of the channels and have admin rights (to remove messages)
+- **slack_bot_token** - bot OAuth token from [OAuth page](https://api.slack.com/apps/A5WH547TR/install-on-team?)
 
 ### Channels
 
@@ -52,7 +53,7 @@ App is configured via environment variables
 - **orders_channel_cz_pr** *(optional)* - dedicated office Slack channel ID for Prague - Czech republic office
 - **orders_channel_cz_br** *(optional)* - dedicated office Slack channel ID for Brno - Czech republic office
 - **orders_channel_hu_bu** *(optional)* - dedicated office Slack channel ID for Budapest - Hungary office
-- **archive_channel** - achive Slack channel ID
+- **archive_channel** - archive Slack channel ID
 - **support_channel** - support Slack channel ID (debug information is sent here when something goes wrong)
 
 ### Database
