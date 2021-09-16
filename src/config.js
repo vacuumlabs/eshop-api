@@ -3,20 +3,17 @@ export default transenv()(({str, bool, num}) => {
   const env = str('NODE_ENV', 'development')
   const isDevelopment = env === 'development'
 
+  const vacuumlabs = JSON.parse(str('vacuumlabs'))
+  const test = JSON.parse(str('test'))
+  const wincent = JSON.parse(str('wincent'))
+
   return {
     env,
     logLevel: str('log_level', isDevelopment ? 'debug' : 'error'),
     port: str('PORT'),
-    newsChannel: str('news_channel'),
-    ordersChannel: str('orders_channel'),
-    ordersChannelSkBa: str('orders_channel_sk_ba', ''),
-    ordersChannelSkKe: str('orders_channel_sk_ke', ''),
-    ordersChannelSkPr: str('orders_channel_sk_pr', ''),
-    ordersChannelCzPr: str('orders_channel_cz_pr', ''),
-    ordersChannelCzBr: str('orders_channel_cz_br', ''),
-    ordersChannelHuBu: str('orders_channel_hu_bu', ''),
-    archiveChannel: str('archive_channel'),
-    supportChannel: str('support_channel'),
+    vacuumlabs,
+    test,
+    wincent,
     alza: {
       credentials: {
         sk: {
@@ -33,6 +30,12 @@ export default transenv()(({str, bool, num}) => {
         },
       },
     },
+    currency: str('currency', 'EUR'),
+    google: {
+      email: str('google_sheets_email'),
+      key: str('google_sheets_key'),
+      orderIdSuffix: str('google_sheets_order_id_suffix', ''),
+    },
     knex: {
       client: 'pg',
       connection: `${str('DATABASE_URL')}${isDevelopment ? '' : '?sslmode=no-verify'}`,
@@ -42,17 +45,6 @@ export default transenv()(({str, bool, num}) => {
       migrations: {
         directory: 'src/knex/migrations',
       },
-    },
-    slack: {
-      adminToken: str('slack_admin_token'),
-      botToken: str('slack_bot_token'),
-    },
-    currency: str('currency', 'EUR'),
-    google: {
-      email: str('google_sheets_email'),
-      key: str('google_sheets_key'),
-      spreadsheetId: str('google_sheets_spreadsheet_id'),
-      orderIdSuffix: str('google_sheets_order_id_suffix', ''),
     },
   }
 })

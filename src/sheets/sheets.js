@@ -19,7 +19,7 @@ export async function getValues(range) {
   return (
     (
       await tryCall(() => sheetsApi.spreadsheets.values.get({
-        spreadsheetId: c.google.spreadsheetId,
+        spreadsheetId: c.vacuumlabs.google.spreadsheetId,
         valueRenderOption: 'UNFORMATTED_VALUE',
         range,
       }))
@@ -43,7 +43,7 @@ export async function batchGetValues(ranges) {
   return (
     (
       await tryCall(() => sheetsApi.spreadsheets.values.batchGet({
-        spreadsheetId: c.google.spreadsheetId,
+        spreadsheetId: c.vacuumlabs.google.spreadsheetId,
         valueRenderOption: 'UNFORMATTED_VALUE',
         ranges,
       }))
@@ -53,7 +53,7 @@ export async function batchGetValues(ranges) {
 
 export function appendRows(sheetName, values) {
   return tryCall(() => sheetsApi.spreadsheets.values.append({
-    spreadsheetId: c.google.spreadsheetId,
+    spreadsheetId: c.vacuumlabs.google.spreadsheetId,
     range: `${sheetName}!A1:A1`,
     insertDataOption: 'INSERT_ROWS',
     valueInputOption: 'USER_ENTERED',
@@ -65,14 +65,14 @@ export function appendRows(sheetName, values) {
 
 export function batchUpdateValues(sheet, requests) {
   return tryCall(() => sheetsApi.spreadsheets.values.batchUpdate({
-    spreadsheetId: c.google.spreadsheetId,
+    spreadsheetId: c.vacuumlabs.google.spreadsheetId,
     requestBody: requests,
   }))
 }
 
 export function markCells(destinations) {
   return tryCall(() => sheetsApi.spreadsheets.batchUpdate({
-    spreadsheetId: c.google.spreadsheetId,
+    spreadsheetId: c.vacuumlabs.google.spreadsheetId,
     requestBody: {
       requests: destinations.map((destination) => ({
         copyPaste: {

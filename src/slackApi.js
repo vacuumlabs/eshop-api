@@ -6,7 +6,7 @@ const API = 'https://slack.com/api/'
 
 const request = _request.defaults({})
 
-export function makeApiCall(name, data = {}, token = c.slack.botToken) {
+export function makeApiCall(name, data = {}, token = c.vacuumlabs.slack.botToken) {
   for (const k in data) {
     if (typeof data[k] === 'object') data[k] = JSON.stringify(data[k])
   }

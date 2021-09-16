@@ -40,12 +40,12 @@ const HOME_TO_OFFICE = {
 }
 
 const OFFICE_CHANNELS = {
-  Bratislava: c.ordersChannelSkBa,
-  Košice: c.ordersChannelSkKe,
-  Prešov: c.ordersChannelSkPr,
-  Praha: c.ordersChannelCzPr,
-  Brno: c.ordersChannelCzBr,
-  Budapest: c.ordersChannelHuBu,
+  Bratislava: c.vacuumlabs.channels.cities.bratislava,
+  Košice: c.vacuumlabs.channels.cities.kosice,
+  Prešov: c.vacuumlabs.channels.cities.presov,
+  Praha: c.vacuumlabs.channels.cities.praha,
+  Brno: c.vacuumlabs.channels.cities.brno,
+  Budapest: c.vacuumlabs.channels.cities.budapest,
 }
 
 const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
@@ -110,7 +110,7 @@ export async function apiCall(name, data = {}, {
 } = {}) {
   logger.log('verbose', `call slack.api.${name}`, data)
   const response = JSON.parse(
-    await makeApiCall(name, data, asAdmin ? c.slack.adminToken : c.slack.botToken),
+    await makeApiCall(name, data, asAdmin ? c.vacuumlabs.slack.adminToken : c.vacuumlabs.slack.botToken),
   )
   logger.log('verbose', `response slack.api.${name}`, {args: data, response})
 
@@ -299,7 +299,7 @@ async function listen(stream) {
       continue
     }
 
-    if (isMessage(event) && event.channel === c.newsChannel) {
+    if (isMessage(event) && event.channel === c.vacuumlabs.channels.news) {
       // TODO: require confirmation before sending a company-wide message
       await announceToAll(event.text)
       continue
@@ -623,9 +623,11 @@ async function moveOrder(ts, fromChannel, toChannel, data) {
       await addReaction(reaction, toChannel, newCommentTs)
     }
 
+    // delete the comment
     await apiCall('chat.delete', {channel: fromChannel, ts: commentTs}, {asAdmin: true})
   }
 
+  // delete the chat message as it is already reposted to another channel
   await apiCall('chat.delete', {channel: fromChannel, ts}, {asAdmin: true})
 }
 
@@ -668,7 +670,7 @@ async function handleOrderAction(event) {
         addReaction('x', event.channel.id, msg.ts)
       })
   } else if (actionName === 'archive') { // Move to archive
-    await moveOrder(msg.ts, event.channel.id, c.archiveChannel, {
+    await moveOrder(msg.ts, event.channel.id, c.vacuumlabs.channels.archive, {
       attachments: [
         ...attachments,
         ...(orderId === '-' ? [] : getArchiveActions(orderId, true)),
@@ -921,7 +923,7 @@ async function notifyOfficeManager(order, dbId, user, isCompany) {
   const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, getOrderFields(order, true))
 
   await apiCall('chat.postMessage', {
-    channel: c.ordersChannel,
+    channel: c.vacuumlabs.channels.orders,
     as_user: true,
     attachments: [
       orderAttachment,
