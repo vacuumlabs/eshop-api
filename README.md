@@ -1,6 +1,6 @@
-# eshop-api aka AlzaBot
+# eshop-api a.k.a. AlzaBot
 
-Slack bot that takes order of electronics.
+Slack bot that takes orders of electronics.
 
 ## Description
 
@@ -31,64 +31,68 @@ Slack bot that takes order of electronics.
 
 ### Announce to all
 
-Messages posted to channel specified in **news_channel** config are resent by Alza Bot to every user in direct message.
+Send a message to the news channel (`channels.news` config) to have Alza bot send it as a direct message to every user in the workspace.
 
 ## Configuration
 
-App is configured via environment variables
+App is configured via environment variables. In `config.js`, the variables are read by `transenv` package and mapped to a runtime config object.
 
-### Slack app
+There are:
+- workspace-specific env vars
+  - currently, the app is hardcoded (WIP) for three workspaces - `vacuumlabs`, `wincent` and `test`
+  - the `vacuumlabs`, `wincent`, and `test` env vars accept a stringified object with all workspace-specific variables
+- global env vars - workspace-agnostic variables
 
-- **slack_admin_token** - user OAuth token from [OAuth page](https://api.slack.com/apps/A5WH547TR/install-on-team?)
-  - this is the user that installed the app. he needs to be a part of the channels and have admin rights (to remove messages)
-- **slack_bot_token** - bot OAuth token from [OAuth page](https://api.slack.com/apps/A5WH547TR/install-on-team?)
+### Workspace-specific variables
 
-### Channels
+- `channels` - object of specific channel IDs
+  - `orders` - main channel where the orders are posted after being submitted by users
+  - `archive` - archived orders are moved here
+  - `support` - channel for bot error reports
+  - `news` - check [Announce to all](#Announce-to-all)
+  - `cities` - object of dedicated city channel IDs
+    - e.g. vacuumlabs workspace has `bratislava`, `kosice`, `presov`, `praha`, `brno`, `budapest` properties here
+- `slack` - object of OAuth tokens required for communication via Slack API, obtained from Slack bot app [OAuth page](https://api.slack.com/apps/A5WH547TR/install-on-team?)
+  - `adminToken` - this is the user that installed the app. he needs to be a part of the channels and have workspace admin rights (the app is able to remove messages only by using this token)
+  - `botToken` - bot token
+- `dbTable` - name of the table that handles the orders for this workspace app 
+- `google` - object of google-sheets-related workspace-app-specific variables
+  - `spreadsheetId` - taken from spreadsheet's URL
 
-- **news_channel** - Slack channel ID where admin posts messages that are sent to all users
-- **orders_channel** - common admin Slack channel ID (where orders are sent right after they are submitted)
-- **orders_channel_sk_ba** *(optional)* - dedicated office Slack channel ID for Bratislava - Slovakia office
-- **orders_channel_sk_ke** *(optional)* - dedicated office Slack channel ID for Kosice - Slovakia office
-- **orders_channel_sk_pr** *(optional)* - dedicated office Slack channel ID for Presov - Slovakia office
-- **orders_channel_cz_pr** *(optional)* - dedicated office Slack channel ID for Prague - Czech republic office
-- **orders_channel_cz_br** *(optional)* - dedicated office Slack channel ID for Brno - Czech republic office
-- **orders_channel_hu_bu** *(optional)* - dedicated office Slack channel ID for Budapest - Hungary office
-- **archive_channel** - archive Slack channel ID
-- **support_channel** - support Slack channel ID (debug information is sent here when something goes wrong)
+### Global variables
 
-### Database
+#### Database
 
-- **DATABASE_URL** - PostgreSQL database connection URL; provided automatically by Heroku
-- **db_schema** - database schema
+- `DATABASE_URL` - PostgreSQL database connection URL; provided automatically by Heroku
+- `db_schema` - database schema name
 
-### Google sheets
+#### Google sheets
 
-[Google API service account](https://cloud.google.com/docs/authentication/production#create_service_account) is needed to enable comunication with Google sheets.
+[Google API service account](https://cloud.google.com/docs/authentication/production#create_service_account) is needed to enable communication with Google sheets.
 
-- **google_sheets_email** - email of the service account
-- **google_sheets_key** - base64 encoded private key the service account (including the _-----BEGIN PRIVATE KEY-----_ and _-----END PRIVATE KEY-----_)
-- **google_sheets_spreadsheet_id** - ID of the spreadsheet (it's in the spreadsheet's URL)
-- **google_sheets_order_id_suffix** - suffix that is added to the order ID stored in the sheet
+- `google_sheets_email` - email of the service account
+- `google_sheets_key` - base64 encoded private key the service account (including the _-----BEGIN PRIVATE KEY-----_ and _-----END PRIVATE KEY-----_)
+- `google_sheets_order_id_suffix` - suffix that is added to the order ID stored in the sheet
 
 Other configuration related to Google sheets is stored in _src/sheets/constants.js_.
 
-### Misc
+#### Misc
 
-- **NODE_ENV** *(optional, default - development)*
-- **log_level** *(optional, default - debug if NODE_ENV is development, error otherwise) - winston level of logs that are written
-- **PORT** - port number where server starts, provided by Heroku automatically
+- `NODE_ENV` *(optional, default - "development")*
+- `log_level` *(optional, default - "debug" if `NODE_ENV` is "development", "error" otherwise)* - winston level of logs that are written
+- `PORT` - port number where server starts, provided by Heroku automatically
 
-### Obsolete configuration
+#### Obsolete configuration
 
-These configuration values are not used but they still need to be present:
+These variables are currently not used but they still need to be present:
 
-- **alza_username** - username of alza.sk account
-- **alza_password** - password of alza.sk account
-- **alza_cz_username** - username of alza.cz account
-- **alza_cz_password** - password of alza.cz account
-- **alza_hu_username** - username of alza.hu account
-- **alza_hu_password** - password of alza.hu account
-- **currency** *(optional, default - EUR)* - default currency which is used to show prices
+- `alza_username` - username of alza.sk account
+- `alza_password` - password of alza.sk account
+- `alza_cz_username` - username of alza.cz account
+- `alza_cz_password` - password of alza.cz account
+- `alza_hu_username` - username of alza.hu account
+- `alza_hu_password` - password of alza.hu account
+- `currency` *(optional, default - "EUR")* - default currency which is used to show prices
 
 Logging in to Alza account was disabled because they use captcha, so usernames and passwords are technically not used.
 
@@ -102,39 +106,84 @@ Google sheet: [Electronics](https://docs.google.com/spreadsheets/d/1iy1MTnOu87my
 - company orders: sheet _Electronics_
 - personal orders: sheet _Personal Orders_
 
-## Development Setup
+### Testing production (WIP)
 
-There is a Google Sheet for testing and also a test Slack App. However, the dev Google Sheet is currently out of sync with the production one, so I suggest carefuly testing against that and reverting all your changes after you are done.
+*This is a description how it would optimally work, the handler for the `test` and `wincent` variants is not coded yet.*
 
-_Ask for access to AlzaBot-Test Slack app_ [here](https://api.slack.com/apps/AEV7B5Y5D/interactive-messages?).\
-_Ask for access to Google Sheets ElectornicsDev and Electronics sheet._
+To test the currently deployed app without polluting the real orders database and without letting the office team know about every such order, you can make use of the `test` app variant.
 
-Create three new slack channels. For _news_channel_, _order_channel_ and _support_channel_. Add the _alzabottest_ app to all channels.
-Make a copy of `.env-dev` called `.env` and replace placeholders with actual values (ask for any values you cannot obtain yourself).
+How it works: There's a separate Slack bot app configured with another endpoint for actions. When you write it a message and submit a request, it gets send to the test orders channel instead. It is also written to a separate Google sheet and separate database table.
 
-### Running locally
+## Local development setup
 
-You can run alzabot-test locally with the help of [ngrok](https://ngrok.com/) or similar services.
+When running a local server, you can decide whether you'll run the database locally too or you'll use the production one with the `alzabot-test` table.
 
-First you need to setup PostgreSQL database:
+Either way, make a copy of `.env-dev` called `.env` and replace placeholders with actual values (ask for any values you can't obtain yourself).
+
+### Local database
+
+Skip if you decided to use the production `alzabot-test` table.
+
+To setup PostgreSQL database:
 
 ```
-create database eshop;
-\connect eshop;
-create schema eshop;
+create database alzabot;
+\connect alzabot;
+create schema alzabot;
 \quit
 ```
-Then you need to change db configuration in `.env` (possibly only _db_host_ and _db_password_)
+
+Change the db configuration in `.env` afterwards (`DATABASE_URL` and `db_schema` variables).
 
 Run migrations:
 ```
 yarn knex migrate:latest
 ```
-After running ngrok (`ngrok http 8000`) simply paste your url [into the slack app configuration](https://api.slack.com/apps/AEV7B5Y5D/interactive-messages?) as Request URL e.g. _https://cb47f7c1.ngrok.io/actions_ - don't forget the `/actions` route. After that you can run:
 
+### Local server
+
+You'll need to make your server reachable from outside world - you can use [ngrok](https://ngrok.com/) or similar services.
+
+Run ngrok:
+```
+ngrok http 8000
+```
+
+After that, copy your ngrok url into the Slack app's Interactive messages configuration as Request URL, e.g. `https://cb47f7c1.ngrok.io/actions` - don't forget the `/actions` route. 
+
+Run the server:
 ```
 yarn dev
-``` 
+```
 
-Now you should be able to make an order through the `alzabottest` app.
+You should be able to make an order through the *AlzaBotTest* app now.
 
+### Own Slack app
+
+If by any chance you need an own Slack bot app or setting up the app for a new workspace, you'll need to:
+- create a legacy Slack app - this option can only be reached somewhere from the documentation (TODO: link)
+  - the legacy app is needed because AlzaBot still uses legacy RTM API and legacy permission scopes
+- configure the actions endpoint, permission scopes, ...
+- install the app to the workspace
+- copy the user and bot tokens into the env vars
+- integrate the app into the `orders`, `archive`, `news`, and `support` channels
+
+## Accesses
+
+You should be given several access rights:
+- Google sheets - *Electronics* and *ElectronicsTest*
+- Slack apps - *AlzaBot* and *AlzaBotTest*
+- heroku app - *vacuumlabs-alzabot*
+- workspace admin rights and being in the channels is required
+  - this is needed for the bot to perform some actions "as user" (mainly deleting messages its own messages)
+  - only such admin should (re)install the app, his token is then used as an env var
+  - there are two options:
+    - you are (or you become) the workspace admin
+      - you install the app
+      - you get the user token from the Slack app's OAuth page and put it in the env vars
+      - you get invited to all the channels
+    - you let another workspace admin install the app
+      - you list them as the Slack app's collaborator
+      - they install the app
+      - they send you the user token and you put it in the env vars
+      - they make sure they are in all the required channels
