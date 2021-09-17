@@ -108,17 +108,15 @@ export async function apiCall(name, data = {}, {
   passError = false,
   asAdmin = false,
 } = {}) {
-  logger.log('verbose', `call slack.api.${name}`, data)
-  const response = JSON.parse(
-    await makeApiCall(name, data, asAdmin ? c.vacuumlabs.slack.adminToken : c.vacuumlabs.slack.botToken),
-  )
-  logger.log('verbose', `response slack.api.${name}`, {args: data, response})
+  logger.info(`calling slack.api.${name}. asAdmin: ${asAdmin} | data: ${JSON.stringify(data)}`)
+  const response = await makeApiCall(name, data, asAdmin ? c.vacuumlabs.slack.adminToken : c.vacuumlabs.slack.botToken)
+  const parsedResponse = JSON.parse(response)
 
-  if (!passError && response.error) {
-    throw new Error(`slack.api.${name}: ${response.error}`)
+  if (!passError && parsedResponse.error) {
+    throw new Error(`slack.api.${name}: ${parsedResponse.error}`)
   }
 
-  return response
+  return parsedResponse
 }
 
 // eslint-disable-next-line require-await
@@ -292,7 +290,7 @@ PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`})
 async function listen(stream) {
   for (;;) {
     const event = await stream.take()
-    logger.log('verbose', `slack event ${event.type}`, event)
+    logger.verbose(`slack event ${event.type}: ${JSON.stringify(event)}`)
 
     if (isMessage(event) && amIMentioned(event)) {
       streamForUser(event.user).put(event)
