@@ -31,7 +31,7 @@ export async function updateItems(
     const sheetItemId = `${item.id}${c.google.orderIdSuffix}`
 
     if (!idToRowsMap[sheetItemId]) {
-      throw new Error('Item not found in sheet')
+      throw new Error(`Item ID ${sheetItemId} not found in sheet`)
     }
 
     const rowIndexes = idToRowsMap[sheetItemId]
