@@ -4,12 +4,13 @@ import {sheets} from './constants'
 import c from '../config'
 
 export async function updateItems(
+  variant,
   spreadsheetId,
   isCompanyItem,
   items,
   getItemData,
 ) {
-  const sheet = isCompanyItem ? sheets.companyOrders : sheets.personalOrders
+  const sheet = isCompanyItem ? sheets[variant].companyOrders : sheets[variant].personalOrders
 
   const [fieldIndexMap, itemIdsFromSheet] = await Promise.all([
     getFieldIndexMap(spreadsheetId, sheet.name, sheet.fieldsRow),

@@ -2,8 +2,8 @@ import {getFieldIndexMap, getValues, markCells} from './sheets'
 import {sheets} from './constants'
 import c from '../config'
 
-export async function addSubsidy(spreadsheetId, order, items) {
-  const sheet = order.isCompany ? sheets.companyOrders : sheets.personalOrders
+export async function addSubsidy(variant, spreadsheetId, order, items) {
+  const sheet = order.isCompany ? sheets[variant].companyOrders : sheets[variant].personalOrders
 
   const [fieldIndexMap, itemIdsFromSheet] = await Promise.all([
     getFieldIndexMap(spreadsheetId, sheet.name, sheet.fieldsRow),
@@ -50,5 +50,5 @@ export async function addSubsidy(spreadsheetId, order, items) {
     return result
   }, [])
 
-  return markCells(spreadsheetId, destinations)
+  return markCells(variant, spreadsheetId, destinations)
 }

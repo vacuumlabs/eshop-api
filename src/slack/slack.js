@@ -334,7 +334,7 @@ export class Slack {
 
     await this.removeReaction('x', channelId, msgTs)
 
-    await updateStatusInSheets(this.config.google.spreadsheetId, order, items, status)
+    await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, status)
       .then(() => this.apiCall('chat.update', {
         channel: channelId,
         ts: msgTs,
@@ -461,7 +461,7 @@ export class Slack {
     } else if (actionName === 'discard') { // Discard order
       await this.removeReaction('x', event.channel.id, msg.ts)
 
-      await updateStatusInSheets(this.config.google.spreadsheetId, order, items, 'discarded')
+      await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, 'discarded')
         .then(() => this.apiCall('chat.delete', {channel: event.channel.id, ts: msg.ts}))
         .catch((err) => {
           logger.error('Failed to update sheet', err)
@@ -525,7 +525,7 @@ export class Slack {
     } else if (actionName === 'subsidy') { // Mark subsidy
       await this.removeReaction('money_with_wings', event.channel.id, msg.ts)
 
-      await addSubsidyToSheets(this.config.google.spreadsheetId, order, items)
+      await addSubsidyToSheets(this.variant, this.config.google.spreadsheetId, order, items)
 
       await this.apiCall('chat.update', {
         channel: event.channel.id,
@@ -614,8 +614,7 @@ export class Slack {
         }
       }
 
-      const dbId = await storeOrder(
-        this.config.google.spreadsheetId,
+      const dbId = await this.storeOrder(
         {
           user,
           ts,
@@ -920,10 +919,40 @@ export class Slack {
       order.isUrgent !== null && {title: 'Urgent', value: order.isUrgent ? 'Yes' : 'No'},
     ]
   }
+
+  async storeOrder(order, items) {
+    const id = await knex.transaction(async (trx) => {
+      order.id = (
+        await trx.insert({...order, user: order.user.id}, 'id').into('order')
+      )[0]
+
+      for (const item of items.values()) {
+        item.dbIds = []
+
+        for (let i = 0; i < item.count; i++) {
+          const itemId = (await trx.insert({
+            order: order.id,
+            shopId: item.id,
+            count: 1,
+            url: item.url,
+            price: item.price,
+          }, 'id').into('orderItem'))[0]
+
+          item.dbIds.push(itemId)
+        }
+      }
+
+      return order.id
+    })
+
+    await storeOrderToSheets(this.variant, this.config.google.spreadsheetId, order, Array.from(items.values()))
+
+    return id
+  }
   /* end of Slack class */
 }
 
-export async function getOrderAndItemsFromDb(orderId) {
+async function getOrderAndItemsFromDb(orderId) {
   return await knex.transaction(async (trx) => {
     const order = (
       await trx
@@ -1140,34 +1169,4 @@ async function orderInfo(items, country) {
     })
   }
   return {info: {items: info, totalPrice, country: orderCountry, wrongCountry}, errors}
-}
-
-async function storeOrder(spreadsheetId, order, items) {
-  const id = await knex.transaction(async (trx) => {
-    order.id = (
-      await trx.insert({...order, user: order.user.id}, 'id').into('order')
-    )[0]
-
-    for (const item of items.values()) {
-      item.dbIds = []
-
-      for (let i = 0; i < item.count; i++) {
-        const itemId = (await trx.insert({
-          order: order.id,
-          shopId: item.id,
-          count: 1,
-          url: item.url,
-          price: item.price,
-        }, 'id').into('orderItem'))[0]
-
-        item.dbIds.push(itemId)
-      }
-    }
-
-    return order.id
-  })
-
-  await storeOrderToSheets(spreadsheetId, order, Array.from(items.values()))
-
-  return id
 }

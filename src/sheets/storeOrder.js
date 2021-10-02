@@ -3,13 +3,13 @@ import {formatAsHyperlink, formatDate, mapFieldsToRow} from './utils'
 import {sheets, NEW_ORDER_STATUS} from './constants'
 import c from '../config'
 
-export async function storeOrder(spreadsheetId, order, items) {
-  const sheet = order.isCompany ? sheets.companyOrders : sheets.personalOrders
+export async function storeOrder(variant, spreadsheetId, order, items) {
+  const sheet = order.isCompany ? sheets[variant].companyOrders : sheets[variant].personalOrders
 
   const fieldIndexMap = await getFieldIndexMap(spreadsheetId, sheet.name, sheet.fieldsRow)
 
   const user = order.user
-  const userJiraId = await getUserJiraId(spreadsheetId, user.id, user.name)
+  const userJiraId = await getUserJiraId(variant, spreadsheetId, user.id, user.name)
 
   const date = new Date()
 
@@ -41,10 +41,10 @@ export async function storeOrder(spreadsheetId, order, items) {
   return appendRows(spreadsheetId, sheet.name, data)
 }
 
-async function getUserJiraId(spreadsheetId, slackId, name) {
+async function getUserJiraId(variant, spreadsheetId, slackId, name) {
   const sheetData = await batchGetValues(spreadsheetId, [
-    sheets.settings.jiraIdRange,
-    sheets.settings.slackIdRange,
+    sheets[variant].settings.jiraIdRange,
+    sheets[variant].settings.slackIdRange,
   ])
   const values = sheetData.map((vr) => vr.values)
 

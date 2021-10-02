@@ -70,15 +70,15 @@ export function batchUpdateValues(spreadsheetId, sheet, requests) {
   }))
 }
 
-export function markCells(spreadsheetId, destinations) {
+export function markCells(variant, spreadsheetId, destinations) {
   return tryCall(() => sheetsApi.spreadsheets.batchUpdate({
     spreadsheetId,
     requestBody: {
       requests: destinations.map((destination) => ({
         copyPaste: {
           source: {
-            sheetId: sheets.settings.id,
-            ...sheets.settings.markedCell,
+            sheetId: sheets[variant].settings.id,
+            ...sheets[variant].settings.markedCell,
           },
           destination,
           pasteType: 'PASTE_FORMAT',
