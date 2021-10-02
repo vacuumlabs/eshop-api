@@ -3,9 +3,9 @@ export default transenv()(({str, bool, num}) => {
   const env = str('NODE_ENV', 'development')
   const isDevelopment = env === 'development'
 
-  const vacuumlabs = JSON.parse(str('vacuumlabs'))
-  const test = JSON.parse(str('test'))
-  const wincent = JSON.parse(str('wincent'))
+  const vacuumlabs = JSON.parse(str('vacuumlabs', '""'))
+  const test = JSON.parse(str('test', '""'))
+  const wincent = JSON.parse(str('wincent', '""'))
 
   return {
     env,

@@ -34,6 +34,7 @@ function* wincentActions(req, res) {
 }
 
 const endpoints = {
+  // TODO: remove when VL bot migrates to the new url
   actions: '/actions',
   alzaCode: '/alzacode',
   vacuumlabs: {
@@ -59,7 +60,11 @@ register(app, 'post', endpoints.wincent.actions, wincentActions)
     logger.info(`App started on localhost:${c.port}.`)
   )
 
-  await Promise.all(['vacuumlabs'/* , 'test' */].map(async (variant) => {
+  await Promise.all(['vacuumlabs', 'test'].map(async (variant) => {
+    if (!c[variant]) {
+      logger.warn(`Config for variant ${variant} not defined, the variant will not run.`)
+      return
+    }
     const slackClient = new Slack(variant)
     await slackClient.init(events[variant])
   }))
