@@ -1,7 +1,8 @@
 import {updateItems} from './updateItems'
 
-export function updateStatus(order, items, status) {
+export function updateStatus(spreadsheetId, order, items, status) {
   return updateItems(
+    spreadsheetId,
     order.isCompany,
     items,
     (item) => ({Status: status}),

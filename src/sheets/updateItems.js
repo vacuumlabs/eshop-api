@@ -4,6 +4,7 @@ import {sheets} from './constants'
 import c from '../config'
 
 export async function updateItems(
+  spreadsheetId,
   isCompanyItem,
   items,
   getItemData,
@@ -11,8 +12,8 @@ export async function updateItems(
   const sheet = isCompanyItem ? sheets.companyOrders : sheets.personalOrders
 
   const [fieldIndexMap, itemIdsFromSheet] = await Promise.all([
-    getFieldIndexMap(sheet.name, sheet.fieldsRow),
-    getValues(sheet.idRange),
+    getFieldIndexMap(spreadsheetId, sheet.name, sheet.fieldsRow),
+    getValues(spreadsheetId, sheet.idRange),
   ])
 
   const idToRowsMap = {}
@@ -60,5 +61,5 @@ export async function updateItems(
     return result
   }, [])
 
-  return batchUpdateValues(sheet, {data, valueInputOption: 'USER_ENTERED'})
+  return batchUpdateValues(spreadsheetId, sheet, {data, valueInputOption: 'USER_ENTERED'})
 }

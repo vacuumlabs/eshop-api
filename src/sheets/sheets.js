@@ -15,11 +15,11 @@ async function tryCall(call) {
   }
 }
 
-export async function getValues(range) {
+export async function getValues(spreadsheetId, range) {
   return (
     (
       await tryCall(() => sheetsApi.spreadsheets.values.get({
-        spreadsheetId: c.vacuumlabs.google.spreadsheetId,
+        spreadsheetId,
         valueRenderOption: 'UNFORMATTED_VALUE',
         range,
       }))
@@ -27,8 +27,8 @@ export async function getValues(range) {
   )
 }
 
-export async function getFieldIndexMap(sheetName, fieldsRow) {
-  const [values] = await getValues(`${sheetName}!A${fieldsRow}:ZZ`)
+export async function getFieldIndexMap(spreadsheetId, sheetName, fieldsRow) {
+  const [values] = await getValues(spreadsheetId, `${sheetName}!A${fieldsRow}:ZZ`)
 
   return values.reduce((acc, value, index) => {
     if (value && !acc[value]) {
@@ -39,11 +39,11 @@ export async function getFieldIndexMap(sheetName, fieldsRow) {
   }, {})
 }
 
-export async function batchGetValues(ranges) {
+export async function batchGetValues(spreadsheetId, ranges) {
   return (
     (
       await tryCall(() => sheetsApi.spreadsheets.values.batchGet({
-        spreadsheetId: c.vacuumlabs.google.spreadsheetId,
+        spreadsheetId,
         valueRenderOption: 'UNFORMATTED_VALUE',
         ranges,
       }))
@@ -51,9 +51,9 @@ export async function batchGetValues(ranges) {
   )
 }
 
-export function appendRows(sheetName, values) {
+export function appendRows(spreadsheetId, sheetName, values) {
   return tryCall(() => sheetsApi.spreadsheets.values.append({
-    spreadsheetId: c.vacuumlabs.google.spreadsheetId,
+    spreadsheetId,
     range: `${sheetName}!A1:A1`,
     insertDataOption: 'INSERT_ROWS',
     valueInputOption: 'USER_ENTERED',
@@ -63,16 +63,16 @@ export function appendRows(sheetName, values) {
   }))
 }
 
-export function batchUpdateValues(sheet, requests) {
+export function batchUpdateValues(spreadsheetId, sheet, requests) {
   return tryCall(() => sheetsApi.spreadsheets.values.batchUpdate({
-    spreadsheetId: c.vacuumlabs.google.spreadsheetId,
+    spreadsheetId,
     requestBody: requests,
   }))
 }
 
-export function markCells(destinations) {
+export function markCells(spreadsheetId, destinations) {
   return tryCall(() => sheetsApi.spreadsheets.batchUpdate({
-    spreadsheetId: c.vacuumlabs.google.spreadsheetId,
+    spreadsheetId,
     requestBody: {
       requests: destinations.map((destination) => ({
         copyPaste: {
