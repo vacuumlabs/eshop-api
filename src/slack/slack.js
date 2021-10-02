@@ -923,7 +923,7 @@ export class Slack {
   async storeOrder(order, items) {
     const id = await knex.transaction(async (trx) => {
       order.id = (
-        await trx.insert({...order, user: order.user.id}, 'id').into('order')
+        await trx.insert({...order, user: order.user.id}, 'id').into(this.config.dbTables.order)
       )[0]
 
       for (const item of items.values()) {
@@ -936,7 +936,7 @@ export class Slack {
             count: 1,
             url: item.url,
             price: item.price,
-          }, 'id').into('orderItem'))[0]
+          }, 'id').into(this.config.dbTables.orderItem))[0]
 
           item.dbIds.push(itemId)
         }
@@ -957,13 +957,13 @@ async function getOrderAndItemsFromDb(orderId) {
     const order = (
       await trx
         .select('id', 'isCompany', 'user', 'office', 'isUrgent', 'isHome')
-        .from('order')
+        .from(this.config.dbTables.order)
         .where('id', orderId)
     )[0]
 
     const items = await trx
       .select('id', 'price', 'shopId', 'count', 'url')
-      .from('orderItem')
+      .from(this.config.dbTables.orderItem)
       .where('order', orderId)
 
     return {order, items}
