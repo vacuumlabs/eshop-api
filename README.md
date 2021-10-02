@@ -146,12 +146,12 @@ yarn knex migrate:latest
 
 You'll need to make your server reachable from outside world - you can use [ngrok](https://ngrok.com/) or similar services.
 
-Run ngrok:
+Run ngrok (this actually runs `ngrok http 8000`):
 ```
-ngrok http 8000
+yarn ngrok
 ```
 
-After that, copy your ngrok url into the Slack app's Interactive messages configuration as Request URL, e.g. `https://cb47f7c1.ngrok.io/actions` - don't forget the `/actions` route. 
+After that, copy your ngrok url into the Slack app's Interactive messages configuration as Request URL, e.g. `https://cb47f7c1.ngrok.io/test/actions` - don't forget the `/<variant>/actions` route. 
 
 Run the server:
 ```
