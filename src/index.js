@@ -60,7 +60,7 @@ register(app, 'post', endpoints.wincent.actions, wincentActions)
     logger.info(`App started on localhost:${c.port}.`)
   )
 
-  await Promise.all(['vacuumlabs', 'test'].map(async (variant) => {
+  await Promise.all(['vacuumlabs', 'test', 'wincent'].map(async (variant) => {
     if (!c[variant]) {
       logger.warn(`Config for variant ${variant} not defined, the variant will not run.`)
       return
