@@ -532,22 +532,11 @@ export class Slack {
         ts: msg.ts,
         attachments: [
           ...attachments,
-          ...getAdminActions(orderId, 'close', msgButtons.filter((btn) => btn.name !== 'subsidy')),
+          ...getAdminActions(orderId, false, msgButtons.filter((btn) => btn.name !== 'subsidy')),
         ],
       })
 
       await this.addReaction('money_with_wings', event.channel.id, msg.ts)
-    } else if (actionName === 'close') { // Close order
-      await this.apiCall('chat.update', {
-        channel: event.channel.id,
-        ts: msg.ts,
-        attachments: [
-          ...attachments,
-          ...getArchiveActions(orderId, false),
-        ],
-      })
-
-      await this.addReaction('checkered_flag', event.channel.id, msg.ts)
     } else if (actionName === 'status') { // Set order status
       const status = event.actions[0].selected_options[0].value
 
