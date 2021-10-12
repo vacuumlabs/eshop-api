@@ -1,5 +1,6 @@
 import * as vlConstants from './vacuumlabs/constants'
 import * as testConstants from './test/constants'
+import * as wincentConstants from './wincent/constants'
 
 export const MESSAGES = {
   home: {
@@ -22,15 +23,18 @@ export const MESSAGES = {
 export const NEW_USER_GREETING = {
   vacuumlabs: vlConstants.NEW_USER_GREETING,
   test: testConstants.NEW_USER_GREETING,
+  wincent: wincentConstants.NEW_USER_GREETING,
 }
 
 export const SLACK_URL = {
   vacuumlabs: vlConstants.SLACK_URL,
   test: testConstants.SLACK_URL,
+  wincent: wincentConstants.SLACK_URL,
 }
 
-// TODO: for all other constants, either define it in this file or make it variant-dependent like this one
-//   - guide it by wincent needs
+// TODO: for all other constants, either define it in this file or
+//   make it variant-dependent like this one - guide it by wincent needs
+// wincent should never access this
 export const CITIES_OPTIONS_TO_CITIES = {
   vacuumlabs: vlConstants.CITIES_OPTIONS_TO_CITIES,
   test: testConstants.CITIES_OPTIONS_TO_CITIES,
@@ -45,8 +49,6 @@ export const HOME_TO_OFFICE = vlConstants.HOME_TO_OFFICE
 export const CANCEL_ORDER_ACTION = vlConstants.CANCEL_ORDER_ACTION
 
 export const ORDER_TYPE_ACTIONS = vlConstants.ORDER_TYPE_ACTIONS
-
-export const ORDER_COUNTRY_ACTIONS = vlConstants.ORDER_COUNTRY_ACTIONS
 
 export const ORDER_OFFICE_ACTIONS = vlConstants.ORDER_OFFICE_ACTIONS
 
