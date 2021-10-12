@@ -12,6 +12,11 @@ export const MESSAGES = {
       note: ':pencil: Send your comment in a message.',
     },
   },
+  notification: {
+    accepted: 'Your order was accepted by office manager. You will be notified when the items get ordered.',
+    ordered: 'Your items were ordered. You will be notified when they arrive.',
+    delivered: 'Your order has arrived :truck: Come pick it up during office hours. If it was a personal order, please bring the money in CASH.',
+  },
 }
 
 export const NEW_USER_GREETING = {

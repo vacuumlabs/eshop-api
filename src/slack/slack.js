@@ -10,8 +10,8 @@ import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {addSubsidy as addSubsidyToSheets} from '../sheets/addSubsidy'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {NEW_ORDER_STATUS} from '../sheets/constants'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, MESSAGES, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_COUNTRY_ACTIONS, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, MESSAGES, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL} from './constants'
+import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 
 const knex = _knex(c.knex)
 
@@ -24,6 +24,7 @@ export class Slack {
     this.actionsCount = 0
   }
 
+  // this function shouldn't be called for wincent
   getCityChannel(officeOption) {
     const city = CITIES_OPTIONS_TO_CITIES[this.variant][officeOption]
     return this.config.channels.cities[city]
@@ -436,6 +437,7 @@ export class Slack {
     const attachments = msg.attachments.length === 1
       ? {...msg.attachments, actions: []} // legacy format
       : msg.attachments.filter((att) => !att.actions)
+    // find the section with button actions that's not the Archive
     const buttonsAtt = msg.attachments.find((att) => att.actions && att.actions[0].type === 'button' && att.text !== 'Archive')
     const msgButtons = buttonsAtt && buttonsAtt.actions
 
@@ -443,13 +445,14 @@ export class Slack {
       throw new Error(`Invalid order ID for action ${actionName}`)
     }
 
-    const {order, items} = orderId === '-' ? {} : await getOrderAndItemsFromDb(orderId)
+    const {order, items} = orderId === '-' ? {} : await this.getOrderAndItemsFromDb(orderId)
 
     if (actionName === 'forward-to-channel') { // Forward to office channel
+      // this action shouldn't happen on wincent
       await this.moveOrder(msg.ts, event.channel.id, this.getCityChannel(order.office), {
         attachments: [
           ...attachments,
-          ...getAdminActions(orderId, 'add-to-cart'),
+          ...getAdminSections(this.variant, orderId, 'add-to-cart'),
         ],
       })
     } else if (actionName === 'decline') { // Notify user - decline
@@ -471,17 +474,27 @@ export class Slack {
       await this.moveOrder(msg.ts, event.channel.id, this.config.channels.archive, {
         attachments: [
           ...attachments,
-          ...(orderId === '-' ? [] : getArchiveActions(orderId, true)),
+          ...(orderId === '-' ? [] : [getArchiveSection(orderId, true)]),
         ],
       })
     } else if (actionName === 'unarchive') { // Move from archive
-      await this.moveOrder(msg.ts, event.channel.id, this.getCityChannel(order.office), {
+      let targetChannel, primaryBtn
+      if (this.variant === 'wincent') {
+        targetChannel = this.config.channels.orders
+        primaryBtn = 'accepted'
+      } else {
+        targetChannel = this.getCityChannel(order.office)
+        primaryBtn = 'add-to-cart'
+      }
+
+      await this.moveOrder(msg.ts, event.channel.id, targetChannel, {
         attachments: [
           ...attachments,
-          ...getAdminActions(orderId, 'add-to-cart'),
+          ...getAdminSections(this.variant, orderId, primaryBtn),
         ],
       })
     } else if (actionName === 'add-to-cart') { // Add items to cart
+      // not called in wincent
       await this.removeReaction('shopping_trolley', event.channel.id, msg.ts)
 
       await addToCartAll(items)
@@ -491,13 +504,27 @@ export class Slack {
         ts: msg.ts,
         attachments: [
           ...attachments,
-          ...getAdminActions(orderId, 'ordered', msgButtons),
+          ...getAdminSections(this.variant, orderId, 'ordered', msgButtons),
         ],
       })
 
       await this.addReaction('shopping_trolley', event.channel.id, msg.ts)
+    } else if (actionName === 'accepted') { // Notify user - accepted
+      // TODO - accepted by who?
+      await this.sendUserInfo(event, MESSAGES.notification.accepted, createOrderFromDb(order, items))
+
+      await this.changeStatus({
+        order,
+        items,
+        status: 'accepted',
+        channelId: event.channel.id,
+        msgTs: msg.ts,
+        textAttachments: attachments,
+        actionsAttachments: getAdminSections(this.variant, orderId, 'ordered', msgButtons),
+        statusIcon: 'heavy_check_mark',
+      })
     } else if (actionName === 'ordered') { // Notify user - ordered
-      await this.sendUserInfo(event, 'Your items were ordered. You will be notified when they arrive.', createOrderFromDb(order, items))
+      await this.sendUserInfo(event, MESSAGES.notification.ordered, createOrderFromDb(order, items))
 
       await this.changeStatus({
         order,
@@ -506,11 +533,11 @@ export class Slack {
         channelId: event.channel.id,
         msgTs: msg.ts,
         textAttachments: attachments,
-        actionsAttachments: getAdminActions(orderId, 'delivered', msgButtons),
+        actionsAttachments: getAdminSections(this.variant, orderId, 'delivered', msgButtons),
         statusIcon: 'page_with_curl',
       })
     } else if (actionName === 'delivered') { // Notify user - delivered
-      await this.sendUserInfo(event, 'Your order has arrived :truck: Come pick it up during office hours. If it was a personal order, please bring the money in CASH.', createOrderFromDb(order, items))
+      await this.sendUserInfo(event, MESSAGES.notification.delivered, createOrderFromDb(order, items))
 
       await this.changeStatus({
         order,
@@ -519,7 +546,7 @@ export class Slack {
         channelId: event.channel.id,
         msgTs: msg.ts,
         textAttachments: attachments,
-        actionsAttachments: getAdminActions(orderId, 'subsidy', msgButtons),
+        actionsAttachments: getAdminSections(this.variant, orderId, 'subsidy', msgButtons),
         statusIcon: 'inbox_tray',
       })
     } else if (actionName === 'subsidy') { // Mark subsidy
@@ -532,7 +559,7 @@ export class Slack {
         ts: msg.ts,
         attachments: [
           ...attachments,
-          ...getAdminActions(orderId, false, msgButtons.filter((btn) => btn.name !== 'subsidy')),
+          ...getAdminSections(this.variant, orderId, false, msgButtons.filter((btn) => btn.name !== 'subsidy')),
         ],
       })
 
@@ -548,6 +575,7 @@ export class Slack {
         msgTs: msg.ts,
         textAttachments: attachments,
         actionsAttachments: msg.attachments.filter((att) => Boolean(att.actions)),
+        // no reaction on manual status change
         statusIcon: null,
       })
     }
@@ -714,21 +742,7 @@ export class Slack {
     await this.apiCall('chat.postMessage', {
       channel: this.config.channels.orders,
       as_user: true,
-      attachments: [
-        orderAttachment,
-        {
-          text: `*Status*\n${NEW_ORDER_STATUS}`,
-        },
-        {
-          text: '*Actions*',
-          callback_id: `O${dbId}`,
-          actions: [
-            ...(this.getCityChannel(order.office) ? [{name: 'forward-to-channel', text: `Forward to ${order.office}`, type: 'button', value: dbId, style: 'primary'}] : []),
-            {name: 'decline', text: 'Decline', type: 'button', value: dbId, style: 'default'},
-            {name: 'discard', text: 'Discard', type: 'button', value: dbId, style: 'danger'},
-          ],
-        },
-      ],
+      attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, this.getCityChannel(order.office) ? order.office : null),
     })
   }
 
@@ -859,7 +873,7 @@ export class Slack {
         ].filter(Boolean),
       ),
       callback_id: order.id,
-      actions: getOrderActions(order),
+      actions: getUserActions(this.variant, order),
     }
 
     const orderConfirmation = await this.apiCall('chat.postMessage', {
@@ -991,61 +1005,6 @@ function createOrderFromDb(orderData, itemsData) {
   }
 }
 
-function getArchiveActions(orderId, toArchive) {
-  return [
-    {
-      text: 'Archive',
-      actions: [
-        {
-          type: 'button',
-          name: toArchive ? 'unarchive' : 'archive',
-          text: toArchive ? 'Unarchive' : 'Archive',
-          value: orderId,
-          style: 'default',
-        },
-      ],
-      callback_id: `O${orderId}`,
-    },
-  ]
-}
-
-function getAdminActions(orderId, primaryBtn, msgButtons) {
-  const buttons = (msgButtons || [
-    {name: 'add-to-cart', text: 'Add to Cart'},
-    {name: 'ordered', text: 'Notification - ordered'},
-    {name: 'delivered', text: 'Notification - delivered'},
-    {name: 'subsidy', text: 'Mark as Subsidy'},
-  ]).map((btn) => ({
-    ...btn,
-    type: 'button',
-    value: orderId,
-    style: primaryBtn === btn.name ? 'primary' : 'default',
-  }))
-
-  return [
-    {
-      text: 'Status',
-      actions: [{
-        type: 'select',
-        name: 'status',
-        text: 'Set status...',
-        options: ['requested', 'ordered', 'canceled', 'delivered', 'lost', 'sold', 'used', 'gift'].map((status) => ({
-          text: status,
-          value: status,
-        })),
-      }],
-      callback_id: `O${orderId}`,
-    },
-    {
-      text: '*Actions*',
-      actions: buttons,
-      callback_id: `O${orderId}`,
-    },
-    ...getArchiveActions(orderId, false),
-  ]
-}
-
-
 function msgTsToDate(ts) {
   const [seconds] = ts.split('.')
 
@@ -1054,19 +1013,6 @@ function msgTsToDate(ts) {
 
 function getTS(date = new Date()) {
   return moment(date).tz('Europe/Bratislava').format('YYYY-MM-DD HH:mm')
-}
-
-
-function getOrderActions(order) {
-  if (!order.country) {
-    return ORDER_COUNTRY_ACTIONS
-  }
-
-  if (!order.office) {
-    return ORDER_OFFICE_ACTIONS[order.country]
-  }
-
-  return ORDER_TYPE_ACTIONS
 }
 
 
