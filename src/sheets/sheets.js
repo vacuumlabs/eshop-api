@@ -17,13 +17,13 @@ async function tryCall(call) {
 
 export async function getValues(spreadsheetId, range) {
   return (
-    (
-      await tryCall(() => sheetsApi.spreadsheets.values.get({
+    (await tryCall(
+      () => sheetsApi.spreadsheets.values.get({
         spreadsheetId,
         valueRenderOption: 'UNFORMATTED_VALUE',
         range,
-      }))
-    ).data.values || []
+      })
+    )).data.values || []
   )
 }
 
@@ -41,13 +41,13 @@ export async function getFieldIndexMap(spreadsheetId, sheetName, fieldsRow) {
 
 export async function batchGetValues(spreadsheetId, ranges) {
   return (
-    (
-      await tryCall(() => sheetsApi.spreadsheets.values.batchGet({
+    (await tryCall(
+      () => sheetsApi.spreadsheets.values.batchGet({
         spreadsheetId,
         valueRenderOption: 'UNFORMATTED_VALUE',
         ranges,
-      }))
-    ).data.valueRanges || []
+      })
+    )).data.valueRanges || []
   )
 }
 
