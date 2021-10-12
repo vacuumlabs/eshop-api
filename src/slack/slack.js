@@ -949,25 +949,25 @@ export class Slack {
 
     return id
   }
+
+  async getOrderAndItemsFromDb(orderId) {
+    return await knex.transaction(async (trx) => {
+      const order = (
+        await trx
+          .select('id', 'isCompany', 'user', 'office', 'isUrgent', 'isHome')
+          .from(this.config.dbTables.order)
+          .where('id', orderId)
+      )[0]
+
+      const items = await trx
+        .select('id', 'price', 'shopId', 'count', 'url')
+        .from(this.config.dbTables.orderItem)
+        .where('order', orderId)
+
+      return {order, items}
+    })
+  }
   /* end of Slack class */
-}
-
-async function getOrderAndItemsFromDb(orderId) {
-  return await knex.transaction(async (trx) => {
-    const order = (
-      await trx
-        .select('id', 'isCompany', 'user', 'office', 'isUrgent', 'isHome')
-        .from(this.config.dbTables.order)
-        .where('id', orderId)
-    )[0]
-
-    const items = await trx
-      .select('id', 'price', 'shopId', 'count', 'url')
-      .from(this.config.dbTables.orderItem)
-      .where('order', orderId)
-
-    return {order, items}
-  })
 }
 
 function createOrderFromDb(orderData, itemsData) {
