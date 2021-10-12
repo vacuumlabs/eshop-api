@@ -276,7 +276,7 @@ export class Slack {
         const event = await stream.take()
 
         if (event.type === 'action') {
-          const finished = await this.finishOrder(
+          const finished = await this.handleUserAction(
             stream,
             order,
             event.actions[0].name,
@@ -564,7 +564,7 @@ export class Slack {
     }
   }
 
-  async finishOrder(stream, order, action, actionValue, user) {
+  async handleUserAction(stream, order, action, actionValue, user) {
     const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
 
     const updateMessage = async (attachmentUpdate) => {
