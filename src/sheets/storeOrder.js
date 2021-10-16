@@ -13,10 +13,6 @@ export async function storeOrder(variant, spreadsheetId, order, items) {
 
   const date = new Date()
 
-  const itemToSheetData = order.isCompany
-    ? mapCompanyOrderItemToSheetData
-    : mapPersonalOrderItemToSheetData
-
   const data = []
 
   for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
@@ -27,6 +23,7 @@ export async function storeOrder(variant, spreadsheetId, order, items) {
         mapFieldsToRow(
           fieldIndexMap,
           itemToSheetData(
+            variant,
             `${item.dbIds[i]}${c.google.orderIdSuffix}`,
             item,
             order,
@@ -61,39 +58,38 @@ async function getUserJiraId(variant, spreadsheetId, slackId, name) {
   return jiraIds[rowIndex][0]
 }
 
-function mapPersonalOrderItemToSheetData(
+function itemToSheetData(
+  variant,
   dbId,
   item,
   order,
   userJiraId,
   date,
 ) {
-  return {
-    'UUID': dbId,
-    'Name': formatAsHyperlink(item.url, item.name),
-    'Office': order.office,
+  const commonFields = {
+    Status: NEW_ORDER_STATUS,
+    ts: formatDate(date),
+  }
+  const variantFields = variant === 'wincent' ? {
+    ID: dbId,
+    Specification: formatAsHyperlink(item.url, item.name),
+  } : {
+    UUID: dbId,
+    Name: formatAsHyperlink(item.url, item.name),
+    Office: order.office,
+  }
+  const companyOrPersonalFields = order.isCompany ? {
     'Reason': order.reason,
     'Urgent': Boolean(order.isUrgent),
-    'Status': NEW_ORDER_STATUS,
     'User ID': userJiraId,
-    'ts': formatDate(date),
-  }
-}
-
-function mapCompanyOrderItemToSheetData(
-  dbId,
-  item,
-  order,
-  userJiraId,
-  date,
-) {
-  return {
-    'UUID': dbId,
-    'Name': formatAsHyperlink(item.url, item.name),
-    'Office': order.office,
-    'Reason': order.reason,
-    'Status': NEW_ORDER_STATUS,
+  } : {
+    'Note': order.reason,
     'Requested by': userJiraId,
-    'ts': formatDate(date),
+  }
+
+  return {
+    ...commonFields,
+    ...variantFields,
+    ...companyOrPersonalFields,
   }
 }
