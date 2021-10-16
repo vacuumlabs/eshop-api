@@ -6,7 +6,7 @@ exports.up = async (knex) => {
     table.string('ts').notNullable()
     table.boolean('isCompany').notNullable()
     table.text('reason')
-    table.string('office').notNullable().defaultTo('')
+    table.string('office') // nullable on wincent
     table.boolean('isUrgent')
     table.boolean('isHome')
   })
