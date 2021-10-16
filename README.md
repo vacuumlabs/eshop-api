@@ -190,13 +190,16 @@ You should be given several access rights:
       - they send you the user token and you put it in the env vars
       - they make sure they are in all the required channels
 
-## New migrations guide
+## Migrations (knex) guide
+
+### New migrations
 
 If changes in database are required, you can create a new migration:
-
 ```console
 yarn knex migrate:make your_new_migration_name
 ```
+
+Find it in `knex/migrations/` folder and edit the `up` and `down` functions.
 
 To apply the migrations to your local db:
 ```console
@@ -206,4 +209,16 @@ yarn knex migrate:latest
 To push the changes to the production database (you need to have heroku CLI installed and be logged in to your account):
 ```console
 heroku run yarn knex migrate:latest --app vacuumlabs-alzabot
+```
+
+### Rolling back
+
+If you made a mistake and want to go one migration back (calling the `down` function):
+```console
+yarn knex migrate:down migration_name
+```
+
+You can do the same on production, but be extra careful:
+```console
+heroku run yarn knex migrate:down migration_name --app vacuumlabs-alzabot
 ```
