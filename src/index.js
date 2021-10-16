@@ -34,8 +34,6 @@ function* wincentActions(req, res) {
 }
 
 const endpoints = {
-  // TODO: remove when VL bot migrates to the new url
-  actions: '/actions',
   alzaCode: '/alzacode',
   vacuumlabs: {
     actions: '/vacuumlabs/actions',
@@ -49,7 +47,6 @@ const endpoints = {
 }
 
 register(app, 'get', endpoints.alzaCode, alzaCode)
-register(app, 'post', endpoints.actions, vacuumlabsActions)
 register(app, 'post', endpoints.vacuumlabs.actions, vacuumlabsActions)
 register(app, 'post', endpoints.test.actions, testActions)
 register(app, 'post', endpoints.wincent.actions, wincentActions)
