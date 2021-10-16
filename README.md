@@ -215,10 +215,10 @@ heroku run yarn knex migrate:latest --app vacuumlabs-alzabot
 
 If you made a mistake and want to go one migration back (calling the `down` function):
 ```console
-yarn knex migrate:down migration_name
+yarn knex migrate:down migration_name.js
 ```
 
 You can do the same on production, but be extra careful:
 ```console
-heroku run yarn knex migrate:down migration_name --app vacuumlabs-alzabot
+heroku run yarn knex migrate:down migration_name.js --app vacuumlabs-alzabot
 ```
