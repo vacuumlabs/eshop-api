@@ -189,3 +189,21 @@ You should be given several access rights:
       - they install the app
       - they send you the user token and you put it in the env vars
       - they make sure they are in all the required channels
+
+## New migrations guide
+
+If changes in database are required, you can create a new migration:
+
+```console
+yarn knex migrate:make your_new_migration_name
+```
+
+To apply the migrations to your local db:
+```console
+yarn knex migrate:latest
+```
+
+To push the changes to the production database (you need to have heroku CLI installed and be logged in to your account):
+```console
+heroku run yarn knex migrate:latest --app vacuumlabs-alzabot
+```
