@@ -1,7 +1,11 @@
 
 exports.up = async (knex) => {
-  await knex.schema.table('order', (table) => {
-    table.boolean('isUrgent')
+  await knex.schema.hasColumn('order', 'isUrgent').then(async (exists) => {
+    if (!exists) {
+      await knex.schema.table('order', (table) => {
+        table.boolean('isUrgent')
+      })
+    }
   })
 }
 
