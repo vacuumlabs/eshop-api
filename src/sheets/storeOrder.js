@@ -68,7 +68,7 @@ function itemToSheetData(
 ) {
   const commonFields = {
     Status: NEW_ORDER_STATUS,
-    ts: formatDate(date),
+    Date: formatDate(date),
   }
   const variantFields = variant === 'wincent' ? {
     ID: dbId,
