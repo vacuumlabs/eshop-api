@@ -738,11 +738,13 @@ export class Slack {
     const orderTypeText = isCompany ? ':office: Company' : ':woman: Personal'
 
     const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, this.getOrderFields(order, true))
+    // note: in wincent, there is no order.office
+    const orderOffice = order.office && this.getCityChannel(order.office) ? order.office : null
 
     await this.apiCall('chat.postMessage', {
       channel: this.config.channels.orders,
       as_user: true,
-      attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, this.getCityChannel(order.office) ? order.office : null),
+      attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, orderOffice),
     })
   }
 
