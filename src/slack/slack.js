@@ -452,6 +452,7 @@ export class Slack {
       await this.moveOrder(msg.ts, event.channel.id, this.getCityChannel(order.office), {
         attachments: [
           ...attachments,
+          // no msgButtons here - resets the
           ...getAdminSections(this.variant, orderId, 'add-to-cart'),
         ],
       })
@@ -481,7 +482,7 @@ export class Slack {
       let targetChannel, primaryBtn
       if (this.variant === 'wincent') {
         targetChannel = this.config.channels.orders
-        primaryBtn = 'accepted'
+        primaryBtn = 'accepted' // TODO: select whatever there was selected before?
       } else {
         targetChannel = this.getCityChannel(order.office)
         primaryBtn = 'add-to-cart'
@@ -520,7 +521,8 @@ export class Slack {
         channelId: event.channel.id,
         msgTs: msg.ts,
         textAttachments: attachments,
-        actionsAttachments: getAdminSections(this.variant, orderId, 'ordered', msgButtons),
+        // no msgButtons here - need to change the set of buttons
+        actionsAttachments: getAdminSections(this.variant, orderId, 'ordered'),
         statusIcon: 'heavy_check_mark',
       })
     } else if (actionName === 'ordered') { // Notify user - ordered
