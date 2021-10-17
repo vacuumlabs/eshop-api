@@ -80,11 +80,11 @@ function itemToSheetData(
   }
   const companyOrPersonalFields = order.isCompany ? {
     'Reason': order.reason,
-    'Urgent': Boolean(order.isUrgent),
-    'User ID': userJiraId,
+    'Requested by': userJiraId,
   } : {
     'Note': order.reason,
-    'Requested by': userJiraId,
+    'Urgent': Boolean(order.isUrgent),
+    'User ID': userJiraId,
   }
 
   return {
