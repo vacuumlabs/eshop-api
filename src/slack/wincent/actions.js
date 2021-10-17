@@ -33,7 +33,7 @@ export const getNewOrderAdminSections = (orderAttachment, orderId) => {
       text: '*Actions*',
       callback_id: `O${orderId}`,
       actions: [
-        {name: 'accept', text: 'Accept + send notification', type: 'button', value: orderId, style: 'primary'},
+        {name: 'accepted', text: 'Accept + send notification', type: 'button', value: orderId, style: 'primary'},
         {name: 'decline', text: 'Decline + send notification', type: 'button', value: orderId, style: 'default'},
         {name: 'discard', text: 'Discard', type: 'button', value: orderId, style: 'danger'},
       ],
