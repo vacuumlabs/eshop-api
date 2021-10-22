@@ -299,6 +299,7 @@ export class Slack {
           }
         }
 
+        //
         if (event.type === 'message') {
           order = setId(order, this.nextUUID())
           order = await this.updateOrder(order, event, user).catch(async (err) => {
@@ -1006,6 +1007,7 @@ function createOrderFromDb(orderData, itemsData) {
     country,
     office: orderData.office,
     orderConfirmation: null,
+    isUrgent: orderData.isUrgent,
   }
 }
 
