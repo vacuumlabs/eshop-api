@@ -13,7 +13,7 @@ export const getActionsSection = (orderId, primaryBtn, msgButtons) => {
     ...btn,
     type: 'button',
     value: orderId,
-    style: primaryBtn === btn.name ? 'primary' : 'default',
+    style: btn.name === primaryBtn ? 'primary' : btn.name === 'discard' ? 'danger' : 'default',
   }))
 
   return {
