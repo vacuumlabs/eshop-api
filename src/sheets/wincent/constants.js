@@ -1,6 +1,6 @@
 export const sheets = {
   personalOrders: {
-    id: 448662764,
+    id: 520190732,
     name: 'personal orders',
     rowOffset: 0,
     fieldsRow: 1,
@@ -9,9 +9,9 @@ export const sheets = {
   companyOrders: {
     id: 0,
     name: 'equipment list',
-    rowOffset: 2,
+    rowOffset: 0,
     fieldsRow: 1,
-    idRange: 'equipment list!A3:A',
+    idRange: 'equipment list!A1:A',
   },
   settings: {
     // id: 1503144134, // used just for subsidy
