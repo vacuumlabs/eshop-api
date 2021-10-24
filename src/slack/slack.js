@@ -260,14 +260,8 @@ export class Slack {
       isHome: false,
     })
 
-    const setId = (order, newId) => {
-      if (order.id) delete this.pendingActions[order.id]
-      if (newId) this.pendingActions[newId] = stream
-      return {...order, id: newId}
-    }
-
     const destroyOrder = (order) => {
-      setId(order, null)
+      if (order.id) delete this.pendingActions[order.id]
     }
 
     for (;;) {
@@ -301,7 +295,9 @@ export class Slack {
 
         //
         if (event.type === 'message') {
-          order = setId(order, this.nextUUID())
+          const newId = this.nextUUID()
+          this.pendingActions[newId] = stream
+          order.id = newId
           order = await this.updateOrder(order, event, user).catch(async (err) => {
             await logError(this.variant, err, 'User order error', user.id, {
               msg: event.text,
