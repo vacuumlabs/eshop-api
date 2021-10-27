@@ -283,7 +283,7 @@ export class Slack {
               value: event.actions[0].value,
               order: logOrder(order),
             })
-            this.showError(order.orderConfirmation.channel, event.original_message.ts, 'Something went wrong, please try again.')
+            this.showError(order.orderConfirmation.channel, event.original_message.ts, "Something went wrong.\nMake sure the URL you sent me is shorter than 255 characters - I can't handle longer URLs yet.")
 
             return true
           })
