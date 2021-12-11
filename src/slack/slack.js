@@ -242,8 +242,10 @@ export class Slack {
   }
 
   showError(channel, ts, msg) {
+    const text = `:exclamation: ${msg}`
+    logger.warn(`showed error to user: ${text}`)
     return this.apiCall(ts ? 'chat.update' : 'chat.postMessage', {
-      channel, ts, as_user: true, text: `:exclamation: ${msg}`, attachments: [],
+      channel, ts, as_user: true, text, attachments: [],
     })
   }
 
@@ -271,22 +273,30 @@ export class Slack {
         const event = await stream.take()
 
         if (event.type === 'action') {
-          const finished = await this.handleUserAction(
-            stream,
-            order,
-            event.actions[0].name,
-            event.actions[0].value,
-            event.user,
-          ).catch((err) => {
-            logError(this.variant, err, 'User action error', event.user.id, {
+          let finished
+
+          try {
+            finished = await this.handleUserAction(
+              stream,
+              order,
+              event.actions[0].name,
+              event.actions[0].value,
+              event.user,
+            )
+          } catch (err) {
+            finished = true
+
+            await logError(this.variant, err, 'User action error', event.user.id, {
               action: event.actions[0].name,
               value: event.actions[0].value,
               order: logOrder(order),
             })
-            this.showError(order.orderConfirmation.channel, event.original_message.ts, "Something went wrong.\nMake sure the URL you sent me is shorter than 255 characters - I can't handle longer URLs yet.")
-
-            return true
-          })
+            try {
+              await this.showError(order.orderConfirmation.channel, event.original_message.ts, "Something went wrong.\nMake sure the URL you sent me is shorter than 255 characters - I can't handle longer URLs yet.")
+            } catch (err) {
+              logger.error(`couldn't show error to the user. error: ${err}`)
+            }
+          }
 
           if (finished) {
             break
@@ -298,15 +308,16 @@ export class Slack {
           const newId = this.nextUUID()
           this.pendingActions[newId] = stream
           order.id = newId
-          order = await this.updateOrder(order, event, user).catch(async (err) => {
+
+          try {
+            order = await this.updateOrder(order, event, user)
+          } catch (err) {
             await logError(this.variant, err, 'User order error', user.id, {
               msg: event.text,
               order: logOrder(order),
             })
             await this.showError(user, event.original_message.ts, 'Something went wrong, please try again.')
-
-            return order
-          })
+          }
         }
 
         // console.log(';;', event && event.type)
