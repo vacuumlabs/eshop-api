@@ -39,7 +39,7 @@ App is configured via environment variables. In `config.js`, the variables are r
 
 There are:
 - workspace-specific env vars
-  - currently, the app is hardcoded (WIP) for three workspaces - `vacuumlabs`, `wincent` and `test`
+  - currently, the app is hardcoded for three workspaces - `vacuumlabs`, `wincent` and `test`
   - the `vacuumlabs`, `wincent`, and `test` env vars accept a stringified object with all workspace-specific variables
 - global env vars - workspace-agnostic variables
 
@@ -108,9 +108,7 @@ Google sheet: [Electronics](https://docs.google.com/spreadsheets/d/1iy1MTnOu87my
 - company orders: sheet _Electronics_
 - personal orders: sheet _Personal Orders_
 
-### Testing production (WIP)
-
-*This is a description how it would optimally work, the handler for the `test` and `wincent` variants is not coded yet.*
+### Testing production
 
 To test the currently deployed app without polluting the real orders database and without letting the office team know about every such order, you can make use of the `test` app variant.
 
