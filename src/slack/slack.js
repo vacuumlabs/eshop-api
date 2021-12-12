@@ -592,6 +592,8 @@ export class Slack {
   }
 
   async handleUserAction(stream, order, action, actionValue, user) {
+    logger.info(`handling user action - name: ${action}, value: ${actionValue}, user: ${user}, order: ${JSON.stringify(order)}`)
+
     const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
 
     const updateMessage = async (attachmentUpdate) => {
@@ -836,6 +838,8 @@ export class Slack {
 
 
   async updateOrder(order, event, user) {
+    logger.info(`handling user message - user: ${user}, event text: ${event.text}, order: ${JSON.stringify(order)}`)
+
     if (order.orderConfirmation) {
       const {channel, ts} = order.orderConfirmation
       await this.apiCall('chat.delete', {channel, ts})
