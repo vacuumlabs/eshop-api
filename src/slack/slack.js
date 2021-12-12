@@ -292,7 +292,7 @@ export class Slack {
               order: logOrder(order),
             })
             try {
-              await this.showError(order.orderConfirmation.channel, event.original_message.ts, "Something went wrong.\nMake sure the URL you sent me is shorter than 255 characters - I can't handle longer URLs yet.")
+              await this.showError(order.orderConfirmation.channel, event.original_message.ts, 'Something went wrong, please try again.')
             } catch (err) {
               logger.error(`couldn't show error to the user. error: ${err}`)
             }
@@ -1075,6 +1075,8 @@ async function orderInfo(items, country) {
   for (const item of items) {
     // eslint-disable-next-line no-loop-func
     await (async function() {
+      // shouldn't happen anymore because of handling in parseOrder
+      // TODO: validate and remove
       if (item.url.length > 255) {
         const err = new Error('URL too long')
         err.customMsg = 'URL cannot be longer than 255 characters. Try to remove unnecessary parameters'
