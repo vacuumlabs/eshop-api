@@ -592,7 +592,7 @@ export class Slack {
   }
 
   async handleUserAction(stream, order, action, actionValue, user) {
-    logger.info(`handling user action - name: ${action}, value: ${actionValue}, user: ${user}, order: ${JSON.stringify(order)}`)
+    logger.info(`handling user action - name: ${action}, value: ${actionValue}, user: ${JSON.stringify(user)}, order: ${JSON.stringify(order)}`)
 
     const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
 
