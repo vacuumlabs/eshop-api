@@ -1054,7 +1054,14 @@ function parseOrder(text) {
   const goods = []
   while ((matches = re.exec(text)) !== null) {
     if (matches[1] === '') matches[1] = '1'
-    goods.push({url: matches[2], count: parseInt(matches[1], 10)})
+    const link = matches[2]
+    // slack sometimes sends the link with the text that should be displayed after '|', e.g. the truncated link
+    const justLink = link.split('|')[0]
+    // link could be too long to process later, containing many useless query params. e.g. 'fbclid'
+    // however, we (probably) can't just remove all query params - the 'o' param may be useful
+    const url = justLink.length > 250 ? justLink.slice(0, 250) : justLink
+
+    goods.push({url, count: parseInt(matches[1], 10)})
   }
   return goods
 }
