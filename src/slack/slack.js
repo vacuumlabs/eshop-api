@@ -839,6 +839,7 @@ export class Slack {
 
   async updateOrder(order, event, user) {
     logger.info(`handling user message - user: ${user}, event text: ${event.text}, order: ${JSON.stringify(order)}`)
+    logger.info(JSON.stringify(event))
 
     if (order.orderConfirmation) {
       const {channel, ts} = order.orderConfirmation
