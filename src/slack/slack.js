@@ -1049,7 +1049,7 @@ function orderToAttachment(text, fields) {
 }
 
 function parseOrder(text) {
-  const re = /\s*(\d*)\s*<(http[^\s]+)>/g
+  const re = /\s*(\d*)x?\s*<(http[^\s]+)>/g
   let matches
   const goods = []
   while ((matches = re.exec(text)) !== null) {
