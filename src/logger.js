@@ -14,7 +14,7 @@ const logger = winston.createLogger({
 export default logger
 
 export function logError(variant, e, msg, userId, data) {
-  logger.error(`logError. error: ${e} | msg: ${msg} | userId: ${userId} | data: ${JSON.stringify(data)}`)
+  logger.error(`logError. error: ${e} | msg: ${msg} | userId: ${userId} | error.response: ${JSON.stringify(e.response)} | data: ${JSON.stringify(data)}`)
 
   logger.info(`calling users.info for userId: ${userId}`)
   // first try to get username from user's ID
