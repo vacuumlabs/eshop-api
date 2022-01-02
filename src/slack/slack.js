@@ -846,7 +846,8 @@ export class Slack {
       await this.apiCall('chat.delete', {channel, ts})
     }
 
-    const {info, errors} = await orderInfo(parseOrder(event.text), order.country)
+    const items = parseOrder(event.text)
+    const {info} = await orderInfo(items, order.country)
 
     for (const i of info.items) {
       if (order.items.get(i.id)) order.items.get(i.id).count += i.count
@@ -857,18 +858,6 @@ export class Slack {
 
     if (order.items.size > 0) {
       order.country = info.country
-    }
-
-    if (errors.length > 0) {
-      errors.forEach((e) => {
-        logger.error('Failed to fetch item info', e.url, e.err.message)
-      })
-
-      await this.apiCall('chat.postMessage', {
-        channel: user,
-        as_user: true,
-        text: `:exclamation: I can't find these items:\n${errors.map((e) => `${e.url}${e.err.customMsg ? ` - ${e.err.customMsg}` : ''}`).join('\n')}`,
-      })
     }
 
     const totalCount = Array.from(order.items.entries()).reduce((acc, entry) => acc + entry[1], 0)
@@ -1071,7 +1060,6 @@ function parseOrder(text) {
 
 async function orderInfo(items, country) {
   const info = []
-  const errors = []
   let totalPrice = 0
   let wrongCountry = false
   let orderCountry = country
@@ -1133,5 +1121,5 @@ async function orderInfo(items, country) {
       // })
     })
   }
-  return {info: {items: info, totalPrice, country: orderCountry, wrongCountry}, errors}
+  return {info: {items: info, totalPrice, country: orderCountry, wrongCountry}}
 }
