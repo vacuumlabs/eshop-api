@@ -1049,11 +1049,14 @@ function orderToAttachment(text, fields) {
 }
 
 function parseOrder(text) {
+  // optional whitespace, optional digits, optional "x", optional whitespace, "<http", string without whitespace, ">"
   const re = /\s*(\d*)x?\s*<(http[^\s]+)>/g
   let matches
   const goods = []
   while ((matches = re.exec(text)) !== null) {
+    // first capture group - digits
     if (matches[1] === '') matches[1] = '1'
+    // second capture group - url
     const link = matches[2]
     // slack sometimes sends the link with the text that should be displayed after '|', e.g. the truncated link
     const justLink = link.split('|')[0]
