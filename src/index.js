@@ -1,7 +1,6 @@
 import express from 'express'
 import bodyParser from 'body-parser'
 import {expressHelpers, run, createChannel} from 'yacol'
-import {App, ExpressReceiver} from '@slack/bolt'
 
 import c from './config'
 import {Slack} from './slack/slack'
@@ -57,6 +56,7 @@ register(app, 'post', endpoints.wincent.actions, express.Router().use([bodyParse
 
 ;(async function() {
   run(runApp)
+
   app.listen(c.port, () =>
     logger.info(`App started on localhost:${c.port}.`)
   )
@@ -67,10 +67,13 @@ register(app, 'post', endpoints.wincent.actions, express.Router().use([bodyParse
       return
     }
     const slackClient = new Slack(variant)
-    await slackClient.init(events[variant])
 
     app.use(endpoints[variant].events, slackClient.boltReceiver.router)
+
+    await slackClient.init(events[variant])
   }))
+
+
 })().catch((e) => {
   logger.error('Init error', e)
   process.exit(1)
