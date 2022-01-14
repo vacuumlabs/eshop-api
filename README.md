@@ -25,7 +25,6 @@ Slack bot that takes orders of electronics.
 - in the admin channel dedicated for the selected office admin can:
   - change order status
   - send notification to user that the order was ordered/delivered
-  - mark the order as subsidy
   - close the order
   - move the order to archive channel
 

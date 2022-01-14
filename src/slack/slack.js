@@ -7,7 +7,6 @@ import {getInfo, addToCartAll, getLangByLink} from '../alza'
 import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
-import {addSubsidy as addSubsidyToSheets} from '../sheets/addSubsidy'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
 import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, MESSAGES, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
@@ -533,24 +532,9 @@ export class Slack {
         channelId: event.channel.id,
         msgTs: msg.ts,
         textAttachments: attachments,
-        actionsAttachments: getAdminSections(this.variant, orderId, 'subsidy', msgButtons),
+        actionsAttachments: getAdminSections(this.variant, orderId, undefined, msgButtons),
         statusIcon: 'inbox_tray',
       })
-    } else if (actionName === 'subsidy') { // Mark subsidy
-      await this.removeReaction('money_with_wings', event.channel.id, msg.ts)
-
-      await addSubsidyToSheets(this.variant, this.config.google.spreadsheetId, order, items)
-
-      await this.apiCall('chat.update', {
-        channel: event.channel.id,
-        ts: msg.ts,
-        attachments: [
-          ...attachments,
-          ...getAdminSections(this.variant, orderId, false, msgButtons.filter((btn) => btn.name !== 'subsidy')),
-        ],
-      })
-
-      await this.addReaction('money_with_wings', event.channel.id, msg.ts)
     } else if (actionName === 'status') { // Set order status
       const status = event.actions[0].selected_options[0].value
 

@@ -14,15 +14,7 @@ export const sheets = {
     idRange: 'Electronics!A3:A',
   },
   settings: {
-    id: 1503144134,
-    name: 'Settings',
     jiraIdRange: 'Settings!F2:F',
     slackIdRange: 'Settings!K2:K',
-    markedCell: {
-      startRowIndex: 1,
-      endRowIndex: 2,
-      startColumnIndex: 11,
-      endColumnIndex: 12,
-    },
   },
 }

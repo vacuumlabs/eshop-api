@@ -1,6 +1,5 @@
 import c from '../config.js'
 import {google} from 'googleapis'
-import {sheets} from './constants'
 
 const scopes = ['https://www.googleapis.com/auth/spreadsheets']
 const key = Buffer.from(c.google.key, 'base64').toString()
@@ -67,23 +66,5 @@ export function batchUpdateValues(spreadsheetId, sheet, requests) {
   return tryCall(() => sheetsApi.spreadsheets.values.batchUpdate({
     spreadsheetId,
     requestBody: requests,
-  }))
-}
-
-export function markCells(variant, spreadsheetId, destinations) {
-  return tryCall(() => sheetsApi.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: destinations.map((destination) => ({
-        copyPaste: {
-          source: {
-            sheetId: sheets[variant].settings.id,
-            ...sheets[variant].settings.markedCell,
-          },
-          destination,
-          pasteType: 'PASTE_FORMAT',
-        },
-      })),
-    },
   }))
 }

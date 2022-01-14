@@ -14,17 +14,9 @@ export const sheets = {
     idRange: 'equipment list!A1:A',
   },
   settings: {
-    // id: 1503144134, // used just for subsidy
-    // name: 'Settings', // not used
     // TODO: find out whether it's updated
     jiraIdRange: 'Settings!E2:E',
     // TODO: find out how to get this into sheet
     slackIdRange: 'Settings!E2:E',
-    // markedCell: { // used just for subsidy
-    //   startRowIndex: 1,
-    //   endRowIndex: 2,
-    //   startColumnIndex: 11,
-    //   endColumnIndex: 12,
-    // },
   },
 }

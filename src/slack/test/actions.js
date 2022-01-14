@@ -18,7 +18,6 @@ export const getActionsSection = (orderId, primaryBtn, msgButtons) => {
     {name: 'add-to-cart', text: 'Add to Cart'},
     {name: 'ordered', text: 'Ordered + send notification'},
     {name: 'delivered', text: 'Delivered + send notification'},
-    {name: 'subsidy', text: 'Mark as Subsidy'},
   ]).map((btn) => ({
     ...btn,
     type: 'button',
