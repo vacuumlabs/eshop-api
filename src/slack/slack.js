@@ -26,7 +26,8 @@ export class Slack {
 
     // inspired by: https://github.com/slackapi/bolt-js/issues/212
     this.boltReceiver = new ExpressReceiver({signingSecret: this.config.slack.signingSecret, endpoints: '/'})
-    this.boltApp = new App({token: this.config.slack.botToken, receiver: this.boltReceiver})
+    this.boltApp = new App({token: this.config.slack.botToken, receiver: this.boltReceiver, extendedErrorHandler: true})
+    logger.info(`constructed app with variant: ${variant}, token: ${this.config.slack.botToken}, signing secret: ${this.config.slack.signingSecret}`)
   }
 
   // this function shouldn't be called for wincent
@@ -121,9 +122,7 @@ export class Slack {
 
     // console.log('Upgrade complete')
 
-    if (this.variant === 'test') {
-      this.boltApp.event('message', ({event}) => this.handleMessage(event))
-    }
+    this.boltApp.event('message', ({event}) => this.handleMessage(event))
 
     /**
       @type import('@slack/bolt/dist/App').ExtendedErrorHandler
@@ -217,13 +216,15 @@ export class Slack {
     logger.info('message event')
     logger.verbose(JSON.stringify(event))
 
-    if (this.amIMentioned(event)) {
-      this.streamForUser(event.user).put(event)
-    }
+    if (this.variant === 'test') {
+      if (this.amIMentioned(event)) {
+        this.streamForUser(event.user).put(event)
+      }
 
-    if (event.channel === this.config.channels.news) {
+      if (event.channel === this.config.channels.news) {
       // TODO: require confirmation before sending a company-wide message
-      await this.announceToAll(event.text)
+        await this.announceToAll(event.text)
+      }
     }
   }
 

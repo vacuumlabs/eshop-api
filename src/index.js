@@ -38,6 +38,7 @@ const endpoints = {
   alzaCode: '/alzacode',
   vacuumlabs: {
     actions: '/vacuumlabs/actions',
+    events: '/vacuumlabs/events',
   },
   test: {
     actions: '/test/actions',
@@ -45,6 +46,7 @@ const endpoints = {
   },
   wincent: {
     actions: '/wincent/actions',
+    events: '/wincent/events',
   },
 }
 
@@ -67,9 +69,7 @@ register(app, 'post', endpoints.wincent.actions, express.Router().use([bodyParse
     const slackClient = new Slack(variant)
     await slackClient.init(events[variant])
 
-    if (variant === 'test') {
-      app.use(endpoints[variant].events, slackClient.boltReceiver.router)
-    }
+    app.use(endpoints[variant].events, slackClient.boltReceiver.router)
   }))
 })().catch((e) => {
   logger.error('Init error', e)
