@@ -72,8 +72,6 @@ register(app, 'post', endpoints.wincent.actions, wincentActions)
 
     await slackClient.init(events[variant])
   }))
-
-
 })().catch((e) => {
   logger.error('Init error', e)
   process.exit(1)

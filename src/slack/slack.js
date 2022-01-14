@@ -124,6 +124,8 @@ export class Slack {
 
     this.boltApp.event('message', ({event}) => this.handleMessage(event))
 
+    this.boltApp.event('team_join', ({event}) => this.greetNewUser(event.user.id))
+
     /**
       @type import('@slack/bolt/dist/App').ExtendedErrorHandler
     */
@@ -226,11 +228,6 @@ export class Slack {
   async listen(stream) {
     for (;;) {
       const event = await stream.take()
-
-      if (event.type === 'team_join') {
-        await this.greetNewUser(event.user.id)
-        continue
-      }
 
       if (event.type === 'action') {
         if (event.callback_id.startsWith('O')) {
