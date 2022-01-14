@@ -174,17 +174,13 @@ export class Slack {
   }
 
   amIMentioned(event) {
-  // ignore messages from the bot
+    // ignore messages from the bot
     if (event.user === this.bot.id) return false
     // user is writing the bot (D-irect message)
     if (event.channel[0] === 'D') return true
     // the bot is mentioned
     if (event.text.match(`<@${this.bot.id}>`)) return true
     return false
-  }
-
-  isMessage(event) {
-    return event.type === 'message' && event.subtype == null
   }
 
   streamForUser(userId) {
@@ -211,41 +207,26 @@ export class Slack {
     await this.apiCall('chat.postMessage', {channel: userId, as_user: true, text: NEW_USER_GREETING[this.variant]})
   }
 
-  // to be used as @slack/bolt message event handler
+  // used as @slack/bolt message event handler
   async handleMessage(event) {
     logger.info('message event')
     logger.verbose(JSON.stringify(event))
 
-    if (this.variant === 'test') {
-      if (this.amIMentioned(event)) {
-        this.streamForUser(event.user).put(event)
-      }
+    if (this.amIMentioned(event)) {
+      this.streamForUser(event.user).put(event)
+      return
+    }
 
-      if (event.channel === this.config.channels.news) {
+    if (event.channel === this.config.channels.news) {
       // TODO: require confirmation before sending a company-wide message
-        await this.announceToAll(event.text)
-      }
+      await this.announceToAll(event.text)
+      return
     }
   }
 
   async listen(stream) {
     for (;;) {
       const event = await stream.take()
-      // logger.verbose(`slack event ${event.type}: ${JSON.stringify(event)}`)
-      // console.log('event', event.type, event)
-
-      if (this.variant !== 'test') {
-        if (this.isMessage(event) && this.amIMentioned(event)) {
-          this.streamForUser(event.user).put(event)
-          continue
-        }
-
-        if (this.isMessage(event) && event.channel === this.config.channels.news) {
-          // TODO: require confirmation before sending a company-wide message
-          await this.announceToAll(event.text)
-          continue
-        }
-      }
 
       if (event.type === 'team_join') {
         await this.greetNewUser(event.user.id)
