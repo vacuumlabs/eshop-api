@@ -26,7 +26,7 @@ export const getActionsSection = (orderId, primaryBtn, msgButtons) => {
   }))
 
   return {
-    text: 'act',
+    text: '',
     actions: buttons,
     callback_id: `O${orderId}`,
   }
@@ -43,7 +43,7 @@ export const getNewOrderAdminSections = (orderAttachment, orderId, orderOffice) 
       text: `*Status:* ${NEW_ORDER_STATUS}`,
     },
     {
-      // text: '',
+      text: '',
       callback_id: `O${orderId}`,
       actions: [
         ...forwardAction,
