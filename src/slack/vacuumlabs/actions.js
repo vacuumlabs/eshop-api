@@ -47,7 +47,7 @@ export const getNewOrderAdminSections = (orderAttachment, orderId, orderOffice) 
       callback_id: `O${orderId}`,
       actions: [
         ...forwardAction,
-        {name: 'decline', text: 'Decline', type: 'button', value: orderId, style: 'default'},
+        {name: 'decline', text: 'Decline + send notification', type: 'button', value: orderId, style: 'default'},
         {name: 'discard', text: 'Discard', type: 'button', value: orderId, style: 'danger'},
       ],
     },
