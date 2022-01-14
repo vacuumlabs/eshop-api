@@ -16,7 +16,7 @@ export const getUserActions = (variant, order) => {
 
 // admin-facing sections
 const getStatusSection = (orderId) => ({
-  text: 'Status',
+  // text: 'Status',
   actions: [{
     type: 'select',
     name: 'status',
