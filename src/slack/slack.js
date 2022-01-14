@@ -324,7 +324,7 @@ export class Slack {
         channel: channelId,
         ts: msgTs,
         attachments: [
-          ...textAttachments.map((att) => att.text && att.text.startsWith('*Status*') ? {...att, text: `*Status*\n${status}`} : att),
+          ...textAttachments.map((att) => att.text && att.text.startsWith('*Status:*') ? {...att, text: `*Status:* ${status}`} : att),
           ...actionsAttachments,
         ],
       }))
