@@ -12,6 +12,7 @@ import {addSubsidy as addSubsidyToSheets} from '../sheets/addSubsidy'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
 import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, MESSAGES, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
+import {App, ExpressReceiver} from '@slack/bolt'
 
 const knex = _knex(c.knex)
 
@@ -22,6 +23,10 @@ export class Slack {
     this.streams = {}
     this.pendingActions = {}
     this.actionsCount = 0
+
+    // inspired by: https://github.com/slackapi/bolt-js/issues/212
+    this.boltReceiver = new ExpressReceiver({signingSecret: this.config.slack.signingSecret, endpoints: '/'})
+    this.boltApp = new App({token: this.config.slack.botToken, receiver: this.boltReceiver})
   }
 
   // this function shouldn't be called for wincent
@@ -116,6 +121,18 @@ export class Slack {
 
     // console.log('Upgrade complete')
 
+    if (this.variant === 'test') {
+      this.boltApp.event('message', ({event}) => this.handleMessage(event))
+    }
+
+    /**
+      @type import('@slack/bolt/dist/App').ExtendedErrorHandler
+    */
+    const errorHandler = async ({error: {code, message, name, req, stack}, context, body}) => {
+      logger.error(`code: ${code}, message: ${message}, name: ${name}, req: ${JSON.stringify(req)}, stack: ${stack}, context: ${JSON.stringify(context)}, body: ${JSON.stringify(body)}`)
+    }
+    this.boltApp.error(errorHandler)
+
     this.listen(stream)
     this.maintainConnection(stream)
   }
@@ -193,7 +210,21 @@ export class Slack {
 
   async greetNewUser(userId) {
     await this.apiCall('chat.postMessage', {channel: userId, as_user: true, text: NEW_USER_GREETING[this.variant]})
+  }
 
+  // to be used as @slack/bolt message event handler
+  async handleMessage(event) {
+    logger.info('message event')
+    logger.verbose(JSON.stringify(event))
+
+    if (this.amIMentioned(event)) {
+      this.streamForUser(event.user).put(event)
+    }
+
+    if (event.channel === this.config.channels.news) {
+      // TODO: require confirmation before sending a company-wide message
+      await this.announceToAll(event.text)
+    }
   }
 
   async listen(stream) {
@@ -202,15 +233,17 @@ export class Slack {
       // logger.verbose(`slack event ${event.type}: ${JSON.stringify(event)}`)
       // console.log('event', event.type, event)
 
-      if (this.isMessage(event) && this.amIMentioned(event)) {
-        this.streamForUser(event.user).put(event)
-        continue
-      }
+      if (this.variant !== 'test') {
+        if (this.isMessage(event) && this.amIMentioned(event)) {
+          this.streamForUser(event.user).put(event)
+          continue
+        }
 
-      if (this.isMessage(event) && event.channel === this.config.channels.news) {
-      // TODO: require confirmation before sending a company-wide message
-        await this.announceToAll(event.text)
-        continue
+        if (this.isMessage(event) && event.channel === this.config.channels.news) {
+          // TODO: require confirmation before sending a company-wide message
+          await this.announceToAll(event.text)
+          continue
+        }
       }
 
       if (event.type === 'team_join') {

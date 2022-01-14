@@ -1,7 +1,9 @@
-import c from './config'
 import express from 'express'
 import bodyParser from 'body-parser'
 import {expressHelpers, run, createChannel} from 'yacol'
+import {App, ExpressReceiver} from '@slack/bolt'
+
+import c from './config'
 import {Slack} from './slack/slack'
 import {alzaCode} from './alza'
 import logger from './logger'
@@ -40,6 +42,7 @@ const endpoints = {
   },
   test: {
     actions: '/test/actions',
+    events: '/test/events',
   },
   wincent: {
     actions: '/wincent/actions',
@@ -64,6 +67,10 @@ register(app, 'post', endpoints.wincent.actions, wincentActions)
     }
     const slackClient = new Slack(variant)
     await slackClient.init(events[variant])
+
+    if (variant === 'test') {
+      app.use(endpoints[variant].events, slackClient.boltReceiver.router)
+    }
   }))
 })().catch((e) => {
   logger.error('Init error', e)
