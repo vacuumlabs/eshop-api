@@ -210,7 +210,6 @@ export class Slack {
   // used as @slack/bolt message event handler
   async handleMessage(event) {
     logger.info('message event')
-    logger.verbose(JSON.stringify(event))
 
     if (this.amIMentioned(event)) {
       this.streamForUser(event.user).put(event)
