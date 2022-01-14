@@ -177,6 +177,8 @@ export class Slack {
   async handleMessage(event) {
     logger.info('message event')
 
+    if (event.subtype) return
+
     if (this.amIMentioned(event)) {
       this.streamForUser(event.user).put(event)
       return
