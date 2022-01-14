@@ -1,11 +1,11 @@
 import * as vlActions from './vacuumlabs/actions'
-// import * as testActions from './test/actions'
+import * as testActions from './test/actions'
 import * as wincentActions from './wincent/actions'
 
 const variantMap = {
   vacuumlabs: vlActions,
   // currently, the test actions are the same as VL actions
-  test: vlActions,
+  test: testActions,
   wincent: wincentActions,
 }
 
@@ -16,7 +16,7 @@ export const getUserActions = (variant, order) => {
 
 // admin-facing sections
 const getStatusSection = (orderId) => ({
-  // text: 'Status',
+  text: 'Status',
   actions: [{
     type: 'select',
     name: 'status',
