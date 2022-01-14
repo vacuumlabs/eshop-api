@@ -4,7 +4,6 @@ import * as wincentActions from './wincent/actions'
 
 const variantMap = {
   vacuumlabs: vlActions,
-  // currently, the test actions are the same as VL actions
   test: testActions,
   wincent: wincentActions,
 }
@@ -16,7 +15,7 @@ export const getUserActions = (variant, order) => {
 
 // admin-facing sections
 const getStatusSection = (orderId) => ({
-  text: 'Status',
+  text: '',
   actions: [{
     type: 'select',
     name: 'status',
@@ -30,7 +29,7 @@ const getStatusSection = (orderId) => ({
 })
 
 export const getArchiveSection = (orderId, toArchive) => ({
-  text: 'Archive',
+  text: '',
   actions: [{
     type: 'button',
     name: toArchive ? 'unarchive' : 'archive',
