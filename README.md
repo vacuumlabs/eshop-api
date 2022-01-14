@@ -55,6 +55,7 @@ There are:
 - `slack` - object of OAuth tokens required for communication via Slack API, obtained from Slack bot app [OAuth page](https://api.slack.com/apps/A5WH547TR/install-on-team?)
   - `adminToken` - this is the user that installed the app. he needs to be a part of the channels and have workspace admin rights (the app is able to remove messages only by using this token)
   - `botToken` - bot token
+  - `signingSecret` - bot signing secret used to initialize `@slack/bolt` app
 - `dbTables` - object of the table names that handle the orders for this workspace app
   - `order` - stores the whole order, may contain multiple items
   - `orderItem` - stores the single items of the order
