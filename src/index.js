@@ -1,5 +1,4 @@
 import express from 'express'
-import bodyParser from 'body-parser'
 import {expressHelpers, run, createChannel} from 'yacol'
 
 import c from './config'
@@ -8,6 +7,7 @@ import {alzaCode} from './alza'
 import logger from './logger'
 
 const app = express()
+app.use(express.urlencoded())
 
 const {register, runApp} = expressHelpers
 
@@ -49,10 +49,10 @@ const endpoints = {
   },
 }
 
-register(app, 'get', endpoints.alzaCode, express.Router().use([bodyParser.urlencoded(), alzaCode]))
-register(app, 'post', endpoints.vacuumlabs.actions, express.Router().use([bodyParser.urlencoded(), vacuumlabsActions]))
-register(app, 'post', endpoints.test.actions, express.Router().use([bodyParser.urlencoded(), testActions]))
-register(app, 'post', endpoints.wincent.actions, express.Router().use([bodyParser.urlencoded(), wincentActions]))
+register(app, 'get', endpoints.alzaCode, alzaCode)
+register(app, 'post', endpoints.vacuumlabs.actions, vacuumlabsActions)
+register(app, 'post', endpoints.test.actions, testActions)
+register(app, 'post', endpoints.wincent.actions, wincentActions)
 
 ;(async function() {
   run(runApp)
