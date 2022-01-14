@@ -469,7 +469,7 @@ export class Slack {
         primaryBtn = 'accepted' // TODO: select whatever there was selected before?
       } else {
         targetChannel = this.getCityChannel(order.office)
-        primaryBtn = 'add-to-cart'
+        primaryBtn = 'add-to-cart' // TODO: doesn't make sense to preselect on unarchive
       }
 
       await this.moveOrder(msg.ts, event.channel.id, targetChannel, {
@@ -877,16 +877,16 @@ export class Slack {
       })
     }
 
-    return {title: 'Items', value: itemLines.join('\n'), short: false}
+    return {value: itemLines.join('\n'), short: false}
   }
 
   getOrderFields(order, adminMsg = false) {
     return [
       this.itemsField(order.items, adminMsg, order),
-      adminMsg && {title: 'Total value', value: formatPrice(order.totalPrice, c.currency)},
-      order.office && {title: 'Office', value: `${order.office}${order.isHome ? ' (home delivery)' : ''}`},
-      order.reason && {title: order.isCompany ? 'Reason' : 'Note', value: order.reason, short: false},
-      order.isUrgent !== null && {title: 'Urgent', value: order.isUrgent ? 'Yes' : 'No'},
+      adminMsg && {value: `Total value: ${formatPrice(order.totalPrice, c.currency)}`},
+      order.office && {value: `Office: ${order.office}${order.isHome ? ' (home delivery)' : ''}`},
+      order.reason && {value: `${order.isCompany ? 'Reason' : 'Note'}: ${order.reason}`, short: false},
+      order.isUrgent !== null && {value: order.isUrgent ? 'Urgent: Yes' : 'Urgent: No'},
     ]
   }
 
