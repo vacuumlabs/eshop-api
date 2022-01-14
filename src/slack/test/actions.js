@@ -40,10 +40,10 @@ export const getNewOrderAdminSections = (orderAttachment, orderId, orderOffice) 
   return [
     orderAttachment,
     {
-      text: `*Status* - ${NEW_ORDER_STATUS}`,
+      text: `*Status:* ${NEW_ORDER_STATUS}`,
     },
     {
-      text: '',
+      // text: '',
       callback_id: `O${orderId}`,
       actions: [
         ...forwardAction,

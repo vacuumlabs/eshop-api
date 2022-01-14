@@ -44,7 +44,7 @@ export const getArchiveSection = (orderId, toArchive) => ({
 export const getAdminSections = (variant, orderId, primaryBtn, msgButtons) => {
   const variantMap = {
     vacuumlabs: vlActions.getActionsSection,
-    test: vlActions.getActionsSection,
+    test: testActions.getActionsSection,
     wincent: wincentActions.getActionsSection,
   }
   const getActionsSection = variantMap[variant]
