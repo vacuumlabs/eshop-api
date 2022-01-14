@@ -5,7 +5,6 @@ import moment from 'moment-timezone'
 import {makeApiCall} from './slackApi'
 import {getInfo, addToCartAll, getLangByLink} from '../alza'
 import {format} from '../currency'
-import WS from 'ws'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {addSubsidy as addSubsidyToSheets} from '../sheets/addSubsidy'
@@ -27,7 +26,6 @@ export class Slack {
     // inspired by: https://github.com/slackapi/bolt-js/issues/212
     this.boltReceiver = new ExpressReceiver({signingSecret: this.config.slack.signingSecret, endpoints: '/'})
     this.boltApp = new App({token: this.config.slack.botToken, receiver: this.boltReceiver, extendedErrorHandler: true})
-    logger.info(`constructed app with variant: ${variant}, token: ${this.config.slack.botToken}, signing secret: ${this.config.slack.signingSecret}`)
   }
 
   // this function shouldn't be called for wincent
@@ -135,40 +133,6 @@ export class Slack {
     this.boltApp.error(errorHandler)
 
     this.listen(stream)
-    this.maintainConnection(stream)
-  }
-
-
-  async maintainConnection(stream) {
-    for (;;) {
-      const connection = await this.connect(stream)
-      while (await this.isAlive(connection)) {/* empty */}
-      connection.terminate()
-      logger.info('Connection dropped, reconnecting.')
-    }
-  }
-
-  async isAlive(connection) {
-    let alive = false
-    connection.ping('')
-    connection.once('pong', () => (alive = true))
-    await new Promise((resolve) => setTimeout(resolve, 10000))
-    return alive
-  }
-
-  async connect(stream) {
-    const response = await this.apiCall('rtm.connect')
-
-    this.team = response.team
-    this.bot = response.self
-
-    const connection = new WS(response.url)
-    connection.on('message', (data) => stream.put(JSON.parse(data)))
-    await new Promise((resolve) => connection.once('open', resolve))
-
-    logger.info('WS connection to Slack established', {variant: this.variant, team: this.team, bot: this.bot})
-
-    return connection
   }
 
   nextUUID() {
@@ -177,11 +141,11 @@ export class Slack {
 
   amIMentioned(event) {
     // ignore messages from the bot
-    if (event.user === this.bot.id) return false
+    if (event.user === this.botUserId) return false
     // user is writing the bot (D-irect message)
     if (event.channel[0] === 'D') return true
     // the bot is mentioned
-    if (event.text.match(`<@${this.bot.id}>`)) return true
+    if (event.text.match(`<@${this.botUserId}>`)) return true
     return false
   }
 
