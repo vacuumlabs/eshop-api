@@ -528,7 +528,7 @@ export class Slack {
       await this.changeStatus({
         order,
         items,
-        status: 'ordered',
+        status: 'delivered',
         channelId: event.channel.id,
         msgTs: msg.ts,
         textAttachments: attachments,
