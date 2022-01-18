@@ -324,7 +324,9 @@ export class Slack {
         channel: channelId,
         ts: msgTs,
         attachments: [
-          ...textAttachments.map((att) => att.text && att.text.startsWith('*Status*') ? {...att, text: `*Status:* ${status}`} : att),
+          // *Status:* is the new message format. temporarily, we need to support the old format,
+          // and it seems checking just *Status* doesn't work, so dual check here it is
+          ...textAttachments.map((att) => att.text && (att.text.startsWith('*Status*') || att.text.startsWith('*Status:*')) ? {...att, text: `*Status:* ${status}`} : att),
           ...actionsAttachments,
         ],
       }))
