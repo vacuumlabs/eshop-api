@@ -894,21 +894,23 @@ export class Slack {
 
   async storeOrder(order, items) {
     const id = await knex.transaction(async (trx) => {
-      order.id = (
-        await trx.insert({...order, user: order.user.id}, 'id').into(this.config.dbTables.order)
-      )[0]
+      const orderInsertResult = await trx.insert({...order, user: order.user.id}, ['id']).into(this.config.dbTables.order)
+
+      order.id = orderInsertResult[0].id
 
       for (const item of items.values()) {
         item.dbIds = []
 
         for (let i = 0; i < item.count; i++) {
-          const itemId = (await trx.insert({
+          const itemInsertResult = await trx.insert({
             order: order.id,
             shopId: item.id,
             count: 1,
             url: item.url,
             price: item.price,
-          }, 'id').into(this.config.dbTables.orderItem))[0]
+          }, ['id']).into(this.config.dbTables.orderItem)
+
+          const itemId = itemInsertResult[0].id
 
           item.dbIds.push(itemId)
         }
