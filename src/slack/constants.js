@@ -57,3 +57,5 @@ export const ORDER_URGENT_ACTIONS = vlConstants.ORDER_URGENT_ACTIONS
 export const NOTE_NO_ACTION = vlConstants.NOTE_NO_ACTION
 
 export const ORDER_NOTE_ACTIONS = vlConstants.ORDER_NOTE_ACTIONS
+
+export const ORDER_SPINOFF_ACTIONS = vlConstants.ORDER_SPINOFF_ACTIONS

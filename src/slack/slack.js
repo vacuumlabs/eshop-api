@@ -8,7 +8,7 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, MESSAGES, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, MESSAGES, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -274,8 +274,7 @@ export class Slack {
             finished = await this.handleUserAction(
               stream,
               order,
-              event.actions[0].name,
-              event.actions[0].value,
+              event.actions[0],
               event.user,
             )
           } catch (err) {
@@ -570,8 +569,9 @@ export class Slack {
     }
   }
 
-  async handleUserAction(stream, order, action, actionValue, user) {
-    logger.info(`handling user action - name: ${action}, value: ${actionValue}, user: ${JSON.stringify(user)}, order: ${JSON.stringify(order)}`)
+  async handleUserAction(stream, order, action, user) {
+    const {name: actionName, value: actionValue} = action
+    logger.info(`handling user action - name: ${actionName}, value: ${actionValue}, user: ${JSON.stringify(user)}, order: ${JSON.stringify(order)}`)
 
     const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
 
@@ -630,6 +630,7 @@ export class Slack {
           office: order.office,
           reason: order.reason,
           isUrgent: order.isUrgent,
+          spinoff: order.spinoff,
         },
         order.items,
       )
@@ -649,12 +650,12 @@ export class Slack {
       }
     }
 
-    if (action === 'cancel') {
+    if (actionName === 'cancel') {
       await cancelOrder()
       return true
     }
 
-    if (action === 'country') {
+    if (actionName === 'country') {
       order.country = actionValue
       await updateMessage({
         actions: ORDER_OFFICE_ACTIONS[order.country],
@@ -668,7 +669,7 @@ export class Slack {
     }
 
     // office/home
-    if (action === 'office') {
+    if (actionName === 'office') {
       order.isHome = actionValue === HOME_VALUE
       order.office = order.isHome ? HOME_TO_OFFICE[order.country] : actionValue
       await updateMessage({
@@ -680,7 +681,7 @@ export class Slack {
     }
 
     // ?-personal
-    if (action === 'personal') {
+    if (actionName === 'personal') {
       order.isCompany = false
       await updateMessage({
         actions: ORDER_URGENT_ACTIONS,
@@ -691,7 +692,7 @@ export class Slack {
     }
 
     // ?-personal-urgent
-    if (action === 'urgent') {
+    if (actionName === 'urgent') {
       order.isUrgent = actionValue === 'urgent-yes'
 
       // home-personal-urgent
@@ -709,14 +710,31 @@ export class Slack {
     }
 
     // office-personal-?-note
-    if (action === 'note') {
+    if (actionName === 'note') {
       await submitOrder(actionValue === 'note-yes' ? MESSAGES.office.personal.note : null)
       return true
     }
 
     // ?-company
-    if (action === 'company') {
+    if (actionName === 'company') {
       order.isCompany = true
+
+      if (this.variant === 'wincent') {
+        await submitOrder(order.isHome ? MESSAGES.home.company : MESSAGES.office.company, true)
+        return true
+      }
+
+      await updateMessage({
+        actions: ORDER_SPINOFF_ACTIONS,
+        fields: [...this.getOrderFields(order), {title: 'Select your spinoff:'}],
+      })
+
+      return false
+    }
+
+    // ?-company-spinoff
+    if (actionName === 'spinoff') {
+      order.spinoff = action.selected_options[0].value
 
       await submitOrder(order.isHome ? MESSAGES.home.company : MESSAGES.office.company, true)
       return true
@@ -903,6 +921,7 @@ export class Slack {
       this.itemsField(order.items, adminMsg, order),
       adminMsg && {value: `Total value: ${formatPrice(order.totalPrice, c.currency)}`},
       order.office && {value: `Office: ${order.office}${order.isHome ? ' (home delivery)' : ''}`},
+      order.spinoff && {value: `Spinoff: ${order.spinoff}`},
       order.reason && {value: `${order.isCompany ? 'Reason' : 'Note'}: ${order.reason}`, short: false},
       order.isUrgent !== null && {value: order.isUrgent ? 'Urgent: Yes' : 'Urgent: No'},
     ]
