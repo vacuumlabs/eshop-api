@@ -181,12 +181,12 @@ You should be able to make an order through the *AlzaBotTest* app now.
 ### Own Slack app
 
 If by any chance you need an own Slack bot app or setting up the app for a new workspace, you'll need to:
-- create a legacy Slack app - this option can only be reached somewhere from the documentation (TODO: link)
-  - the legacy app is needed because AlzaBot still uses legacy RTM API and legacy permission scopes
-- configure the actions endpoint, permission scopes, ...
+- create a legacy Slack app - this option can only be reached somewhere from the documentation (https://api.slack.com/apps?new_classic_app=1)
+  - the legacy app is needed because AlzaBot still uses legacy permission scopes
+- configure the actions endpoint, events endpoint (your app needs to be running), permission scopes, ...
 - install the app to the workspace
 - copy the user and bot tokens into the env vars
-- integrate the app into the `orders`, `archive`, `news`, and `support` channels
+- add the app into the `orders`, `archive`, `news`, and `support` channels
 
 ## Accesses
 
