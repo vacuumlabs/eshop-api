@@ -20,7 +20,8 @@
     "eslint": "^4.18.2",
     "eslint-config-vacuumlabs": "^1.8.2",
     "eslint-plugin-import": "^2.18.2",
-    "eslint-plugin-react": "^7.14.3"
+    "eslint-plugin-react": "^7.14.3",
+    "ngrok": "^4.3.0"
   },
   "dependencies": {
     "@slack/bolt": "^3.8.1",
