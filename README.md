@@ -190,16 +190,16 @@ If by any chance you need an own Slack bot app or setting up the app for a new w
 
 ## Accesses
 
-You should be given several access rights:
-- Google sheets - *Electronics* and *ElectronicsTest*
-- Slack apps - *AlzaBot* and *AlzaBotTest*
-- heroku app - *vacuumlabs-alzabot*
-- workspace admin rights and being in the channels is required
-  - this is needed for the bot to perform some actions "as user" (mainly deleting messages its own messages)
+You may need access rights:
+- Google sheets - *Electronics* (vacuumlabs), *Nozdormu_office _equipment* (wincent), *AlzaBot Test sheet* (test) or your own
+- Slack apps - *AlzaBot*, *Wincent-AlzaBot*, *AlzaBot Test* or your own
+- heroku app - *vacuumlabs-alzabot* (production)
+- workspace admin rights and being in the channels
+  - this is needed for the bot to perform some actions "as user" (mainly for deleting messages and comments)
   - only such admin should (re)install the app, his token is then used as an env var
   - there are two options:
     - you are (or you become) the workspace admin
-      - you install the app
+      - you install the app(s)
       - you get the user token from the Slack app's OAuth page and put it in the env vars
       - you get invited to all the channels
     - you let another workspace admin install the app
