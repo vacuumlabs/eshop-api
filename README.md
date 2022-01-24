@@ -134,18 +134,30 @@ Skip if you decided to use the production `alzabot-test` table.
 
 To setup PostgreSQL database:
 
+```console
+// open postgres
+$ psql
+// if you receive the `database "user" does not exist` error, run:
+$ createdb
+$ psql
+// in postgres prompt, run these (ignore `user=#`):
+user=# create database alzabot;
+user=# \c alzabot;
+user=# create schema alzabot;
+user=# \q
 ```
-create database alzabot;
-\connect alzabot;
-create schema alzabot;
-\quit
-```
-
-Change the db configuration in `.env` afterwards (`DATABASE_URL` and `db_schema` variables).
 
 Run migrations:
 ```
-yarn knex migrate:latest
+$ yarn knex migrate:latest
+```
+
+Your database is now ready for local use. You can change the db configuration in `.env` (`DATABASE_URL` and `db_schema` variables).
+Example:
+
+```
+DATABASE_URL=postgres://user:@localhost:5432/alzabot
+db_schema=alzabot
 ```
 
 ### Local server
@@ -154,14 +166,14 @@ You'll need to make your server reachable from outside world - you can use [ngro
 
 Run ngrok (this actually runs `ngrok http 8000`):
 ```
-yarn ngrok
+$ yarn ngrok
 ```
 
 After that, copy your ngrok url into the Slack app's Interactive messages configuration as Request URL, e.g. `https://cb47f7c1.ngrok.io/test/actions` - don't forget the `/<variant>/actions` route. 
 
 Run the server:
 ```
-yarn dev
+$ yarn dev
 ```
 
 You should be able to make an order through the *AlzaBotTest* app now.
@@ -202,29 +214,29 @@ You should be given several access rights:
 
 If changes in database are required, you can create a new migration:
 ```console
-yarn knex migrate:make your_new_migration_name
+$ yarn knex migrate:make your_new_migration_name
 ```
 
 Find it in `knex/migrations/` folder and edit the `up` and `down` functions.
 
 To apply the migrations to your local db:
 ```console
-yarn knex migrate:latest
+$ yarn knex migrate:latest
 ```
 
 To push the changes to the production database (you need to have heroku CLI installed and be logged in to your account):
 ```console
-heroku run yarn knex migrate:latest --app vacuumlabs-alzabot
+$ heroku run yarn knex migrate:latest --app vacuumlabs-alzabot
 ```
 
 ### Rolling back
 
 If you made a mistake and want to go one migration back (calling the `down` function):
 ```console
-yarn knex migrate:down migration_name.js
+$ yarn knex migrate:down migration_name.js
 ```
 
 You can do the same on production, but be extra careful:
 ```console
-heroku run yarn knex migrate:down migration_name.js --app vacuumlabs-alzabot
+$ heroku run yarn knex migrate:down migration_name.js --app vacuumlabs-alzabot
 ```
