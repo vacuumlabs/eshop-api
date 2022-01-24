@@ -120,6 +120,14 @@ When running a local server, you can decide whether you'll run the database loca
 
 Either way, make a copy of `.env-dev` called `.env` and replace placeholders with actual values (ask for any values you can't obtain yourself).
 
+You should have node.js and yarn installed. If you don't, try Volta - https://volta.sh/.
+
+Install the dependencies - run:
+
+```console
+$ yarn
+```
+
 ### Local database
 
 Skip if you decided to use the production `alzabot-test` table.
