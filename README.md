@@ -120,24 +120,44 @@ When running a local server, you can decide whether you'll run the database loca
 
 Either way, make a copy of `.env-dev` called `.env` and replace placeholders with actual values (ask for any values you can't obtain yourself).
 
+You should have node.js and yarn installed. If you don't, try Volta - https://volta.sh/.
+
+Install the dependencies - run:
+
+```console
+$ yarn
+```
+
 ### Local database
 
 Skip if you decided to use the production `alzabot-test` table.
 
 To setup PostgreSQL database:
 
+```console
+// open postgres
+$ psql
+// if you receive the `database "user" does not exist` error, run:
+$ createdb
+$ psql
+// in postgres prompt, run these (ignore `user=#`):
+user=# create database alzabot;
+user=# \c alzabot;
+user=# create schema alzabot;
+user=# \q
 ```
-create database alzabot;
-\connect alzabot;
-create schema alzabot;
-\quit
-```
-
-Change the db configuration in `.env` afterwards (`DATABASE_URL` and `db_schema` variables).
 
 Run migrations:
 ```
-yarn knex migrate:latest
+$ yarn knex migrate:latest
+```
+
+Your database is now ready for local use. You can change the db configuration in `.env` (`DATABASE_URL` and `db_schema` variables).
+Example:
+
+```
+DATABASE_URL=postgres://user:@localhost:5432/alzabot
+db_schema=alzabot
 ```
 
 ### Local server
@@ -146,14 +166,14 @@ You'll need to make your server reachable from outside world - you can use [ngro
 
 Run ngrok (this actually runs `ngrok http 8000`):
 ```
-yarn ngrok
+$ yarn ngrok
 ```
 
 After that, copy your ngrok url into the Slack app's Interactive messages configuration as Request URL, e.g. `https://cb47f7c1.ngrok.io/test/actions` - don't forget the `/<variant>/actions` route. 
 
 Run the server:
 ```
-yarn dev
+$ yarn dev
 ```
 
 You should be able to make an order through the *AlzaBotTest* app now.
@@ -161,25 +181,25 @@ You should be able to make an order through the *AlzaBotTest* app now.
 ### Own Slack app
 
 If by any chance you need an own Slack bot app or setting up the app for a new workspace, you'll need to:
-- create a legacy Slack app - this option can only be reached somewhere from the documentation (TODO: link)
-  - the legacy app is needed because AlzaBot still uses legacy RTM API and legacy permission scopes
-- configure the actions endpoint, permission scopes, ...
+- create a legacy Slack app - this option can only be reached somewhere from the documentation (https://api.slack.com/apps?new_classic_app=1)
+  - the legacy app is needed because AlzaBot still uses legacy permission scopes
+- configure the actions endpoint, events endpoint (your app needs to be running), permission scopes, ...
 - install the app to the workspace
 - copy the user and bot tokens into the env vars
-- integrate the app into the `orders`, `archive`, `news`, and `support` channels
+- add the app into the `orders`, `archive`, `news`, and `support` channels
 
 ## Accesses
 
-You should be given several access rights:
-- Google sheets - *Electronics* and *ElectronicsTest*
-- Slack apps - *AlzaBot* and *AlzaBotTest*
-- heroku app - *vacuumlabs-alzabot*
-- workspace admin rights and being in the channels is required
-  - this is needed for the bot to perform some actions "as user" (mainly deleting messages its own messages)
+You may need access rights:
+- Google sheets - *Electronics* (vacuumlabs), *Nozdormu_office _equipment* (wincent), *AlzaBot Test sheet* (test) or your own
+- Slack apps - *AlzaBot*, *Wincent-AlzaBot*, *AlzaBot Test* or your own
+- heroku app - *vacuumlabs-alzabot* (production)
+- workspace admin rights and being in the channels
+  - this is needed for the bot to perform some actions "as user" (mainly for deleting messages and comments)
   - only such admin should (re)install the app, his token is then used as an env var
   - there are two options:
     - you are (or you become) the workspace admin
-      - you install the app
+      - you install the app(s)
       - you get the user token from the Slack app's OAuth page and put it in the env vars
       - you get invited to all the channels
     - you let another workspace admin install the app
@@ -194,29 +214,29 @@ You should be given several access rights:
 
 If changes in database are required, you can create a new migration:
 ```console
-yarn knex migrate:make your_new_migration_name
+$ yarn knex migrate:make your_new_migration_name
 ```
 
 Find it in `knex/migrations/` folder and edit the `up` and `down` functions.
 
 To apply the migrations to your local db:
 ```console
-yarn knex migrate:latest
+$ yarn knex migrate:latest
 ```
 
 To push the changes to the production database (you need to have heroku CLI installed and be logged in to your account):
 ```console
-heroku run yarn knex migrate:latest --app vacuumlabs-alzabot
+$ heroku run yarn knex migrate:latest --app vacuumlabs-alzabot
 ```
 
 ### Rolling back
 
 If you made a mistake and want to go one migration back (calling the `down` function):
 ```console
-yarn knex migrate:down migration_name.js
+$ yarn knex migrate:down migration_name.js
 ```
 
 You can do the same on production, but be extra careful:
 ```console
-heroku run yarn knex migrate:down migration_name.js --app vacuumlabs-alzabot
+$ heroku run yarn knex migrate:down migration_name.js --app vacuumlabs-alzabot
 ```
