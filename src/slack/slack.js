@@ -719,11 +719,13 @@ export class Slack {
     if (actionName === 'company') {
       order.isCompany = true
 
+      // for wincent, don't go into spinoff selection
       if (this.variant === 'wincent') {
         await submitOrder(order.isHome ? MESSAGES.home.company : MESSAGES.office.company, true)
         return true
       }
 
+      // spinoff selection for vacuumlabs (and test)
       await updateMessage({
         actions: ORDER_SPINOFF_ACTIONS,
         fields: [...this.getOrderFields(order), {title: 'Select your spinoff:'}],
@@ -733,6 +735,7 @@ export class Slack {
     }
 
     // ?-company-spinoff
+    // this is never run for wincent
     if (actionName === 'spinoff') {
       order.spinoff = action.selected_options[0].value
 
