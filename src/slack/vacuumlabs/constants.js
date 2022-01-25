@@ -13,6 +13,23 @@ Happy shopping!
 
 PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`
 
+const SPINOFFS = [
+  'Sparring',
+  'Trama',
+  'Rychlotest',
+  'Wincent',
+  'Wing Riders',
+  'NuFi',
+  'Capila',
+  'Verdikto',
+  'Daylight',
+  'Cardano NFT Marketplace',
+  'Ksebe',
+  'Treshold Capital',
+  'Robo',
+  'Other',
+]
+
 const CITIES_OPTIONS = {
   bratislava: 'Bratislava',
   kosice: 'Košice',
@@ -90,6 +107,19 @@ export const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) =
 
   return acc
 }, {})
+
+export const ORDER_SPINOFF_ACTIONS = [
+  {
+    type: 'select',
+    name: 'spinoff',
+    text: 'Select spinoff...',
+    options: SPINOFFS.map((spinoff) => ({
+      text: spinoff,
+      value: spinoff,
+    })),
+  },
+  CANCEL_ORDER_ACTION,
+]
 
 export const ORDER_TYPE_ACTIONS = [
   {name: 'personal', text: 'Make Personal Order', type: 'button', value: 'personal'},
