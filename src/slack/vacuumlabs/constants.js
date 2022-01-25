@@ -14,6 +14,7 @@ Happy shopping!
 PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`
 
 const SPINOFFS = [
+  'Vacuumlabs',
   'Sparring',
   'Trama',
   'Rychlotest',
