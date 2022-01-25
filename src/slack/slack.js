@@ -454,7 +454,7 @@ export class Slack {
         attachments: [
           ...attachments,
           // no msgButtons here - resets the
-          ...getAdminSections(this.variant, orderId, 'add-to-cart'),
+          ...getAdminSections(this.variant, orderId, 'ordered'),
         ],
       })
     } else if (actionName === 'decline') { // Notify user - decline
@@ -486,7 +486,7 @@ export class Slack {
         primaryBtn = 'accepted' // TODO: select whatever there was selected before?
       } else {
         targetChannel = this.getCityChannel(order.office)
-        primaryBtn = 'add-to-cart' // TODO: doesn't make sense to preselect on unarchive
+        primaryBtn = 'ordered' // TODO: doesn't make sense to preselect on unarchive
       }
 
       await this.moveOrder(msg.ts, event.channel.id, targetChannel, {
@@ -495,22 +495,22 @@ export class Slack {
           ...getAdminSections(this.variant, orderId, primaryBtn),
         ],
       })
-    } else if (actionName === 'add-to-cart') { // Add items to cart
-      // not called in wincent
-      await this.removeReaction('shopping_trolley', event.channel.id, msg.ts)
+    // } else if (actionName === 'add-to-cart') { // Add items to cart
+    //   // not called in wincent
+    //   await this.removeReaction('shopping_trolley', event.channel.id, msg.ts)
 
-      await addToCartAll(items)
+    //   await addToCartAll(items)
 
-      await this.apiCall('chat.update', {
-        channel: event.channel.id,
-        ts: msg.ts,
-        attachments: [
-          ...attachments,
-          ...getAdminSections(this.variant, orderId, 'ordered', msgButtons),
-        ],
-      })
+    //   await this.apiCall('chat.update', {
+    //     channel: event.channel.id,
+    //     ts: msg.ts,
+    //     attachments: [
+    //       ...attachments,
+    //       ...getAdminSections(this.variant, orderId, 'ordered', msgButtons),
+    //     ],
+    //   })
 
-      await this.addReaction('shopping_trolley', event.channel.id, msg.ts)
+    //   await this.addReaction('shopping_trolley', event.channel.id, msg.ts)
     } else if (actionName === 'accepted') { // Notify user - accepted
       // TODO - accepted by who?
       await this.sendUserInfo(event, MESSAGES.notification.accepted, createOrderFromDb(order, items))
