@@ -2,22 +2,74 @@ import * as vlConstants from './vacuumlabs/constants'
 import * as testConstants from './test/constants'
 import * as wincentConstants from './wincent/constants'
 
-export const MESSAGES = {
+const REASON = 'reason'
+const MANAGER = 'manager'
+
+const REASON_WITH_ADDRESS_QUESTION = {
+  [REASON]: ':question: Why do you need these items? Reply by sending a message. And don\'t forget to tell us your address!',
+}
+
+const REASON_DEFAULT_QUESTION = {
+  [REASON]: ':question: Why do you need these items? Reply by sending a message.',
+}
+
+const REASON_NOTE_QUESTION = {
+  [REASON]: ':pencil: Add a note by sending a message. And don\'t forget to tell us your address!',
+}
+
+const REASON_COMMENT_QUESTION = {
+  [REASON]: ':pencil: Send your comment in a message.',
+}
+
+const MANAGER_QUESTION = {[MANAGER]: ':question: Name of your manager (needed for approval for items above 100 EUR - write N/A otherwise). Reply by sending a message.'}
+
+const NOTIFICATION = {
+  accepted: 'Your order was accepted by office manager. You will be notified when the items get ordered.',
+  ordered: 'Your items were ordered. You will be notified when they arrive.',
+  delivered: 'Your order has arrived :truck: Come pick it up during office hours. If it was a personal order, please bring the money in CASH.',
+}
+
+const DEFAULT_MESSAGES = {
   home: {
-    company: ':question: Why do you need these items? Reply by sending a message. And don\'t forget to tell us your address!',
-    personal: ':pencil: Add a note by sending a message. And don\'t forget to tell us your address!',
+    company: {
+      ...REASON_WITH_ADDRESS_QUESTION,
+      ...MANAGER_QUESTION,
+    },
+    personal: REASON_NOTE_QUESTION,
   },
   office: {
-    company: ':question: Why do you need these items? Reply by sending a message.',
+    company: {
+      ...REASON_DEFAULT_QUESTION,
+      ...MANAGER_QUESTION,
+    },
     personal: {
-      note: ':pencil: Send your comment in a message.',
+      note: REASON_COMMENT_QUESTION,
     },
   },
-  notification: {
-    accepted: 'Your order was accepted by office manager. You will be notified when the items get ordered.',
-    ordered: 'Your items were ordered. You will be notified when they arrive.',
-    delivered: 'Your order has arrived :truck: Come pick it up during office hours. If it was a personal order, please bring the money in CASH.',
+
+  notification: NOTIFICATION,
+}
+
+const WINCENT_MESSAGES = {
+  home: {
+    company: REASON_WITH_ADDRESS_QUESTION,
+    personal: REASON_NOTE_QUESTION,
   },
+  office: {
+    company: REASON_DEFAULT_QUESTION,
+    personal: {
+      note: REASON_COMMENT_QUESTION,
+    },
+  },
+
+  notification: NOTIFICATION,
+}
+
+
+export const MESSAGES = {
+  vacuumlabs: DEFAULT_MESSAGES,
+  test: DEFAULT_MESSAGES,
+  wincent: WINCENT_MESSAGES,
 }
 
 export const NEW_USER_GREETING = {

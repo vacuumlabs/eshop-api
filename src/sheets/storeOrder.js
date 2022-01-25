@@ -82,6 +82,7 @@ function itemToSheetData(
     'Reason': order.reason,
     'Requested by': userJiraId,
     'Spinoff': order.spinoff,
+    'Manager': order.manager,
   } : {
     'Note': order.reason,
     'Urgent': Boolean(order.isUrgent),
