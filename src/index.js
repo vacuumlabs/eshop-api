@@ -1,5 +1,5 @@
 import express from 'express'
-import {expressHelpers, run, createChannel} from 'yacol'
+import {expressHelpers, run} from 'yacol'
 
 import c from './config'
 import {Slack} from './slack/slack'
@@ -7,31 +7,8 @@ import {alzaCode} from './alza'
 import logger from './logger'
 
 const app = express()
-app.use(express.urlencoded())
 
 const {register, runApp} = expressHelpers
-
-const events = {
-  vacuumlabs: createChannel(),
-  test: createChannel(),
-  wincent: createChannel(),
-}
-
-// eslint-disable-next-line require-yield
-function* vacuumlabsActions(req, res) {
-  events.vacuumlabs.put({...JSON.parse(req.body.payload), type: 'action'})
-  res.status(200).send()
-}
-// eslint-disable-next-line require-yield
-function* testActions(req, res) {
-  events.test.put({...JSON.parse(req.body.payload), type: 'action'})
-  res.status(200).send()
-}
-// eslint-disable-next-line require-yield
-function* wincentActions(req, res) {
-  events.wincent.put({...JSON.parse(req.body.payload), type: 'action'})
-  res.status(200).send()
-}
 
 const endpoints = {
   alzaCode: '/alzacode',
@@ -50,9 +27,6 @@ const endpoints = {
 }
 
 register(app, 'get', endpoints.alzaCode, alzaCode)
-register(app, 'post', endpoints.vacuumlabs.actions, vacuumlabsActions)
-register(app, 'post', endpoints.test.actions, testActions)
-register(app, 'post', endpoints.wincent.actions, wincentActions)
 
 ;(async function() {
   run(runApp)
@@ -68,9 +42,10 @@ register(app, 'post', endpoints.wincent.actions, wincentActions)
     }
     const slackClient = new Slack(variant)
 
+    app.use(endpoints[variant].actions, slackClient.boltReceiver.router)
     app.use(endpoints[variant].events, slackClient.boltReceiver.router)
 
-    await slackClient.init(events[variant])
+    await slackClient.init()
   }))
 })().catch((e) => {
   logger.error('Init error', e)

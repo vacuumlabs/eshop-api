@@ -53,7 +53,7 @@ export class Slack {
     return parsedResponse
   }
 
-  async init(stream) {
+  async init() {
     const {user_id: botUserId} = await this.apiCall('auth.test')
     this.botUserId = botUserId
 
@@ -123,6 +123,49 @@ export class Slack {
 
     this.boltApp.event('team_join', ({event}) => this.greetNewUser(event.user.id))
 
+    // catch everything with a callback_id here
+    this.boltApp.action({callback_id: /.*/g}, async ({body, action, ack, respond}) => {
+      try {
+        logger.info(`action: ${JSON.stringify(action, null, 2)}`)
+        logger.verbose(`body: ${JSON.stringify(body, null, 2)}`)
+
+        await ack()
+
+        const callback_id = body.callback_id
+
+        logger.info(`action callback_id: ${callback_id}, username: ${body.user.username}`)
+
+        // admin action
+        if (callback_id && callback_id.startsWith('O')) {
+          try {
+            await this.handleOrderAction(body)
+          } catch (error) {
+            await respond(':exclamation: Something went wrong.')
+            await logError(this.variant, error, 'Admin action error', body.user.id, {
+              action,
+              callback_id,
+            })
+          }
+          return
+        }
+
+        // user action
+        // TODO: handle user's action right here, don't use stream
+        const actionStream = this.pendingActions[callback_id]
+        if (actionStream) {
+          actionStream.put({...body, type: 'action'})
+        } else {
+          await respond({text: ':exclamation: The order has timed out. Create a new order please.', replace_original: true})
+        }
+      } catch (error) {
+        await respond(':exclamation: Something went wrong.')
+        await logError(this.variant, error, 'General action error', body.user.id, {
+          action,
+          callback_id: body.callback_id,
+        })
+      }
+    })
+
     /**
       @type import('@slack/bolt/dist/App').ExtendedErrorHandler
     */
@@ -130,8 +173,6 @@ export class Slack {
       logger.error(`code: ${code}, message: ${message}, name: ${name}, req: ${JSON.stringify(req)}, stack: ${stack}, context: ${JSON.stringify(context)}, body: ${JSON.stringify(body)}`)
     }
     this.boltApp.error(errorHandler)
-
-    this.listen(stream)
   }
 
   nextUUID() {
@@ -187,33 +228,6 @@ export class Slack {
       // TODO: require confirmation before sending a company-wide message
       await this.announceToAll(event.text)
       return
-    }
-  }
-
-  async listen(stream) {
-    for (;;) {
-      const event = await stream.take()
-
-      if (event.type === 'action') {
-        if (event.callback_id.startsWith('O')) {
-          await this.handleOrderAction(event).catch((e) => {
-            logError(this.variant, e, 'Admin action error', event.user.id, {
-              action: event.actions[0].name,
-              value: event.actions[0].value,
-              orderId: event.callback_id.substring(1),
-            })
-            this.showError(event.channel.id, null, 'Something went wrong.')
-          })
-
-          continue
-        }
-
-        const actionStream = this.pendingActions[event.callback_id]
-        if (actionStream) {actionStream.put(event)} else {
-          await this.showError(event.channel.id, event.original_message.ts,
-            'The order has timed out. Create a new order please.')
-        }
-      }
     }
   }
 
