@@ -13,6 +13,7 @@ const logger = winston.createLogger({
 
 export default logger
 
+// TODO: take username instead
 export function logError(variant, e, msg, userId, data) {
   logger.error(`logError. error: ${e} | msg: ${msg} | userId: ${userId} | error.response: ${JSON.stringify(e.response)} | data: ${JSON.stringify(data)}`)
 
