@@ -57,6 +57,10 @@ export class Slack {
     const {user_id: botUserId} = await this.apiCall('auth.test')
     this.botUserId = botUserId
 
+    /* old Milan's code for upgrading all messages to a new message format
+        - outdated, but potentially useful
+        - should be ran single time, but probably wouldn't matter if by any chance it is ran multiple times
+    */
     // const channels = [
     //   c.ordersChannel,
     //   c.ordersChannelSkBa,
@@ -119,6 +123,7 @@ export class Slack {
 
     // console.log('Upgrade complete')
 
+    // TODO: inline handleMessage
     this.boltApp.event('message', ({event}) => this.handleMessage(event))
 
     this.boltApp.event('team_join', ({event}) => this.greetNewUser(event.user.id))
@@ -293,7 +298,6 @@ export class Slack {
           }
         }
 
-        //
         if (event.type === 'message') {
           const newId = this.nextUUID()
           this.pendingActions[newId] = stream
@@ -309,8 +313,6 @@ export class Slack {
             await this.showError(user, event.original_message.ts, 'Something went wrong, please try again.')
           }
         }
-
-        // console.log(';;', event && event.type)
       }
 
       destroyOrder(order)
