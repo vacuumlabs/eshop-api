@@ -630,7 +630,7 @@ export class Slack {
           office: order.office,
           reason: order.reason,
           isUrgent: order.isUrgent,
-          spinoff: order.spinoff,
+          ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff},
         },
         order.items,
       )
@@ -932,6 +932,7 @@ export class Slack {
 
   async storeOrder(order, items) {
     const id = await knex.transaction(async (trx) => {
+      logger.info(`storing order to the db: ${JSON.stringify(order)}`)
       const orderInsertResult = await trx.insert({...order, user: order.user.id}, ['id']).into(this.config.dbTables.order)
 
       order.id = orderInsertResult[0].id
