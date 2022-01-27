@@ -81,8 +81,8 @@ function itemToSheetData(
   const companyOrPersonalFields = order.isCompany ? {
     'Reason': order.reason,
     'Requested by': userJiraId,
-    'Spinoff': order.spinoff,
     'Manager': order.manager,
+    ...variant === 'wincent' ? {} : {Spinoff: order.spinoff},
   } : {
     'Note': order.reason,
     'Urgent': Boolean(order.isUrgent),
