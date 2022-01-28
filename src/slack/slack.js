@@ -636,8 +636,7 @@ export class Slack {
           office: order.office,
           reason: order.reason,
           isUrgent: order.isUrgent,
-          manager: order.manager,
-          ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff},
+          ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff, manager: order.manager},
         },
         order.items,
       )

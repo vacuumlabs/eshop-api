@@ -21,7 +21,7 @@ const REASON_COMMENT_QUESTION = {
   [REASON]: ':pencil: Send your comment in a message.',
 }
 
-const MANAGER_QUESTION = {[MANAGER]: ':question: Name of your manager (needed for approval for items above 100 EUR - write N/A otherwise). Reply by sending a message.'}
+const MANAGER_QUESTION = {[MANAGER]: ':question: Name of your manager (needed for approval for items above 100 EUR - write N/A otherwise):'}
 
 const NOTIFICATION = {
   accepted: 'Your order was accepted by office manager. You will be notified when the items get ordered.',
