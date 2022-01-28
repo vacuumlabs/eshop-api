@@ -8,7 +8,7 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, MESSAGES, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, MESSAGES as VARIANT_MESSAGES} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -442,6 +442,8 @@ export class Slack {
     const buttonsAtt = msg.attachments.find((att) => att.actions && att.actions[0].type === 'button' && att.text !== 'Archive')
     const msgButtons = buttonsAtt && buttonsAtt.actions
 
+    const NOTIFICATION = VARIANT_MESSAGES[this.variant].notification
+
     if (orderId === '-' && actionName !== 'archive') {
       throw new Error(`Invalid order ID for action ${actionName}`)
     }
@@ -513,7 +515,7 @@ export class Slack {
     //   await this.addReaction('shopping_trolley', event.channel.id, msg.ts)
     } else if (actionName === 'accepted') { // Notify user - accepted
       // TODO - accepted by who?
-      await this.sendUserInfo(event, MESSAGES.notification.accepted, createOrderFromDb(order, items))
+      await this.sendUserInfo(event, NOTIFICATION.accepted, createOrderFromDb(order, items))
 
       await this.changeStatus({
         order,
@@ -527,7 +529,7 @@ export class Slack {
         statusIcon: 'heavy_check_mark',
       })
     } else if (actionName === 'ordered') { // Notify user - ordered
-      await this.sendUserInfo(event, MESSAGES.notification.ordered, createOrderFromDb(order, items))
+      await this.sendUserInfo(event, NOTIFICATION.ordered, createOrderFromDb(order, items))
 
       await this.changeStatus({
         order,
@@ -540,7 +542,7 @@ export class Slack {
         statusIcon: 'page_with_curl',
       })
     } else if (actionName === 'delivered') { // Notify user - delivered
-      await this.sendUserInfo(event, MESSAGES.notification.delivered, createOrderFromDb(order, items))
+      await this.sendUserInfo(event, NOTIFICATION.delivered, createOrderFromDb(order, items))
 
       await this.changeStatus({
         order,
@@ -575,6 +577,8 @@ export class Slack {
 
     const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
 
+    const MESSAGES = VARIANT_MESSAGES[this.variant]
+
     const updateMessage = async (attachmentUpdate) => {
       await this.apiCall('chat.update', {channel, ts, as_user: true,
         attachments: [{...attachment, ...attachmentUpdate}],
@@ -589,36 +593,38 @@ export class Slack {
       })
     }
 
-    const submitOrder = async (commentMsg, forceComment) => {
+    const submitOrder = async (commentMsgObj, forceComment) => {
       let completeNewMsg = false
 
-      if (commentMsg) {
+      if (commentMsgObj) {
         completeNewMsg = true
 
-        await updateMessage({
-          actions: [forceComment ? null : NOTE_NO_ACTION, CANCEL_ORDER_ACTION].filter(Boolean),
-          fields: this.getOrderFields(order),
-        })
+        for (const [key, msg] of Object.entries(commentMsgObj)) {
+          await updateMessage({
+            actions: [forceComment ? null : NOTE_NO_ACTION, CANCEL_ORDER_ACTION].filter(Boolean),
+            fields: this.getOrderFields(order),
+          })
 
-        await this.apiCall('chat.postMessage', {
-          channel: user.id,
-          as_user: true,
-          text: commentMsg,
-        })
-
-        const event = await stream.take()
-
-        if (event.type === 'message') {
-          order.reason = event.text
-          completeNewMsg = true
-        } else if (event.type === 'action' && event.actions[0].name === 'cancel') {
-          await cancelOrder()
           await this.apiCall('chat.postMessage', {
             channel: user.id,
             as_user: true,
-            text: ':no_entry_sign: Canceling :point_up:',
+            text: msg,
           })
-          return
+
+          const event = await stream.take()
+
+          if (event.type === 'message') {
+            order[key] = event.text
+            completeNewMsg = true
+          } else if (event.type === 'action' && event.actions[0].name === 'cancel') {
+            await cancelOrder()
+            await this.apiCall('chat.postMessage', {
+              channel: user.id,
+              as_user: true,
+              text: ':no_entry_sign: Canceling :point_up:',
+            })
+            return
+          }
         }
       }
 
@@ -630,7 +636,7 @@ export class Slack {
           office: order.office,
           reason: order.reason,
           isUrgent: order.isUrgent,
-          ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff},
+          ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff, manager: order.manager},
         },
         order.items,
       )
@@ -926,6 +932,7 @@ export class Slack {
       order.office && {value: `Office: ${order.office}${order.isHome ? ' (home delivery)' : ''}`},
       order.spinoff && {value: `Spinoff: ${order.spinoff}`},
       order.reason && {value: `${order.isCompany ? 'Reason' : 'Note'}: ${order.reason}`, short: false},
+      order.manager && {value: `Manager: ${order.manager}`},
       order.isUrgent !== null && {value: order.isUrgent ? 'Urgent: Yes' : 'Urgent: No'},
     ]
   }
