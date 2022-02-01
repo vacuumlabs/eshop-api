@@ -23,10 +23,24 @@ const REASON_COMMENT_QUESTION = {
 
 const MANAGER_QUESTION = {[MANAGER]: ':question: Name of your manager (needed for approval for items above 100 EUR - write N/A otherwise):'}
 
+export const COMPANY = 'company'
+export const PERSONAL = 'personal'
+export const OFFICE = 'office'
+export const HOME = 'home'
+
 const NOTIFICATION = {
   accepted: 'Your order was accepted by office manager. You will be notified when the items get ordered.',
   ordered: 'Your items were ordered. You will be notified when they arrive.',
-  delivered: 'Your order has arrived :truck: Come pick it up during office hours. If it was a personal order, please bring the money in CASH.',
+  delivered: {
+    [COMPANY]: {
+      [OFFICE]: 'Your order has arrived. Come pick it up during office hours.',
+      [HOME]: 'Your order has arrived.',
+    },
+    [PERSONAL]: {
+      [OFFICE]: 'Your personal order has arrived. Come pick it up during office hours and please bring the money in CASH.',
+      [HOME]: 'Your personal order has arrived.',
+    },
+  },
 }
 
 const DEFAULT_MESSAGES = {
