@@ -240,8 +240,7 @@ export class Slack {
   showError(channel, ts, msg) {
     const text = `:exclamation: ${msg}`
     logger.warn(`showed error to user: ${text}`)
-
-    return ts ? this.boltApp.client.chat.update({channel, ts, as_user: true, text, attachments: []}) : this.boltApp.client.chat.postMessage(params)
+    return this.boltApp.client.chat[ts ? 'update' : 'postMessage']({channel, ts, as_user: true, text, attachments: []})
   }
 
   async listenUser(stream, user) {
@@ -582,9 +581,6 @@ export class Slack {
     const MESSAGES = VARIANT_MESSAGES[this.variant]
 
     const updateMessage = async (attachmentUpdate) => {
-    //   await this.apiCall('chat.update', {channel, ts, as_user: true,
-    //     attachments: [{...attachment, ...attachmentUpdate}],
-    //   })
       await this.boltApp.client.chat.update({ts, channel, text: ' ', attachments: [{...attachment, ...attachmentUpdate}]})
     }
 
@@ -608,7 +604,7 @@ export class Slack {
             fields: this.getOrderFields(order),
           })
 
-          this.boltApp.client.chat.postMessage({
+          await this.boltApp.client.chat.postMessage({
             channel: user.id,
             as_user: true,
             text: msg,
@@ -621,7 +617,7 @@ export class Slack {
             completeNewMsg = true
           } else if (event.type === 'action' && event.actions[0].name === 'cancel') {
             await cancelOrder()
-            this.boltApp.client.chat.postMessage({
+            await this.boltApp.client.chat.postMessage({
               channel: user.id,
               as_user: true,
               text: ':no_entry_sign: Canceling :point_up:',
@@ -824,7 +820,7 @@ export class Slack {
 
 
   async addReaction(name, channel, timestamp) {
-    const {ok, error} = await this.boltApp.client.reactions.add({name, channel, timestamp}, {passError: true})
+    const {ok, error} = await this.boltApp.client.reactions.add({name, channel, timestamp})
 
     if (ok === false && error !== 'already_reacted') {
       logger.log('error', `Failed to add reaction '${name}'`)
