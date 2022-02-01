@@ -33,12 +33,12 @@ const NOTIFICATION = {
   ordered: 'Your items were ordered. You will be notified when they arrive.',
   delivered: {
     [COMPANY]: {
-      [OFFICE]: 'Your order has arrived. Come pick it up during office hours.',
-      [HOME]: 'Your order has arrived.',
+      [OFFICE]: 'Your order has arrived :truck:. Come pick it up during office hours.',
+      [HOME]: 'Your order has arrived :truck:.',
     },
     [PERSONAL]: {
-      [OFFICE]: 'Your personal order has arrived. Come pick it up during office hours and please bring the money in CASH.',
-      [HOME]: 'Your personal order has arrived.',
+      [OFFICE]: 'Your personal order has arrived :truck:. Come pick it up during office hours and please bring the money in CASH.',
+      [HOME]: 'Your personal order has arrived :truck:.',
     },
   },
 }
