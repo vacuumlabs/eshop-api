@@ -334,7 +334,7 @@ export class Slack {
     await this.removeReaction('x', channelId, msgTs)
 
     await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, status)
-      .then(() => this.boltApp.chat.update({
+      .then(() => this.boltApp.client.chat.update({
         channel: channelId,
         ts: msgTs,
         text: '',
