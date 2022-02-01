@@ -8,7 +8,7 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, MESSAGES as VARIANT_MESSAGES} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, MESSAGES as VARIANT_MESSAGES} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -543,7 +543,7 @@ export class Slack {
         statusIcon: 'page_with_curl',
       })
     } else if (actionName === 'delivered') { // Notify user - delivered
-      await this.sendUserInfo(event, NOTIFICATION.delivered, createOrderFromDb(order, items))
+      await this.sendUserInfo(event, NOTIFICATION.delivered[order.isCompany ? COMPANY : PERSONAL][order.isHome ? HOME : OFFICE], createOrderFromDb(order, items))
 
       await this.changeStatus({
         order,
@@ -635,6 +635,7 @@ export class Slack {
           office: order.office,
           reason: order.reason,
           isUrgent: order.isUrgent,
+          isHome: order.isHome,
           ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff, manager: order.manager},
         },
         order.items,
