@@ -308,7 +308,7 @@ export class Slack {
               msg: event.text,
               order: logOrder(order),
             })
-            await this.showError(user, event.original_message.ts, 'Something went wrong, please try again.')
+            await this.showError(user, null, 'Something went wrong, please try again.') // Pass null instead of event.original_message.ts, as event with type === 'message' doesn't contain original_message
           }
         }
       }
@@ -832,9 +832,9 @@ export class Slack {
   }
 
   async removeReaction(name, channel, timestamp) {
-    const {ok, error} = await this.apiCall('reactions.remove', {name, channel, timestamp}, {passError: true})
-
-    if (ok === false && error !== 'no_reaction') {
+    try {
+      await this.boltApp.client.reactions.remove({name, channel, timestamp})
+    } catch (error) {
       logger.log('error', `Failed to remove reaction '${name}'`)
       return false
     }
