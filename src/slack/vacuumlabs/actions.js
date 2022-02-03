@@ -6,12 +6,17 @@ export const getOrderActions = (order) => {
     return ORDER_COUNTRY_ACTIONS
   }
 
+  if (order.isHome === null) {
+    return DELIVERY_PLACE_ACTIONS
+  }
+
   if (!order.office) {
     return ORDER_OFFICE_ACTIONS[order.country]
   }
 
   return ORDER_TYPE_ACTIONS
 }
+
 
 export const getActionsSection = (orderId, primaryBtn, msgButtons) => {
   const buttons = (msgButtons || [

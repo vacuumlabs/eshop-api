@@ -68,13 +68,7 @@ export const OFFICES = {
   },
 }
 
-export const HOME_VALUE = 'Remote'
-
-export const HOME_TO_OFFICE = {
-  sk: 'Bratislava',
-  cz: 'Brno',
-  hu: 'Budapest',
-}
+export const HOME_VALUE = 'remote'
 
 export const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
 
@@ -89,6 +83,12 @@ export const ORDER_COUNTRY_ACTIONS = [
   CANCEL_ORDER_ACTION,
 ]
 
+export const DELIVERY_PLACE_ACTIONS = [
+  {name: 'delivery', text: 'Home', type: 'button', value: 'remote'},
+  {name: 'delivery', text: 'Office', type: 'button', value: 'office'},
+  CANCEL_ORDER_ACTION,
+]
+
 export const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) => {
   acc[country] = [
     ...OFFICES[country].options.map((office) => ({
@@ -97,12 +97,6 @@ export const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) =
       type: 'button',
       value: office,
     })),
-    {
-      name: 'office',
-      text: 'Home',
-      type: 'button',
-      value: HOME_VALUE,
-    },
     CANCEL_ORDER_ACTION,
   ]
 
