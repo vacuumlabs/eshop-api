@@ -358,7 +358,7 @@ export class Slack {
     const fetchComments = async (cursor) => {
       // TODO: catch error (test by asAdmin: false)
 
-      const {messages, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.conversations.replies({channel, ts, cursor, token: this.config.slack.adminToken})
+      const {messages, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.conversations.replies({channel, ts, cursor})
 
       return nextCursor ? [...messages, ...await fetchComments(nextCursor)] : messages
     }
