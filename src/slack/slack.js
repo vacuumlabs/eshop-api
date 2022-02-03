@@ -33,26 +33,6 @@ export class Slack {
     return this.config.channels.cities[city]
   }
 
-  async apiCall(name, data = {}, {
-    passError = false,
-    asAdmin = false,
-  } = {}) {
-    logger.info(`[${this.variant}] calling slack.api.${name}. asAdmin: ${asAdmin} | data: ${JSON.stringify(data)}`)
-    const response = await makeApiCall(name, data, asAdmin ? this.config.slack.adminToken : this.config.slack.botToken)
-    const parsedResponse = JSON.parse(response)
-
-    // logger.log('verbose', `response slack.api.${name}`, {args: data, parsedResponse})
-    // const {message, ...optimizedResponse} = parsedResponse
-    // console.log('response from:', name, optimizedResponse)
-
-    if (!passError && parsedResponse.error) {
-      // console.error('ERROR from:', name, parsedResponse.error)
-      throw new Error(`slack.api.${name}: ${parsedResponse.error}`)
-    }
-
-    return parsedResponse
-  }
-
   async init() {
     const response = await this.boltApp.client.auth.test()
     this.botUserId = response.user_id
