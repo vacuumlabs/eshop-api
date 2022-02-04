@@ -1,6 +1,5 @@
 import winston from 'winston'
 import c from './config'
-import {makeApiCall} from './slack/slackApi'
 
 const logger = winston.createLogger({
   level: c.logLevel,
@@ -14,17 +13,16 @@ const logger = winston.createLogger({
 export default logger
 
 // TODO: take username instead
-export function logError(variant, e, msg, userId, data) {
+export function logError(boltApp, variant, e, msg, userId, data) {
   logger.error(`logError. error: ${e} | msg: ${msg} | userId: ${userId} | error.response: ${JSON.stringify(e.response)} | data: ${JSON.stringify(data)}`)
 
   logger.info(`calling users.info for userId: ${userId}`)
   // first try to get username from user's ID
-  return makeApiCall('users.info', {user: userId}, c[variant].slack.botToken).then((userData) => {
+  return boltApp.client.users.info({user: userId}).then((resp) => {
     logger.info(`parsing response from users.info for userId: ${userId}`)
 
     let username = ''
     try {
-      const resp = JSON.parse(userData)
       if (resp.error) {
         logger.error(`logError - error field in response from users.info. resp.error: ${resp.error}`)
       } else {
@@ -58,7 +56,7 @@ export function logError(variant, e, msg, userId, data) {
 
     logger.info('logError - calling chat.postMessage - sending the error to the support channel')
     // then try to send the error to the support channel
-    return makeApiCall('chat.postMessage', postMessageInput, c[variant].slack.botToken)
+    return boltApp.client.chat.postMessage(postMessageInput)
       .then((data) => {
         logger.info('logError - parsing response from chat.postMessage')
         try {
