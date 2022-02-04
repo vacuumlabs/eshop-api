@@ -33,26 +33,6 @@ export class Slack {
     return this.config.channels.cities[city]
   }
 
-  async apiCall(name, data = {}, {
-    passError = false,
-    asAdmin = false,
-  } = {}) {
-    logger.info(`[${this.variant}] calling slack.api.${name}. asAdmin: ${asAdmin} | data: ${JSON.stringify(data)}`)
-    const response = await makeApiCall(name, data, asAdmin ? this.config.slack.adminToken : this.config.slack.botToken)
-    const parsedResponse = JSON.parse(response)
-
-    // logger.log('verbose', `response slack.api.${name}`, {args: data, parsedResponse})
-    // const {message, ...optimizedResponse} = parsedResponse
-    // console.log('response from:', name, optimizedResponse)
-
-    if (!passError && parsedResponse.error) {
-      // console.error('ERROR from:', name, parsedResponse.error)
-      throw new Error(`slack.api.${name}: ${parsedResponse.error}`)
-    }
-
-    return parsedResponse
-  }
-
   async init() {
     const response = await this.boltApp.client.auth.test()
     this.botUserId = response.user_id
@@ -308,7 +288,7 @@ export class Slack {
               msg: event.text,
               order: logOrder(order),
             })
-            await this.showError(user, event.original_message.ts, 'Something went wrong, please try again.')
+            await this.showError(user, null, 'Something went wrong, please try again.') // Pass null instead of event.original_message.ts, as event with type === 'message' doesn't contain original_message
           }
         }
       }
@@ -832,9 +812,9 @@ export class Slack {
   }
 
   async removeReaction(name, channel, timestamp) {
-    const {ok, error} = await this.apiCall('reactions.remove', {name, channel, timestamp}, {passError: true})
-
-    if (ok === false && error !== 'no_reaction') {
+    try {
+      await this.boltApp.client.reactions.remove({name, channel, timestamp})
+    } catch (error) {
       logger.log('error', `Failed to remove reaction '${name}'`)
       return false
     }
