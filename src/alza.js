@@ -135,7 +135,7 @@ class Alza {
       return null
     }
 
-    let withoutLogin = true
+    const withoutLogin = true
 
     // try {
     //   await this.login()
