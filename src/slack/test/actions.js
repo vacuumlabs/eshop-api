@@ -18,7 +18,6 @@ export const getOrderActions = (order) => {
 }
 
 export const getActionsSection = (orderId, primaryBtn, msgButtons) => {
-
   const buttons = (msgButtons || [
     // {name: 'add-to-cart', text: 'Add to Cart'},
     {name: 'ordered', text: 'Ordered + send notification'},
