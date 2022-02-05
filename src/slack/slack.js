@@ -2,12 +2,16 @@ import c from '../config'
 import _knex from 'knex'
 import {createChannel} from 'yacol'
 import moment from 'moment-timezone'
+<<<<<<< HEAD
+=======
+import {makeApiCall} from './slackApi'
+>>>>>>> master
 import {getInfo, getLangByLink} from '../alza'
 import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_TO_OFFICE, HOME_VALUE, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, MESSAGES as VARIANT_MESSAGES} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, MESSAGES as VARIANT_MESSAGES} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -232,7 +236,7 @@ export class Slack {
       orderConfirmation: null,
       isCompany: null,
       isUrgent: null,
-      isHome: false,
+      isHome: null,
     })
 
     const destroyOrder = (order) => {
@@ -641,9 +645,10 @@ export class Slack {
     }
 
     if (actionName === 'country') {
+
       order.country = actionValue
       await updateMessage({
-        actions: ORDER_OFFICE_ACTIONS[order.country],
+        actions: DELIVERY_PLACE_ACTIONS,
         fields: [
           ...this.getOrderFields(order),
           {title: 'Where do you want to pickup the order?'},
@@ -654,9 +659,22 @@ export class Slack {
     }
 
     // office/home
-    if (actionName === 'office') {
+    if (actionName === 'delivery') {
       order.isHome = actionValue === HOME_VALUE
-      order.office = order.isHome ? HOME_TO_OFFICE[order.country] : actionValue
+      await updateMessage({
+        actions: ORDER_OFFICE_ACTIONS[order.country],
+        fields: [
+          ...this.getOrderFields(order),
+          {title: 'Select the office you belong to.'},
+        ],
+      })
+
+      return false
+    }
+
+    // office
+    if (actionName === 'office') {
+      order.office = actionValue
       await updateMessage({
         actions: ORDER_TYPE_ACTIONS,
         fields: this.getOrderFields(order),

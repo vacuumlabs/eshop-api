@@ -1,9 +1,13 @@
 import {NEW_ORDER_STATUS} from '../../sheets/constants'
-import {ORDER_COUNTRY_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_TYPE_ACTIONS} from './constants'
+import {ORDER_COUNTRY_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_TYPE_ACTIONS, DELIVERY_PLACE_ACTIONS} from './constants'
 
 export const getOrderActions = (order) => {
   if (!order.country) {
     return ORDER_COUNTRY_ACTIONS
+  }
+
+  if (order.isHome === null) {
+    return DELIVERY_PLACE_ACTIONS
   }
 
   if (!order.office) {
@@ -14,7 +18,6 @@ export const getOrderActions = (order) => {
 }
 
 export const getActionsSection = (orderId, primaryBtn, msgButtons) => {
-
   const buttons = (msgButtons || [
     // {name: 'add-to-cart', text: 'Add to Cart'},
     {name: 'ordered', text: 'Ordered + send notification'},
