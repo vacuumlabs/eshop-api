@@ -2,7 +2,10 @@ import c from '../config'
 import _knex from 'knex'
 import {createChannel} from 'yacol'
 import moment from 'moment-timezone'
+<<<<<<< HEAD
+=======
 import {makeApiCall} from './slackApi'
+>>>>>>> master
 import {getInfo, getLangByLink} from '../alza'
 import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
@@ -119,7 +122,7 @@ export class Slack {
 
         const callback_id = body.callback_id
 
-        logger.info(`action callback_id: ${callback_id}, username: ${body.user.username}`)
+        logger.info(`action callback_id: ${callback_id}, username: ${body.user.name}`)
 
         // admin action
         if (callback_id && callback_id.startsWith('O')) {
@@ -127,7 +130,7 @@ export class Slack {
             await this.handleOrderAction(body)
           } catch (error) {
             await respond(':exclamation: Something went wrong.')
-            await logError(this.variant, error, 'Admin action error', body.user.id, {
+            await logError(this.boltApp, this.variant, error, 'Admin action error', body.user.id, {
               action,
               callback_id,
             })
@@ -145,7 +148,7 @@ export class Slack {
         }
       } catch (error) {
         await respond(':exclamation: Something went wrong.')
-        await logError(this.variant, error, 'General action error', body.user.id, {
+        await logError(this.boltApp, this.variant, error, 'General action error', body.user.id, {
           action,
           callback_id: body.callback_id,
         })
@@ -223,7 +226,7 @@ export class Slack {
     return this.boltApp.client.chat[ts ? 'update' : 'postMessage']({channel, ts, as_user: true, text, attachments: []})
   }
 
-  async listenUser(stream, user) {
+  async listenUser(stream, userId) {
     const newOrder = () => ({
       id: null,
       items: new Map(),
@@ -259,7 +262,7 @@ export class Slack {
           } catch (err) {
             finished = true
 
-            await logError(this.variant, err, 'User action error', event.user.id, {
+            await logError(this.boltApp, this.variant, err, 'User action error', event.user.id, {
               action: event.actions[0].name,
               value: event.actions[0].value,
               order: logOrder(order),
@@ -282,13 +285,13 @@ export class Slack {
           order.id = newId
 
           try {
-            order = await this.updateOrder(order, event, user)
+            order = await this.updateOrder(order, event, userId)
           } catch (err) {
-            await logError(this.variant, err, 'User order error', user.id, {
+            await logError(this.boltApp, this.variant, err, 'User order error', userId, {
               msg: event.text,
               order: logOrder(order),
             })
-            await this.showError(user, null, 'Something went wrong, please try again.') // Pass null instead of event.original_message.ts, as event with type === 'message' doesn't contain original_message
+            await this.showError(userId, null, 'Something went wrong, please try again.') // Pass null instead of event.original_message.ts, as event with type === 'message' doesn't contain original_message
           }
         }
       }
@@ -910,7 +913,7 @@ export class Slack {
     const value = itemLines.join('\n')
 
     if (value.length < 5) {
-      logError(this.variant, new Error('Empty items'), 'Empty items', '-', {
+      logError(this.boltApp, this.variant, new Error('Empty items'), 'Empty items', '-', {
         order: logOrder(order),
         value,
         adminMsg: showPrice,
