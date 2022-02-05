@@ -2,10 +2,6 @@ import c from '../config'
 import _knex from 'knex'
 import {createChannel} from 'yacol'
 import moment from 'moment-timezone'
-<<<<<<< HEAD
-=======
-import {makeApiCall} from './slackApi'
->>>>>>> master
 import {getInfo, getLangByLink} from '../alza'
 import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
