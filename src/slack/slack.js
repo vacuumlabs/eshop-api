@@ -109,7 +109,7 @@ export class Slack {
     this.boltApp.event('team_join', ({event}) => this.greetNewUser(event.user.id))
 
     // catch everything with a callback_id here
-    this.boltApp.action({callback_id: /.*/g}, async ({body, action, ack, respond}) => {
+    this.boltApp.action({callback_id: /.*/g}, async ({body, action, ack, respond, say}) => {
       try {
         logger.info(`action: ${JSON.stringify(action, null, 2)}`)
         logger.verbose(`body: ${JSON.stringify(body, null, 2)}`)
@@ -125,7 +125,7 @@ export class Slack {
           try {
             await this.handleOrderAction(body)
           } catch (error) {
-            await respond(':exclamation: Something went wrong.')
+            await say(':exclamation: Something went wrong.')
             await logError(this.boltApp, this.variant, error, 'Admin action error', body.user.id, {
               action,
               callback_id,
@@ -140,7 +140,7 @@ export class Slack {
         if (actionStream) {
           actionStream.put({...body, type: 'action'})
         } else {
-          await respond({text: ':exclamation: The order has timed out. Create a new order please.', replace_original: true})
+          await respond(':exclamation: The order has timed out. Create a new order please.')
         }
       } catch (error) {
         await respond(':exclamation: Something went wrong.')
