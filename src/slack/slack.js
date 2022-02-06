@@ -814,25 +814,29 @@ export class Slack {
 
 
   async addReaction(name, channel, timestamp) {
-    const {ok, error} = await this.boltApp.client.reactions.add({name, channel, timestamp})
+    try {
+      await this.boltApp.client.reactions.add({name, channel, timestamp})
+    } catch (error) {
+      // already_reacted error is acceptable, don't even log it
+      if (error.message === 'An API error occurred: already_reacted') return
 
-    if (ok === false && error !== 'already_reacted') {
-      logger.log('error', `Failed to add reaction '${name}'`)
-      return false
+      // just log the error, don't let it bubble up
+      logger.error(`Failed to add reaction '${name}'`)
     }
-
-    return true
   }
 
   async removeReaction(name, channel, timestamp) {
     try {
       await this.boltApp.client.reactions.remove({name, channel, timestamp})
     } catch (error) {
-      logger.log('error', `Failed to remove reaction '${name}'`)
-      return false
-    }
+      // no_reaction is thrown when:
+      // - the reaction is currently not on the message
+      // - the reaction doesn't even exist
+      if (error.message === 'An API error occurred: no_reaction') return
 
-    return true
+      // just log the error, don't let it bubble up
+      logger.error(`Failed to remove reaction '${name}'. ${error}`)
+    }
   }
 
   async updateOrder(order, event, user) {
