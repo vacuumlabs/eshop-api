@@ -15,18 +15,13 @@ export default logger
 export async function logError(boltApp, variant, e, msg, userId, data) {
   logger.error(`[${variant}] - logError - error: ${e} | msg: ${msg} | userId: ${userId} | error.response: ${JSON.stringify(e.response)} | data: ${JSON.stringify(data)}`)
 
-  logger.info(`logError - calling users.info for userId: ${userId}`)
-  // first try to get username from user's ID
+  let postMessageInput
   try {
-    const resp = await boltApp.client.users.info({user: userId})
-
-    const username = resp.user.name
-
-    const postMessageInput = {
+    postMessageInput = {
       channel: c[variant].channels.support,
       attachments: [
         {
-          pretext: `${username} (@${userId}): ${msg}`,
+          pretext: `<@${userId}>: ${msg}`,
           text: JSON.stringify(data, null, 2),
           fields: [
             {
@@ -46,13 +41,9 @@ export async function logError(boltApp, variant, e, msg, userId, data) {
 
     logger.info('logError - calling chat.postMessage - sending the error to the support channel')
     // then try to send the error to the support channel
-    try {
-      await boltApp.client.chat.postMessage(postMessageInput)
-    } catch (err) {
-      logger.error(`logError - failed to call chat.postMessage. error: ${err} | input: ${JSON.stringify(postMessageInput)}`)
-    }
+    await boltApp.client.chat.postMessage(postMessageInput)
   } catch (err) {
-    logger.error(`logError - failed to call users.info for userId: ${userId} | error: ${err}`)
+    logger.error(`error during logError: ${err} | postMessageInput: ${postMessageInput}`)
   }
 }
 
