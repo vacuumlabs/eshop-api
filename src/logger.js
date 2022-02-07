@@ -12,31 +12,16 @@ const logger = winston.createLogger({
 
 export default logger
 
-// TODO: take username instead
-export function logError(boltApp, variant, e, msg, userId, data) {
-  logger.error(`logError. error: ${e} | msg: ${msg} | userId: ${userId} | error.response: ${JSON.stringify(e.response)} | data: ${JSON.stringify(data)}`)
+export async function logError(boltApp, variant, e, msg, userId, data) {
+  logger.error(`[${variant}] - logError - error: ${e} | msg: ${msg} | userId: ${userId} | error.response: ${JSON.stringify(e.response)} | data: ${JSON.stringify(data)}`)
 
-  logger.info(`calling users.info for userId: ${userId}`)
-  // first try to get username from user's ID
-  return boltApp.client.users.info({user: userId}).then((resp) => {
-    logger.info(`parsing response from users.info for userId: ${userId}`)
-
-    let username = ''
-    try {
-      if (resp.error) {
-        logger.error(`logError - error field in response from users.info. resp.error: ${resp.error}`)
-      } else {
-        username = resp.user.name
-      }
-    } catch (err) {
-      logger.error(`logError - failed to parse response from users.info. error: ${err}`)
-    }
-
-    const postMessageInput = {
+  let postMessageInput
+  try {
+    postMessageInput = {
       channel: c[variant].channels.support,
       attachments: [
         {
-          pretext: `${username} (@${userId}): ${msg}`,
+          pretext: `<@${userId}>: ${msg}`,
           text: JSON.stringify(data, null, 2),
           fields: [
             {
@@ -56,25 +41,10 @@ export function logError(boltApp, variant, e, msg, userId, data) {
 
     logger.info('logError - calling chat.postMessage - sending the error to the support channel')
     // then try to send the error to the support channel
-    return boltApp.client.chat.postMessage(postMessageInput)
-      .then((data) => {
-        logger.info('logError - parsing response from chat.postMessage')
-        try {
-          const resp = JSON.parse(data)
-
-          if (resp.error) {
-            logger.error(`logError - error field in response from chat.postMessage. resp.error: ${resp.error} | input: ${JSON.stringify(postMessageInput)}`)
-          }
-        } catch (err) {
-          logger.error(`logError - failed to parse response from chat.postMessage. error: ${err} | response: ${data}`)
-        }
-      }).catch((err) => {
-        logger.error(`logError - failed to call chat.postMessage. error: ${err} | input: ${JSON.stringify(postMessageInput)}`)
-      })
-  })
-    .catch((err) => {
-      logger.error(`logError - failed to call users.info for userId: ${userId} | error: ${err}`)
-    })
+    await boltApp.client.chat.postMessage(postMessageInput)
+  } catch (err) {
+    logger.error(`error during logError: ${err} | postMessageInput: ${postMessageInput}`)
+  }
 }
 
 export function logOrder(order) {
