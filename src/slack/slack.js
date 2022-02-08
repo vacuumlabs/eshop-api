@@ -124,9 +124,9 @@ export class Slack {
         if (callback_id && callback_id.startsWith('O')) {
           try {
             await this.handleOrderAction(body)
-          } catch (error) {
+          } catch (err) {
             await say(':exclamation: Something went wrong.')
-            await logError(this.boltApp, this.variant, error, 'Admin action error', body.user.id, {
+            await logError(this.boltApp, this.variant, err, 'Admin action error', body.user.id, {
               action,
               callback_id,
             })
@@ -142,9 +142,9 @@ export class Slack {
         } else {
           await respond(':exclamation: The order has timed out. Create a new order please.')
         }
-      } catch (error) {
+      } catch (err) {
         await respond(':exclamation: Something went wrong.')
-        await logError(this.boltApp, this.variant, error, 'General action error', body.user.id, {
+        await logError(this.boltApp, this.variant, err, 'General action error', body.user.id, {
           action,
           callback_id: body.callback_id,
         })
@@ -183,19 +183,34 @@ export class Slack {
   }
 
   async announceToAll(message) {
-    const users =
-    (await this.boltApp.client.users.list())
-      .members
-      .filter((u) => u.is_bot === false)
+    try {
+      const users =
+      (await this.boltApp.client.users.list())
+        .members
+        .filter((u) => u.is_bot === false)
 
-    for (const u of users) {
-      if (message === 'help') await this.greetNewUser(u.id)
-      else await this.boltApp.client.chat.postMessage({channel: u.id, as_user: true, text: message})
+      for (const u of users) {
+        if (message === 'help') {
+          await this.greetNewUser(u.id)
+        } else {
+          try {
+            await this.boltApp.client.chat.postMessage({channel: u.id, as_user: true, text: message})
+          } catch (err) {
+            logger.error(`Failed to send a message to user '${u.id}': ${err}`)
+          }
+        }
+      }
+    } catch (err) {
+      logger.error(`Failed to get list of users: ${err}`)
     }
   }
 
   async greetNewUser(userId) {
-    await this.boltApp.client.chat.postMessage({channel: userId, as_user: true, text: NEW_USER_GREETING[this.variant]})
+    try {
+      await this.boltApp.client.chat.postMessage({channel: userId, as_user: true, text: NEW_USER_GREETING[this.variant]})
+    } catch (err) {
+      logger.error(`Failed to great a new user '${userId}': ${err}`)
+    }
   }
 
   // used as @slack/bolt message event handler
@@ -219,7 +234,11 @@ export class Slack {
   showError(channel, ts, msg) {
     const text = `:exclamation: ${msg}`
     logger.warn(`showed error to user: ${text}`)
-    return this.boltApp.client.chat[ts ? 'update' : 'postMessage']({channel, ts, as_user: true, text, attachments: []})
+    try {
+      this.boltApp.client.chat[ts ? 'update' : 'postMessage']({channel, ts, as_user: true, text, attachments: []})
+    } catch (err) {
+      logger.error(`Failed to show an error to user: ${text}. error: ${err}`)
+    }
   }
 
   async listenUser(stream, userId) {
@@ -313,17 +332,23 @@ export class Slack {
     await this.removeReaction('x', channelId, msgTs)
 
     await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, status)
-      .then(() => this.boltApp.client.chat.update({
-        channel: channelId,
-        ts: msgTs,
-        text: '',
-        attachments: [
-        // *Status:* is the new message format. temporarily, we need to support the old format,
-        // and it seems checking just *Status* doesn't work, so dual check here it is
-          ...textAttachments.map((att) => att.text && (att.text.startsWith('*Status*') || att.text.startsWith('*Status:*')) ? {...att, text: `*Status:* ${status}`} : att),
-          ...actionsAttachments,
-        ],
-      })).catch((err) => {
+      .then(() => {
+        try {
+          this.boltApp.client.chat.update({
+            channel: channelId,
+            ts: msgTs,
+            text: '',
+            attachments: [
+            // *Status:* is the new message format. temporarily, we need to support the old format,
+            // and it seems checking just *Status* doesn't work, so dual check here it is
+              ...textAttachments.map((att) => att.text && (att.text.startsWith('*Status*') || att.text.startsWith('*Status:*')) ? {...att, text: `*Status:* ${status}`} : att),
+              ...actionsAttachments,
+            ],
+          })
+        } catch (err) {
+          logger.error(`Failed to update a chat on '${channelId}': ${err}`)
+        }
+      }).catch((err) => {
         logger.error('Failed to update sheet', err)
         this.addReaction('x', channelId, msgTs)
       })
@@ -336,8 +361,13 @@ export class Slack {
   async getComments(ts, channel) {
     const fetchComments = async (cursor) => {
       // TODO: catch error (test by asAdmin: false)
+      let messages, nextCursor
 
-      const {messages, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.conversations.replies({channel, ts, cursor})
+      try {
+        ({messages, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.conversations.replies({channel, ts, cursor}))
+      } catch (err) {
+        logger.error(`Failed to fetch comments: ${err}`)
+      }
 
       return nextCursor ? [...messages, ...await fetchComments(nextCursor)] : messages
     }
@@ -349,7 +379,13 @@ export class Slack {
   }
 
   async getUsers(cursor) {
-    const {members, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.users.list({cursor})
+    let members, nextCursor
+
+    try {
+      ({members, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.users.list({cursor}))
+    } catch (err) {
+      logger.error(`Failed to get list of users: ${err}`)
+    }
 
     const membersMap = members.reduce((acc, {id, name}) => {
       acc[id] = name
@@ -360,11 +396,16 @@ export class Slack {
   }
 
   async moveOrder(ts, fromChannel, toChannel, data) {
-    const {message: {ts: newTs}} = await this.boltApp.client.chat.postMessage({
-      channel: toChannel,
-      as_user: true,
-      ...data,
-    })
+    let newTs
+    try {
+      ({message: {ts: newTs}} = await this.boltApp.client.chat.postMessage({
+        channel: toChannel,
+        as_user: true,
+        ...data,
+      }))
+    } catch (err) {
+      logger.error(`Failed to move order from '${fromChannel}' to '${toChannel}': ${err}`)
+    }
 
     const [{mainMsg, comments}, usersMap] = await Promise.all([
       this.getComments(ts, fromChannel),
@@ -390,25 +431,36 @@ export class Slack {
             ? `<${SLACK_URL[this.variant]}/team/${userId}|${usersMap[userId]}>`
             : `<@${userId}>`,
       )
-
-      const {message: {ts: newCommentTs}} = await this.boltApp.client.chat.postMessage({
-        channel: toChannel,
-        thread_ts: newTs,
-        text: finalText,
-      })
+      let newCommentTs
+      try {
+        ({message: {ts: newCommentTs}} = await this.boltApp.client.chat.postMessage({
+          channel: toChannel,
+          thread_ts: newTs,
+          text: finalText,
+        }))
+      } catch (err) {
+        logger.error(`Failed to post a message: '${finalText}' on channel: '${toChannel}': ${err}`)
+      }
 
       for (const {name: reaction} of reactions) {
         await this.addReaction(reaction, toChannel, newCommentTs)
       }
 
       // delete the comment. note: admin rights needed to delete other users' messages
-      // TODO: catch error (test by asAdmin: false)
-      await this.boltApp.client.chat.delete({channel: fromChannel, ts: commentTs, token: this.config.slack.adminToken})
+      // TODO: test by asAdmin: false
+      try {
+        await this.boltApp.client.chat.delete({channel: fromChannel, ts: commentTs, token: this.config.slack.adminToken})
+      } catch (err) {
+        logger.error(`Failed to delete a comment on '${fromChannel}': ${err}`)
+      }
     }
 
     // delete the chat message as it is already reposted to another channel
-    // TODO: catch error
-    await this.boltApp.client.chat.delete({channel: fromChannel, ts})
+    try {
+      await this.boltApp.client.chat.delete({channel: fromChannel, ts})
+    } catch (err) {
+      logger.error(`Failed to delete chat a message on '${fromChannel}': ${err}`)
+    }
   }
 
   async handleOrderAction(event) {
@@ -449,7 +501,13 @@ export class Slack {
       await this.removeReaction('x', event.channel.id, msg.ts)
 
       await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, 'discarded')
-        .then(() => this.boltApp.client.chat.delete({channel: event.channel.id, ts: msg.ts}))
+        .then(() => {
+          try {
+            this.boltApp.client.chat.delete({channel: event.channel.id, ts: msg.ts})
+          } catch (err) {
+            logger.error(`Failed to delete a chat message on '${event.channel.id}': ${err}`)
+          }
+        })
         .catch((err) => {
           logger.error('Failed to update sheet', err)
           this.addReaction('x', event.channel.id, msg.ts)
@@ -560,7 +618,11 @@ export class Slack {
     const MESSAGES = VARIANT_MESSAGES[this.variant]
 
     const updateMessage = async (attachmentUpdate) => {
-      await this.boltApp.client.chat.update({ts, channel, text: ' ', attachments: [{...attachment, ...attachmentUpdate}]})
+      try {
+        await this.boltApp.client.chat.update({ts, channel, text: ' ', attachments: [{...attachment, ...attachmentUpdate}]})
+      } catch (err) {
+        logger.error(`Failed to update a chat on '${channel}': ${err}`)
+      }
     }
 
     const cancelOrder = async () => {
@@ -583,11 +645,15 @@ export class Slack {
             fields: this.getOrderFields(order),
           })
 
-          await this.boltApp.client.chat.postMessage({
-            channel: user.id,
-            as_user: true,
-            text: msg,
-          })
+          try {
+            await this.boltApp.client.chat.postMessage({
+              channel: user.id,
+              as_user: true,
+              text: msg,
+            })
+          } catch (err) {
+            logger.error(`Failed to post a message '${msg}' on channel '${user.id}': ${err}`)
+          }
 
           const event = await stream.take()
 
@@ -596,11 +662,15 @@ export class Slack {
             completeNewMsg = true
           } else if (event.type === 'action' && event.actions[0].name === 'cancel') {
             await cancelOrder()
-            await this.boltApp.client.chat.postMessage({
-              channel: user.id,
-              as_user: true,
-              text: ':no_entry_sign: Canceling :point_up:',
-            })
+            try {
+              await this.boltApp.client.chat.postMessage({
+                channel: user.id,
+                as_user: true,
+                text: ':no_entry_sign: Canceling :point_up:',
+              })
+            } catch (err) {
+              logger.error(`Failed to post canceling message on channel '${user.id}': ${err}`)
+            }
             return
           }
         }
@@ -627,11 +697,15 @@ export class Slack {
         fields: this.getOrderFields(order),
       })
       if (completeNewMsg) {
-        await this.boltApp.client.chat.postMessage({
-          channel: user.id,
-          as_user: true,
-          text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
-        })
+        try {
+          await this.boltApp.client.chat.postMessage({
+            channel: user.id,
+            as_user: true,
+            text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
+          })
+        } catch (err) {
+          logger.error(`Failed to post 'order finished' message on channel '${user.id}': ${err}`)
+        }
       }
     }
 
@@ -752,11 +826,15 @@ export class Slack {
     // note: in wincent, there is no order.office
     const orderOffice = order.office && this.getCityChannel(order.office) ? order.office : null
 
-    await this.boltApp.client.chat.postMessage({
-      channel: this.config.channels.orders,
-      as_user: true,
-      attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, orderOffice),
-    })
+    try {
+      await this.boltApp.client.chat.postMessage({
+        channel: this.config.channels.orders,
+        as_user: true,
+        attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, orderOffice),
+      })
+    } catch (err) {
+      logger.error(`Failed to post 'order information' on orders channel: ${err}`)
+    }
   }
 
   async sendUserInfo(event, text, order) {
@@ -798,14 +876,14 @@ export class Slack {
       return false
     }
 
-    const {error: notifyError} = await this.boltApp.client.chat.postMessage({
-      ...message,
-      channel: channelId,
-      as_user: true,
-    })
-
-    if (notifyError) {
-      logger.error(`Failed to notify user '${userId}': ${notifyError}`)
+    try {
+      await this.boltApp.client.chat.postMessage({
+        ...message,
+        channel: channelId,
+        as_user: true,
+      })
+    } catch (err) {
+      logger.error(`Failed to notify user '${userId}': ${err}`)
       return false
     }
 
@@ -816,9 +894,9 @@ export class Slack {
   async addReaction(name, channel, timestamp) {
     try {
       await this.boltApp.client.reactions.add({name, channel, timestamp})
-    } catch (error) {
+    } catch (err) {
       // already_reacted error is acceptable, don't even log it
-      if (error.message === 'An API error occurred: already_reacted') return
+      if (err.message === 'An API error occurred: already_reacted') return
 
       // just log the error, don't let it bubble up
       logger.error(`Failed to add reaction '${name}'`)
@@ -828,14 +906,14 @@ export class Slack {
   async removeReaction(name, channel, timestamp) {
     try {
       await this.boltApp.client.reactions.remove({name, channel, timestamp})
-    } catch (error) {
+    } catch (err) {
       // no_reaction is thrown when:
       // - the reaction is currently not on the message
       // - the reaction doesn't even exist
-      if (error.message === 'An API error occurred: no_reaction') return
+      if (err.message === 'An API error occurred: no_reaction') return
 
       // just log the error, don't let it bubble up
-      logger.error(`Failed to remove reaction '${name}'. ${error}`)
+      logger.error(`Failed to remove reaction '${name}'. ${err}`)
     }
   }
 
@@ -845,7 +923,11 @@ export class Slack {
 
     if (order.orderConfirmation) {
       const {channel, ts} = order.orderConfirmation
-      await this.boltApp.client.chat.delete({channel, ts})
+      try {
+        await this.boltApp.client.chat.delete({channel, ts})
+      } catch (err) {
+        logger.error(`Failed to delete message on channel '${channel}': ${err}`)
+      }
     }
 
     const items = parseOrder(event.text)
@@ -885,12 +967,17 @@ export class Slack {
       fallback: ' ', // To avoid warning message in logs
     }
 
-    const orderConfirmation = await this.boltApp.client.chat.postMessage({
-      channel: user,
-      attachments: [orderAttachment],
-      as_user: true,
-      text: ' ',
-    })
+    let orderConfirmation
+    try {
+      orderConfirmation = await this.boltApp.client.chat.postMessage({
+        channel: user,
+        attachments: [orderAttachment],
+        as_user: true,
+        text: ' ',
+      })
+    } catch (err) {
+      logger.error(`Failed to post a message on channel '${user}': ${err}`)
+    }
 
     return {...order, orderConfirmation}
   }
