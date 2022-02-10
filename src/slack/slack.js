@@ -361,7 +361,7 @@ export class Slack {
   async getComments(ts, channel) {
     const fetchComments = async (cursor) => {
       // error is caught later
-      const {messages, response_metadata: {nextCursor} = {}} = await this.boltApp.client.conversations.replies({channel, ts, cursor})
+      const {messages, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.conversations.replies({channel, ts, cursor})
       return nextCursor ? [...messages, ...await fetchComments(nextCursor)] : messages
     }
 
@@ -375,13 +375,17 @@ export class Slack {
   }
 
   async getUsers(cursor) {
-    try {
+    const fetchUsers = async (cursor) => {
       const {members, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.users.list({cursor})
       const membersMap = members.reduce((acc, {id, name}) => {
         acc[id] = name
         return acc
       }, {})
       return nextCursor ? {...membersMap, ...this.getUsers(nextCursor)} : membersMap
+    }
+
+    try {
+      return await fetchUsers()
     } catch (err) {
       logger.error(`Failed to get list of users: ${err}`)
       throw err
