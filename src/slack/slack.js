@@ -209,7 +209,7 @@ export class Slack {
     try {
       await this.boltApp.client.chat.postMessage({channel: userId, as_user: true, text: NEW_USER_GREETING[this.variant]})
     } catch (err) {
-      logger.error(`Failed to great a new user '${userId}': ${err}`)
+      logger.error(`Failed to greet a new user '${userId}': ${err}`)
     }
   }
 
@@ -237,7 +237,7 @@ export class Slack {
     try {
       this.boltApp.client.chat[ts ? 'update' : 'postMessage']({channel, ts, as_user: true, text, attachments: []})
     } catch (err) {
-      logger.error(`Failed to show an error to user: ${text}. error: ${err}`)
+      logger.error(`Failed to show an error to user: ${err}`)
     }
   }
 
@@ -331,27 +331,27 @@ export class Slack {
 
     await this.removeReaction('x', channelId, msgTs)
 
-    await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, status)
-      .then(() => {
-        try {
-          this.boltApp.client.chat.update({
-            channel: channelId,
-            ts: msgTs,
-            text: '',
-            attachments: [
-            // *Status:* is the new message format. temporarily, we need to support the old format,
-            // and it seems checking just *Status* doesn't work, so dual check here it is
-              ...textAttachments.map((att) => att.text && (att.text.startsWith('*Status*') || att.text.startsWith('*Status:*')) ? {...att, text: `*Status:* ${status}`} : att),
-              ...actionsAttachments,
-            ],
-          })
-        } catch (err) {
-          logger.error(`Failed to update a chat on '${channelId}': ${err}`)
-        }
-      }).catch((err) => {
-        logger.error('Failed to update sheet', err)
-        this.addReaction('x', channelId, msgTs)
-      })
+    try {
+      await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, status)
+      try {
+        this.boltApp.client.chat.update({
+          channel: channelId,
+          ts: msgTs,
+          text: '',
+          attachments: [
+          // *Status:* is the new message format. temporarily, we need to support the old format,
+          // and it seems checking just *Status* doesn't work, so dual check here it is
+            ...textAttachments.map((att) => att.text && (att.text.startsWith('*Status*') || att.text.startsWith('*Status:*')) ? {...att, text: `*Status:* ${status}`} : att),
+            ...actionsAttachments,
+          ],
+        })
+      } catch (err) {
+        logger.error(`Failed to update a chat on '${channelId}': ${err}`)
+      }
+    } catch (err) {
+      logger.error('Failed to update sheet', err)
+      this.addReaction('x', channelId, msgTs)
+    }
 
     if (statusIcon) {
       await this.addReaction(statusIcon, channelId, msgTs)
@@ -360,39 +360,32 @@ export class Slack {
 
   async getComments(ts, channel) {
     const fetchComments = async (cursor) => {
-      // TODO: catch error (test by asAdmin: false)
-      let messages, nextCursor
-
-      try {
-        ({messages, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.conversations.replies({channel, ts, cursor}))
-      } catch (err) {
-        logger.error(`Failed to fetch comments: ${err}`)
-      }
-
+      // error is caught later
+      const {messages, response_metadata: {nextCursor} = {}} = await this.boltApp.client.conversations.replies({channel, ts, cursor})
       return nextCursor ? [...messages, ...await fetchComments(nextCursor)] : messages
     }
 
-    const [mainMsg, ...comments] = await fetchComments()
-
-
-    return {mainMsg, comments}
+    try {
+      const [mainMsg, ...comments] = await fetchComments()
+      return {mainMsg, comments}
+    } catch (err) {
+      logger.error(`Failed to fetch comments: ${err}`)
+      throw err
+    }
   }
 
   async getUsers(cursor) {
-    let members, nextCursor
-
     try {
-      ({members, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.users.list({cursor}))
+      const {members, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.users.list({cursor})
+      const membersMap = members.reduce((acc, {id, name}) => {
+        acc[id] = name
+        return acc
+      }, {})
+      return nextCursor ? {...membersMap, ...this.getUsers(nextCursor)} : membersMap
     } catch (err) {
       logger.error(`Failed to get list of users: ${err}`)
+      throw err
     }
-
-    const membersMap = members.reduce((acc, {id, name}) => {
-      acc[id] = name
-      return acc
-    }, {})
-
-    return nextCursor ? {...membersMap, ...this.getUsers(nextCursor)} : membersMap
   }
 
   async moveOrder(ts, fromChannel, toChannel, data) {
@@ -447,11 +440,10 @@ export class Slack {
       }
 
       // delete the comment. note: admin rights needed to delete other users' messages
-      // TODO: test by asAdmin: false
       try {
         await this.boltApp.client.chat.delete({channel: fromChannel, ts: commentTs, token: this.config.slack.adminToken})
       } catch (err) {
-        logger.error(`Failed to delete a comment on '${fromChannel}': ${err}`)
+        logger.error(`Failed to delete a comment on '${fromChannel}, ts '${ts}': ${err}`)
       }
     }
 
@@ -459,7 +451,7 @@ export class Slack {
     try {
       await this.boltApp.client.chat.delete({channel: fromChannel, ts})
     } catch (err) {
-      logger.error(`Failed to delete chat a message on '${fromChannel}': ${err}`)
+      logger.error(`Failed to delete chat a message on '${fromChannel}', ts '${ts}': ${err}`)
     }
   }
 
@@ -500,18 +492,17 @@ export class Slack {
     } else if (actionName === 'discard') { // Discard order
       await this.removeReaction('x', event.channel.id, msg.ts)
 
-      await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, 'discarded')
-        .then(() => {
-          try {
-            this.boltApp.client.chat.delete({channel: event.channel.id, ts: msg.ts})
-          } catch (err) {
-            logger.error(`Failed to delete a chat message on '${event.channel.id}': ${err}`)
-          }
-        })
-        .catch((err) => {
-          logger.error('Failed to update sheet', err)
-          this.addReaction('x', event.channel.id, msg.ts)
-        })
+      try {
+        await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, 'discarded')
+        try {
+          this.boltApp.client.chat.delete({channel: event.channel.id, ts: msg.ts})
+        } catch (err) {
+          logger.error(`Failed to delete a chat message on '${event.channel.id}': ${err}`)
+        }
+      } catch (err) {
+        logger.error('Failed to update sheet', err)
+        this.addReaction('x', event.channel.id, msg.ts)
+      }
     } else if (actionName === 'archive') { // Move to archive
       await this.moveOrder(msg.ts, event.channel.id, this.config.channels.archive, {
         attachments: [
@@ -652,7 +643,7 @@ export class Slack {
               text: msg,
             })
           } catch (err) {
-            logger.error(`Failed to post a message '${msg}' on channel '${user.id}': ${err}`)
+            logger.error(`Failed to post a message '${msg}' to user '${user.id}': ${err}`)
           }
 
           const event = await stream.take()
@@ -704,7 +695,7 @@ export class Slack {
             text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
           })
         } catch (err) {
-          logger.error(`Failed to post 'order finished' message on channel '${user.id}': ${err}`)
+          logger.error(`Failed to post 'order finished' message to user '${user.id}': ${err}`)
         }
       }
     }
@@ -967,19 +958,18 @@ export class Slack {
       fallback: ' ', // To avoid warning message in logs
     }
 
-    let orderConfirmation
     try {
-      orderConfirmation = await this.boltApp.client.chat.postMessage({
+      const orderConfirmation = await this.boltApp.client.chat.postMessage({
         channel: user,
         attachments: [orderAttachment],
         as_user: true,
         text: ' ',
       })
+      return {...order, orderConfirmation}
     } catch (err) {
-      logger.error(`Failed to post a message on channel '${user}': ${err}`)
+      logger.error(`Failed to post a message to user '${user}': ${err}`)
+      throw err
     }
-
-    return {...order, orderConfirmation}
   }
 
 
