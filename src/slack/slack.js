@@ -637,6 +637,8 @@ export class Slack {
 
     if (actionName === 'cancel') {
       await cancelOrder()
+      delete this.orders[userId] // remove order from memory
+      return
     }
 
     if (actionName === 'country') {
