@@ -17,7 +17,6 @@ export class Slack {
     this.variant = variant
     this.config = c[variant]
     this.orders = {}
-    this.streams = {}
 
     // inspired by: https://github.com/slackapi/bolt-js/issues/212
     this.boltReceiver = new ExpressReceiver({signingSecret: this.config.slack.signingSecret, endpoints: '/'})
