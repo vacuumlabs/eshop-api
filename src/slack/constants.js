@@ -4,24 +4,27 @@ import * as wincentConstants from './wincent/constants'
 
 const REASON = 'reason'
 const MANAGER = 'manager'
+const NAME = 'name'
+const QUESTION = 'question'
+const BUTTON = 'button'
 
 const REASON_WITH_ADDRESS_QUESTION = {
-  [REASON]: ':question: Why do you need these items? Reply by sending a message. And don\'t forget to tell us your address!',
+  [NAME]: REASON, [QUESTION]: ':question: Why do you need these items? Reply by sending a message. And don\'t forget to tell us your address!',
 }
 
 const REASON_DEFAULT_QUESTION = {
-  [REASON]: ':question: Why do you need these items? Reply by sending a message.',
+  [NAME]: REASON, [QUESTION]: ':question: Why do you need these items? Reply by sending a message.',
 }
 
 const REASON_NOTE_QUESTION = {
-  [REASON]: ':pencil: Add a note by sending a message. And don\'t forget to tell us your address!',
+  [NAME]: REASON, [QUESTION]: ':pencil: Add a note by sending a message. And don\'t forget to tell us your address!',
 }
 
 const REASON_COMMENT_QUESTION = {
-  [REASON]: ':pencil: Send your comment in a message.',
+  [NAME]: REASON, [QUESTION]: ':pencil: Send your comment in a message.', [BUTTON]: vlConstants.NOTE_NO_ACTION,
 }
 
-const MANAGER_QUESTION = {[MANAGER]: ':question: Name of your manager (needed for approval for items above 100 EUR - write N/A otherwise):'}
+const MANAGER_QUESTION = {[NAME]: MANAGER, [QUESTION]: ':question: Name of your manager (needed for approval for items above 100 EUR - write N/A otherwise):'}
 
 export const COMPANY = 'company'
 export const PERSONAL = 'personal'
@@ -45,24 +48,24 @@ const NOTIFICATION = {
 
 const DEFAULT_MESSAGES = {
   home: {
-    company: {
-      ...REASON_WITH_ADDRESS_QUESTION,
-      ...MANAGER_QUESTION,
-    },
-    personal: REASON_NOTE_QUESTION,
+    company: [
+      REASON_WITH_ADDRESS_QUESTION,
+      MANAGER_QUESTION,
+    ],
+    personal: [REASON_NOTE_QUESTION],
   },
   office: {
-    company: {
-      ...REASON_DEFAULT_QUESTION,
-      ...MANAGER_QUESTION,
-    },
+    company: [
+      REASON_DEFAULT_QUESTION,
+      MANAGER_QUESTION,
+    ],
     personal: {
-      note: REASON_COMMENT_QUESTION,
+      note: [REASON_COMMENT_QUESTION],
     },
   },
-
   notification: NOTIFICATION,
 }
+
 
 const WINCENT_MESSAGES = {
   home: {
@@ -109,8 +112,6 @@ export const CITIES_OPTIONS_TO_CITIES = {
 export const OFFICES = vlConstants.OFFICES
 
 export const HOME_VALUE = vlConstants.HOME_VALUE
-
-export const HOME_TO_OFFICE = vlConstants.HOME_TO_OFFICE
 
 export const CANCEL_ORDER_ACTION = vlConstants.CANCEL_ORDER_ACTION
 
