@@ -4,9 +4,9 @@ import * as wincentConstants from './wincent/constants'
 
 const REASON = 'reason'
 const MANAGER = 'manager'
-const NAME = 'name'
-const QUESTION = 'question'
 const BUTTON = 'button'
+const QUESTION = 'question'
+export const NAME = 'name'
 
 const REASON_WITH_ADDRESS_QUESTION = {
   [NAME]: REASON, [QUESTION]: ':question: Why do you need these items? Reply by sending a message. And don\'t forget to tell us your address!',

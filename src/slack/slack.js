@@ -6,7 +6,7 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, MESSAGES as VARIANT_MESSAGES} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, NAME, MESSAGES as VARIANT_MESSAGES} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -133,7 +133,17 @@ export class Slack {
 
         // user action
         if (this.orders[userId]) {
-          this.handleUserAction(action, userId)
+          try {
+            this.handleUserAction(action, userId)
+          } catch (err) {
+            await say(':exclamation: Something went wrong, please try again.')
+            const {name: actionName, value: actionValue} = action
+            await logError(this.boltApp, this.variant, err, 'User action error', userId, {
+              action: actionName,
+              value: actionValue,
+              order: logOrder(this.orders[userId]),
+            })
+          }
         } else {
           await respond(':exclamation: The order has timed out. Create a new order please.')
         }
@@ -223,12 +233,46 @@ export class Slack {
       logger.error(`Failed to show an error to user: ${err}`)
     }
   }
+
+  async submitOrder(userId) {
+    const order = this.orders[userId]
+    const dbId = await this.storeOrder(
+      {
+        user: userId,
+        ts: order.orderConfirmation.ts,
+        isCompany: order.isCompany,
+        office: order.office,
+        reason: order.reason,
+        isUrgent: order.isUrgent,
+        isHome: order.isHome,
+        ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff, manager: order.manager},
+      },
+      order.items,
+    )
+    await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
+    await this.updateMessage(order, {
+      pretext: order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:',
+      color: 'good',
+      actions: [],
+      fields: this.getOrderFields(order),
+    })
+    try {
+      await this.boltApp.client.chat.postMessage({
+        channel: userId,
+        as_user: true,
+        text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
+      })
+    } catch (err) {
+      logger.error(`Failed to post 'order finished' message to user '${userId}': ${err}`)
+    }
+    delete this.orders[userId] // remove order from memory
+  }
+
   async handleUserMessage(event) {
     const {user: userId} = event
 
-    const newOrder = () => ({ // Messages
+    let order = this.orders[userId] || {
       id: userId,
-      state: 'new',
       items: new Map(),
       totalPrice: 0,
       country: null,
@@ -237,14 +281,7 @@ export class Slack {
       isCompany: null,
       isUrgent: null,
       isHome: null,
-    })
-
-    const destroyOrder = (userId) => {
-      delete this.orders[userId]
     }
-
-    this.orders[userId] = this.orders[userId] || newOrder()
-    let order = this.orders[userId]
 
     if (order.messages === undefined) { // Initial message for entering item links
       try {
@@ -257,40 +294,11 @@ export class Slack {
         await this.showError(userId, null, 'Something went wrong, please try again.') // Pass null instead of event.original_message.ts, as event with type === 'message' doesn't contain original_message
       }
     } else {
-      const {name} = this.orders[userId].messages.shift()
+      const name = order.messages.shift()[NAME]
       order[name] = event.text
 
       if (order.messages.length === 0) { // user actions finished
-        const dbId = await this.storeOrder(
-          {
-            user: userId,
-            ts: order.orderConfirmation.ts,
-            isCompany: order.isCompany,
-            office: order.office,
-            reason: order.reason,
-            isUrgent: order.isUrgent,
-            isHome: order.isHome,
-            ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff, manager: order.manager},
-          },
-          order.items,
-        )
-        await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
-        await this.updateMessage(order, {
-          pretext: order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:',
-          color: 'good',
-          actions: [],
-          fields: this.getOrderFields(order),
-        })
-        try {
-          await this.boltApp.client.chat.postMessage({
-            channel: userId,
-            as_user: true,
-            text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
-          })
-        } catch (err) {
-          logger.error(`Failed to post 'order finished' message to user '${userId}': ${err}`)
-        }
-        destroyOrder(userId)
+        this.submitOrder(userId)
       } else {
         this.updateQuestion(userId)
       }
@@ -623,7 +631,7 @@ export class Slack {
   async handleUserAction(action, userId) {
     const order = this.orders[userId]
     const {name: actionName, value: actionValue} = action
-    logger.info(`handling user action - name: ${actionName}, value: ${actionValue}, user: ${JSON.stringify(userId)}, order: ${JSON.stringify(order)}`)
+    logger.info(`handling user action - name: ${actionName}, value: ${actionValue}, user: ${userId}, order: ${JSON.stringify(order)}`)
 
     const MESSAGES = VARIANT_MESSAGES[this.variant]
 
@@ -691,19 +699,21 @@ export class Slack {
       // home-personal-urgent
       if (order.isHome) {
         order.messages = MESSAGES.home.personal
+      } else {
+        // office-personal-urgent
+        await this.updateMessage(order, {
+          actions: ORDER_NOTE_ACTIONS,
+          fields: [...this.getOrderFields(order), {title: ':pencil: Do you want to add a note to the order?'}],
+        })
       }
-
-      // office-personal-urgent
-      await this.updateMessage(order, {
-        actions: ORDER_NOTE_ACTIONS,
-        fields: [...this.getOrderFields(order), {title: ':pencil: Do you want to add a note to the order?'}],
-      })
     }
 
     // office-personal-?-note
     if (actionName === 'note') {
       if (actionValue === 'note-yes') {
         order.messages = MESSAGES.office.personal.note
+      } else {
+        this.submitOrder(userId)
       }
     }
 
@@ -714,13 +724,13 @@ export class Slack {
       // for wincent, don't go into spinoff selection
       if (this.variant === 'wincent') {
         order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
+      } else {
+        // spinoff selection for vacuumlabs (and test)
+        await this.updateMessage(order, {
+          actions: ORDER_SPINOFF_ACTIONS,
+          fields: [...this.getOrderFields(order), {title: 'Select your spinoff:'}],
+        })
       }
-
-      // spinoff selection for vacuumlabs (and test)
-      await this.updateMessage(order, {
-        actions: ORDER_SPINOFF_ACTIONS,
-        fields: [...this.getOrderFields(order), {title: 'Select your spinoff:'}],
-      })
     }
 
     // ?-company-spinoff
@@ -845,7 +855,7 @@ export class Slack {
       try {
         await this.boltApp.client.chat.delete({channel, ts})
       } catch (err) {
-        logger.error(`Failed to delete message on channel '${channel} ci': ${err}`)
+        logger.error(`Failed to delete message on channel '${channel}': ${err}`)
       }
     }
 
@@ -944,7 +954,7 @@ export class Slack {
   async storeOrder(order, items) {
     const id = await knex.transaction(async (trx) => {
       logger.info(`storing order to the db: ${JSON.stringify(order)}`)
-      const orderInsertResult = await trx.insert({...order}, ['id']).into(this.config.dbTables.order)
+      const orderInsertResult = await trx.insert(order, ['id']).into(this.config.dbTables.order)
 
       order.id = orderInsertResult[0].id
 

@@ -1,5 +1,4 @@
 import express from 'express'
-import {expressHelpers, run} from 'yacol'
 
 import c from './config'
 import {Slack} from './slack/slack'
@@ -7,8 +6,6 @@ import {alzaCode} from './alza'
 import logger from './logger'
 
 const app = express()
-
-const {register, runApp} = expressHelpers
 
 const endpoints = {
   alzaCode: '/alzacode',
@@ -26,10 +23,7 @@ const endpoints = {
   },
 }
 
-register(app, 'get', endpoints.alzaCode, alzaCode)
-
 ;(async function() {
-  run(runApp)
 
   app.listen(c.port, () =>
     logger.info(`App started on localhost:${c.port}.`)
