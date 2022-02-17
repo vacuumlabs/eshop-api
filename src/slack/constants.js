@@ -69,13 +69,13 @@ const DEFAULT_MESSAGES = {
 
 const WINCENT_MESSAGES = {
   home: {
-    company: REASON_WITH_ADDRESS_QUESTION,
-    personal: REASON_NOTE_QUESTION,
+    company: [REASON_WITH_ADDRESS_QUESTION],
+    personal: [REASON_NOTE_QUESTION],
   },
   office: {
-    company: REASON_DEFAULT_QUESTION,
+    company: [REASON_DEFAULT_QUESTION],
     personal: {
-      note: REASON_COMMENT_QUESTION,
+      note: [REASON_COMMENT_QUESTION],
     },
   },
 
