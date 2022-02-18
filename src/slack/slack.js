@@ -100,8 +100,32 @@ export class Slack {
 
     // console.log('Upgrade complete')
 
-    // TODO: inline handleMessage
-    this.boltApp.event('message', ({event}) => this.handleMessage(event))
+    this.boltApp.event('message', async ({event, say}) => {
+      logger.info('message event')
+
+      if (event.subtype) return
+
+      if (this.amIMentioned(event)) {
+        try {
+          await this.handleUserMessage(event, say)
+        } catch (err) {
+          await say(err)
+
+          const {user: userId} = event
+          await logError(this.boltApp, this.variant, err, 'User order error', userId, {
+            msg: event.text,
+            order: logOrder(this.orders[userId]),
+          })
+        }
+        return
+      }
+
+      if (event.channel === this.config.channels.news) {
+        // TODO: require confirmation before sending a company-wide message
+        await this.announceToAll(event.text)
+        return
+      }
+    })
 
     this.boltApp.event('team_join', ({event}) => this.greetNewUser(event.user.id))
 
@@ -206,24 +230,6 @@ export class Slack {
     }
   }
 
-  // used as @slack/bolt message event handler
-  async handleMessage(event) {
-    logger.info('message event')
-
-    if (event.subtype) return
-
-    if (this.amIMentioned(event)) {
-      this.handleUserMessage(event)
-      return
-    }
-
-    if (event.channel === this.config.channels.news) {
-      // TODO: require confirmation before sending a company-wide message
-      await this.announceToAll(event.text)
-      return
-    }
-  }
-
   showError(channel, ts, msg) {
     const text = `:exclamation: ${msg}`
     logger.warn(`showed error to user: ${text}`)
@@ -267,7 +273,7 @@ export class Slack {
     delete this.orders[userId] // remove order from memory
   }
 
-  async handleUserMessage(event) {
+  async handleUserMessage(event, say) {
     const {user: userId} = event
 
     let order = this.orders[userId] || {
@@ -290,7 +296,7 @@ export class Slack {
           msg: event.text,
           order: logOrder(order),
         })
-        await this.showError(userId, null, 'Something went wrong, please try again.') // Pass null instead of event.original_message.ts, as event with type === 'message' doesn't contain original_message
+        say(':exclamation: Something went wrong, please try again.') // show error to user
       }
     } else {
       const name = order.messages.shift()[NAME]
