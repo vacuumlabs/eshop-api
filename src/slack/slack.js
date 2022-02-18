@@ -1,13 +1,12 @@
 import c from '../config'
 import _knex from 'knex'
-import {createChannel} from 'yacol'
 import moment from 'moment-timezone'
 import {getInfo, getLangByLink} from '../alza'
 import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, NOTE_NO_ACTION, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, MESSAGES as VARIANT_MESSAGES} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, NAME, MESSAGES as VARIANT_MESSAGES} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -17,9 +16,7 @@ export class Slack {
   constructor(variant) {
     this.variant = variant
     this.config = c[variant]
-    this.streams = {}
-    this.pendingActions = {}
-    this.actionsCount = 0
+    this.orders = {}
 
     // inspired by: https://github.com/slackapi/bolt-js/issues/212
     this.boltReceiver = new ExpressReceiver({signingSecret: this.config.slack.signingSecret, endpoints: '/'})
@@ -116,7 +113,7 @@ export class Slack {
 
         await ack()
 
-        const callback_id = body.callback_id
+        const {callback_id, user: {id: userId}} = body
 
         logger.info(`action callback_id: ${callback_id}, username: ${body.user.name}`)
 
@@ -126,7 +123,7 @@ export class Slack {
             await this.handleOrderAction(body)
           } catch (err) {
             await say(':exclamation: Something went wrong.')
-            await logError(this.boltApp, this.variant, err, 'Admin action error', body.user.id, {
+            await logError(this.boltApp, this.variant, err, 'Admin action error', userId, {
               action,
               callback_id,
             })
@@ -135,10 +132,18 @@ export class Slack {
         }
 
         // user action
-        // TODO: handle user's action right here, don't use stream
-        const actionStream = this.pendingActions[callback_id]
-        if (actionStream) {
-          actionStream.put({...body, type: 'action'})
+        if (this.orders[userId]) {
+          try {
+            this.handleUserAction(action, userId)
+          } catch (err) {
+            await say(':exclamation: Something went wrong, please try again.')
+            const {name: actionName, value: actionValue} = action
+            await logError(this.boltApp, this.variant, err, 'User action error', userId, {
+              action: actionName,
+              value: actionValue,
+              order: logOrder(this.orders[userId]),
+            })
+          }
         } else {
           await respond(':exclamation: The order has timed out. Create a new order please.')
         }
@@ -160,10 +165,6 @@ export class Slack {
     this.boltApp.error(errorHandler)
   }
 
-  nextUUID() {
-    return (`${Date.now()}#${this.actionsCount++}`)
-  }
-
   amIMentioned(event) {
     // ignore messages from the bot
     if (event.user === this.botUserId) return false
@@ -172,14 +173,6 @@ export class Slack {
     // the bot is mentioned
     if (event.text.match(`<@${this.botUserId}>`)) return true
     return false
-  }
-
-  streamForUser(userId) {
-    if (this.streams[userId] == null) {
-      this.streams[userId] = createChannel()
-      this.listenUser(this.streams[userId], userId)
-    }
-    return this.streams[userId]
   }
 
   async announceToAll(message) {
@@ -220,7 +213,7 @@ export class Slack {
     if (event.subtype) return
 
     if (this.amIMentioned(event)) {
-      this.streamForUser(event.user).put(event)
+      this.handleUserMessage(event)
       return
     }
 
@@ -241,9 +234,45 @@ export class Slack {
     }
   }
 
-  async listenUser(stream, userId) {
-    const newOrder = () => ({
-      id: null,
+  async submitOrder(userId) {
+    const order = this.orders[userId]
+    const dbId = await this.storeOrder(
+      {
+        user: userId,
+        ts: order.orderConfirmation.ts,
+        isCompany: order.isCompany,
+        office: order.office,
+        reason: order.reason,
+        isUrgent: order.isUrgent,
+        isHome: order.isHome,
+        ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff, manager: order.manager},
+      },
+      order.items,
+    )
+    await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
+    await this.updateMessage(order, {
+      pretext: order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:',
+      color: 'good',
+      actions: [],
+      fields: this.getOrderFields(order),
+    })
+    try {
+      await this.boltApp.client.chat.postMessage({
+        channel: userId,
+        as_user: true,
+        text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
+      })
+    } catch (err) {
+      logger.error(`Failed to post 'order finished' message to user '${userId}': ${err}`)
+    }
+    delete this.orders[userId] // remove order from memory
+  }
+
+  async handleUserMessage(event) {
+    const {user: userId} = event
+
+    let order = this.orders[userId] || {
+      id: userId,
       items: new Map(),
       totalPrice: 0,
       country: null,
@@ -252,67 +281,30 @@ export class Slack {
       isCompany: null,
       isUrgent: null,
       isHome: null,
-    })
-
-    const destroyOrder = (order) => {
-      if (order.id) delete this.pendingActions[order.id]
     }
 
-    for (;;) {
-      let order = newOrder()
-
-      for (;;) {
-        const event = await stream.take()
-
-        if (event.type === 'action') {
-          let finished
-
-          try {
-            finished = await this.handleUserAction(
-              stream,
-              order,
-              event.actions[0],
-              event.user,
-            )
-          } catch (err) {
-            finished = true
-
-            await logError(this.boltApp, this.variant, err, 'User action error', event.user.id, {
-              action: event.actions[0].name,
-              value: event.actions[0].value,
-              order: logOrder(order),
-            })
-            try {
-              await this.showError(order.orderConfirmation.channel, event.original_message.ts, 'Something went wrong, please try again.')
-            } catch (err) {
-              logger.error(`couldn't show error to the user. error: ${err}`)
-            }
-          }
-
-          if (finished) {
-            break
-          }
-        }
-
-        if (event.type === 'message') {
-          const newId = this.nextUUID()
-          this.pendingActions[newId] = stream
-          order.id = newId
-
-          try {
-            order = await this.updateOrder(order, event, userId)
-          } catch (err) {
-            await logError(this.boltApp, this.variant, err, 'User order error', userId, {
-              msg: event.text,
-              order: logOrder(order),
-            })
-            await this.showError(userId, null, 'Something went wrong, please try again.') // Pass null instead of event.original_message.ts, as event with type === 'message' doesn't contain original_message
-          }
-        }
+    if (order.messages === undefined) { // Initial message for entering item links
+      try {
+        order = await this.updateOrder(order, event, userId)
+      } catch (err) {
+        await logError(this.boltApp, this.variant, err, 'User order error', userId, {
+          msg: event.text,
+          order: logOrder(order),
+        })
+        await this.showError(userId, null, 'Something went wrong, please try again.') // Pass null instead of event.original_message.ts, as event with type === 'message' doesn't contain original_message
       }
+    } else {
+      const name = order.messages.shift()[NAME]
+      order[name] = event.text
 
-      destroyOrder(order)
+      if (order.messages.length === 0) { // user actions finished
+        this.submitOrder(userId)
+      } else {
+        this.updateQuestion(userId)
+      }
     }
+
+    this.orders[userId] = order
   }
 
   async changeStatus({
@@ -604,159 +596,100 @@ export class Slack {
     }
   }
 
-  async handleUserAction(stream, order, action, user) {
-    const {name: actionName, value: actionValue} = action
-    logger.info(`handling user action - name: ${actionName}, value: ${actionValue}, user: ${JSON.stringify(user)}, order: ${JSON.stringify(order)}`)
+  async updateQuestion(userId) {
+    const order = this.orders[userId]
+    const userMessage = order.messages[0]
 
+    if (userMessage) {
+      const {question, button: additionalButton} = userMessage
+      await this.updateMessage(order, {
+        actions: [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean),
+        fields: this.getOrderFields(order),
+      })
+
+      try {
+        await this.boltApp.client.chat.postMessage({
+          channel: userId,
+          as_user: true,
+          text: question,
+        })
+      } catch (err) {
+        logger.error(`Failed to post a message '${question}' to user '${userId}': ${err}`)
+      }
+    }
+  }
+
+  async updateMessage(order, attachmentUpdate) {
     const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
+    try {
+      await this.boltApp.client.chat.update({ts, channel, text: ' ', attachments: [{...attachment, ...attachmentUpdate}]})
+    } catch (err) {
+      logger.error(`Failed to update a chat on '${channel}': ${err}`)
+    }
+  }
+
+  async handleUserAction(action, userId) {
+    const order = this.orders[userId]
+    const {name: actionName, value: actionValue} = action
+    logger.info(`handling user action - name: ${actionName}, value: ${actionValue}, user: ${userId}, order: ${JSON.stringify(order)}`)
 
     const MESSAGES = VARIANT_MESSAGES[this.variant]
 
-    const updateMessage = async (attachmentUpdate) => {
-      try {
-        await this.boltApp.client.chat.update({ts, channel, text: ' ', attachments: [{...attachment, ...attachmentUpdate}]})
-      } catch (err) {
-        logger.error(`Failed to update a chat on '${channel}': ${err}`)
-      }
-    }
-
     const cancelOrder = async () => {
-      await updateMessage({
+      await this.updateMessage(order, {
         pretext: ':no_entry_sign: Order canceled:',
         color: 'danger',
         actions: [],
       })
     }
 
-    const submitOrder = async (commentMsgObj, forceComment) => {
-      let completeNewMsg = false
-
-      if (commentMsgObj) {
-        completeNewMsg = true
-
-        for (const [key, msg] of Object.entries(commentMsgObj)) {
-          await updateMessage({
-            actions: [forceComment ? null : NOTE_NO_ACTION, CANCEL_ORDER_ACTION].filter(Boolean),
-            fields: this.getOrderFields(order),
-          })
-
-          try {
-            await this.boltApp.client.chat.postMessage({
-              channel: user.id,
-              as_user: true,
-              text: msg,
-            })
-          } catch (err) {
-            logger.error(`Failed to post a message '${msg}' to user '${user.id}': ${err}`)
-          }
-
-          const event = await stream.take()
-
-          if (event.type === 'message') {
-            order[key] = event.text
-            completeNewMsg = true
-          } else if (event.type === 'action' && event.actions[0].name === 'cancel') {
-            await cancelOrder()
-            try {
-              await this.boltApp.client.chat.postMessage({
-                channel: user.id,
-                as_user: true,
-                text: ':no_entry_sign: Canceling :point_up:',
-              })
-            } catch (err) {
-              logger.error(`Failed to post canceling message on channel '${user.id}': ${err}`)
-            }
-            return
-          }
-        }
-      }
-
-      const dbId = await this.storeOrder(
-        {
-          user,
-          ts,
-          isCompany: order.isCompany,
-          office: order.office,
-          reason: order.reason,
-          isUrgent: order.isUrgent,
-          isHome: order.isHome,
-          ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff, manager: order.manager},
-        },
-        order.items,
-      )
-      await this.notifyOfficeManager(order, dbId, user.id, order.isCompany)
-      await updateMessage({
-        pretext: order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:',
-        color: 'good',
-        actions: [],
-        fields: this.getOrderFields(order),
-      })
-      if (completeNewMsg) {
-        try {
-          await this.boltApp.client.chat.postMessage({
-            channel: user.id,
-            as_user: true,
-            text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
-          })
-        } catch (err) {
-          logger.error(`Failed to post 'order finished' message to user '${user.id}': ${err}`)
-        }
-      }
-    }
-
     if (actionName === 'cancel') {
       await cancelOrder()
-      return true
+      delete this.orders[userId] // remove order from memory
+      return
     }
 
     if (actionName === 'country') {
 
       order.country = actionValue
-      await updateMessage({
+      await this.updateMessage(order, {
         actions: DELIVERY_PLACE_ACTIONS,
         fields: [
           ...this.getOrderFields(order),
           {title: 'Where do you want to pickup the order?'},
         ],
       })
-
-      return false
     }
 
     // office/home
     if (actionName === 'delivery') {
       order.isHome = actionValue === HOME_VALUE
-      await updateMessage({
+      await this.updateMessage(order, {
         actions: ORDER_OFFICE_ACTIONS[order.country],
         fields: [
           ...this.getOrderFields(order),
           {title: 'Select the office you belong to.'},
         ],
       })
-
-      return false
     }
 
     // office
     if (actionName === 'office') {
       order.office = actionValue
-      await updateMessage({
+      await this.updateMessage(order, {
         actions: ORDER_TYPE_ACTIONS,
         fields: this.getOrderFields(order),
       })
 
-      return false
     }
 
     // ?-personal
     if (actionName === 'personal') {
       order.isCompany = false
-      await updateMessage({
+      await this.updateMessage(order, {
         actions: ORDER_URGENT_ACTIONS,
         fields: [...this.getOrderFields(order), {title: 'How urgent is your order?'}],
       })
-
-      return false
     }
 
     // ?-personal-urgent
@@ -765,22 +698,23 @@ export class Slack {
 
       // home-personal-urgent
       if (order.isHome) {
-        await submitOrder(MESSAGES.home.personal, true)
-        return true
+        order.messages = MESSAGES.home.personal
+      } else {
+        // office-personal-urgent
+        await this.updateMessage(order, {
+          actions: ORDER_NOTE_ACTIONS,
+          fields: [...this.getOrderFields(order), {title: ':pencil: Do you want to add a note to the order?'}],
+        })
       }
-
-      // office-personal-urgent
-      await updateMessage({
-        actions: ORDER_NOTE_ACTIONS,
-        fields: [...this.getOrderFields(order), {title: ':pencil: Do you want to add a note to the order?'}],
-      })
-      return false
     }
 
     // office-personal-?-note
     if (actionName === 'note') {
-      await submitOrder(actionValue === 'note-yes' ? MESSAGES.office.personal.note : null)
-      return true
+      if (actionValue === 'note-yes') {
+        order.messages = MESSAGES.office.personal.note
+      } else {
+        this.submitOrder(userId)
+      }
     }
 
     // ?-company
@@ -789,17 +723,14 @@ export class Slack {
 
       // for wincent, don't go into spinoff selection
       if (this.variant === 'wincent') {
-        await submitOrder(order.isHome ? MESSAGES.home.company : MESSAGES.office.company, true)
-        return true
+        order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
+      } else {
+        // spinoff selection for vacuumlabs (and test)
+        await this.updateMessage(order, {
+          actions: ORDER_SPINOFF_ACTIONS,
+          fields: [...this.getOrderFields(order), {title: 'Select your spinoff:'}],
+        })
       }
-
-      // spinoff selection for vacuumlabs (and test)
-      await updateMessage({
-        actions: ORDER_SPINOFF_ACTIONS,
-        fields: [...this.getOrderFields(order), {title: 'Select your spinoff:'}],
-      })
-
-      return false
     }
 
     // ?-company-spinoff
@@ -807,11 +738,14 @@ export class Slack {
     if (actionName === 'spinoff') {
       order.spinoff = action.selected_options[0].value
 
-      await submitOrder(order.isHome ? MESSAGES.home.company : MESSAGES.office.company, true)
-      return true
+      order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
     }
 
-    return false
+    this.orders[userId] = order // update order
+
+    if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
+      this.updateQuestion(userId)
+    }
   }
 
   async notifyOfficeManager(order, dbId, user, isCompany) {
@@ -969,6 +903,7 @@ export class Slack {
         as_user: true,
         text: ' ',
       })
+
       return {...order, orderConfirmation}
     } catch (err) {
       logger.error(`Failed to post a message to user '${user}': ${err}`)
@@ -1019,7 +954,7 @@ export class Slack {
   async storeOrder(order, items) {
     const id = await knex.transaction(async (trx) => {
       logger.info(`storing order to the db: ${JSON.stringify(order)}`)
-      const orderInsertResult = await trx.insert({...order, user: order.user.id}, ['id']).into(this.config.dbTables.order)
+      const orderInsertResult = await trx.insert(order, ['id']).into(this.config.dbTables.order)
 
       order.id = orderInsertResult[0].id
 

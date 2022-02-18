@@ -1,7 +1,4 @@
-import {run} from 'yacol'
 import {getInfo} from './src/alza'
-import {connect, listen, apiCall} from './src/slack'
-import c from './src/config'
 
 (async function() {
   const products = [
