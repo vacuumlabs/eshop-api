@@ -596,7 +596,7 @@ export class Slack {
     }
   }
 
-  async updateQuestion(userId) {
+  async updateQuestion(userId, passedOrder) {
     const order = this.orders[userId]
     const userMessage = order.messages[0]
 
@@ -616,6 +616,8 @@ export class Slack {
       } catch (err) {
         logger.error(`Failed to post a message '${question}' to user '${userId}': ${err}`)
       }
+    } else {
+      logger.error(`No message to show to user '${userId}. order: ${JSON.stringify(order)}\npassedOrder: ${JSON.stringify(passedOrder)}`)
     }
   }
 
@@ -744,7 +746,7 @@ export class Slack {
     this.orders[userId] = order // update order
 
     if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
-      this.updateQuestion(userId)
+      this.updateQuestion(userId, order)
     }
   }
 
