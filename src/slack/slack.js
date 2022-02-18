@@ -230,16 +230,6 @@ export class Slack {
     }
   }
 
-  showError(channel, ts, msg) {
-    const text = `:exclamation: ${msg}`
-    logger.warn(`showed error to user: ${text}`)
-    try {
-      this.boltApp.client.chat[ts ? 'update' : 'postMessage']({channel, ts, text, attachments: []})
-    } catch (err) {
-      logger.error(`Failed to show an error to user: ${err}`)
-    }
-  }
-
   async submitOrder(userId) {
     const order = this.orders[userId]
     const dbId = await this.storeOrder(
