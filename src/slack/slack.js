@@ -187,7 +187,7 @@ export class Slack {
           await this.greetNewUser(u.id)
         } else {
           try {
-            await this.boltApp.client.chat.postMessage({channel: u.id, as_user: true, text: message})
+            await this.boltApp.client.chat.postMessage({channel: u.id, text: message})
           } catch (err) {
             logger.error(`Failed to send a message to user '${u.id}': ${err}`)
           }
@@ -200,7 +200,7 @@ export class Slack {
 
   async greetNewUser(userId) {
     try {
-      await this.boltApp.client.chat.postMessage({channel: userId, as_user: true, text: NEW_USER_GREETING[this.variant]})
+      await this.boltApp.client.chat.postMessage({channel: userId, text: NEW_USER_GREETING[this.variant]})
     } catch (err) {
       logger.error(`Failed to greet a new user '${userId}': ${err}`)
     }
@@ -228,7 +228,7 @@ export class Slack {
     const text = `:exclamation: ${msg}`
     logger.warn(`showed error to user: ${text}`)
     try {
-      this.boltApp.client.chat[ts ? 'update' : 'postMessage']({channel, ts, as_user: true, text, attachments: []})
+      this.boltApp.client.chat[ts ? 'update' : 'postMessage']({channel, ts, text, attachments: []})
     } catch (err) {
       logger.error(`Failed to show an error to user: ${err}`)
     }
@@ -259,7 +259,6 @@ export class Slack {
     try {
       await this.boltApp.client.chat.postMessage({
         channel: userId,
-        as_user: true,
         text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
       })
     } catch (err) {
@@ -389,7 +388,6 @@ export class Slack {
     try {
       ({message: {ts: newTs}} = await this.boltApp.client.chat.postMessage({
         channel: toChannel,
-        as_user: true,
         ...data,
       }))
     } catch (err) {
@@ -610,7 +608,6 @@ export class Slack {
       try {
         await this.boltApp.client.chat.postMessage({
           channel: userId,
-          as_user: true,
           text: question,
         })
       } catch (err) {
@@ -760,7 +757,6 @@ export class Slack {
     try {
       await this.boltApp.client.chat.postMessage({
         channel: this.config.channels.orders,
-        as_user: true,
         attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, orderOffice),
       })
     } catch (err) {
@@ -811,7 +807,6 @@ export class Slack {
       await this.boltApp.client.chat.postMessage({
         ...message,
         channel: channelId,
-        as_user: true,
       })
     } catch (err) {
       logger.error(`Failed to notify user '${userId}': ${err}`)
@@ -902,7 +897,6 @@ export class Slack {
       const orderConfirmation = await this.boltApp.client.chat.postMessage({
         channel: user,
         attachments: [orderAttachment],
-        as_user: true,
         text: ' ',
       })
 
