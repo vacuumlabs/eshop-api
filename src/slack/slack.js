@@ -160,7 +160,7 @@ export class Slack {
           logger.info(`handling admin action - orderId: ${orderId}`)
 
           try {
-            await this.handleOrderAction(action, orderId, originalMessage, channelId)
+            await this.handleAdminAction(action, orderId, originalMessage, channelId)
           } catch (err) {
             await say(':exclamation: Something went wrong.')
             await logError(this.boltApp, this.variant, err, 'Admin action error', userId, {
@@ -452,7 +452,7 @@ export class Slack {
     }
   }
 
-  async handleOrderAction(action, orderId, originalMessage, channelId) {
+  async handleAdminAction(action, orderId, originalMessage, channelId) {
     const actionName = action.name
     const attachments = originalMessage.attachments.length === 1
       ? {...originalMessage.attachments, actions: []} // legacy format
