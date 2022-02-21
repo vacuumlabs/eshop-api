@@ -109,10 +109,10 @@ export class Slack {
         try {
           await this.handleUserMessage(event, say)
         } catch (err) {
-          await say(err)
+          say(':exclamation: Something went wrong, please try again.') // show error to user
 
           const {user: userId} = event
-          await logError(this.boltApp, this.variant, err, 'User order error', userId, {
+          await logError(this.boltApp, this.variant, err, 'User message error', userId, {
             msg: event.text,
             order: logOrder(this.orders[userId]),
           })
@@ -279,15 +279,7 @@ export class Slack {
     }
 
     if (order.messages === undefined) { // Initial message for entering item links
-      try {
-        order = await this.updateOrder(order, event, userId)
-      } catch (err) {
-        await logError(this.boltApp, this.variant, err, 'User order error', userId, {
-          msg: event.text,
-          order: logOrder(order),
-        })
-        say(':exclamation: Something went wrong, please try again.') // show error to user
-      }
+      order = await this.updateOrder(order, event, userId)
     } else {
       const name = order.messages.shift()[NAME]
       order[name] = event.text
