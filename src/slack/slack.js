@@ -151,7 +151,7 @@ export class Slack {
         // we know the handled body is always an interactive message payload, but typescript doesn't
         if (body.type !== 'interactive_message') return
 
-        const {callback_id, user: {id: userId, name: username}} = body
+        const {callback_id, user: {id: userId, name: username}, original_message: originalMessage, channel: {id: channelId}} = body
         logger.info(`action callback_id: ${callback_id}, username: ${username}`)
 
         // admin action
@@ -160,7 +160,7 @@ export class Slack {
           logger.info(`handling admin action - orderId: ${orderId}`)
 
           try {
-            await this.handleOrderAction(body, orderId)
+            await this.handleOrderAction(action, orderId, originalMessage, channelId)
           } catch (err) {
             await say(':exclamation: Something went wrong.')
             await logError(this.boltApp, this.variant, err, 'Admin action error', userId, {
@@ -452,14 +452,13 @@ export class Slack {
     }
   }
 
-  async handleOrderAction(event, orderId) {
-    const actionName = event.actions[0].name
-    const msg = event.original_message
-    const attachments = msg.attachments.length === 1
-      ? {...msg.attachments, actions: []} // legacy format
-      : msg.attachments.filter((att) => !att.actions)
+  async handleOrderAction(action, orderId, originalMessage, channelId) {
+    const actionName = action.name
+    const attachments = originalMessage.attachments.length === 1
+      ? {...originalMessage.attachments, actions: []} // legacy format
+      : originalMessage.attachments.filter((att) => !att.actions)
     // find the section with button actions that's not the Archive
-    const buttonsAtt = msg.attachments.find((att) => att.actions && att.actions[0].type === 'button' && att.text !== 'Archive')
+    const buttonsAtt = originalMessage.attachments.find((att) => att.actions && att.actions[0].type === 'button' && att.text !== 'Archive')
     const msgButtons = buttonsAtt && buttonsAtt.actions
 
     const NOTIFICATION = VARIANT_MESSAGES[this.variant].notification
@@ -472,7 +471,7 @@ export class Slack {
 
     if (actionName === 'forward-to-channel') { // Forward to office channel
       // this action shouldn't happen on wincent
-      await this.moveOrder(msg.ts, event.channel.id, this.getCityChannel(order.office), {
+      await this.moveOrder(originalMessage.ts, channelId, this.getCityChannel(order.office), {
         attachments: [
           ...attachments,
           // no msgButtons here - resets the
@@ -480,27 +479,27 @@ export class Slack {
         ],
       })
     } else if (actionName === 'decline') { // Notify user - decline
-      await this.removeReaction('no_entry_sign', event.channel.id, msg.ts)
+      await this.removeReaction('no_entry_sign', channelId, originalMessage.ts)
 
-      await this.sendUserInfo(event, 'There was an issue with your order. Somebody from backoffice will contact you about it soon.', createOrderFromDb(order, items))
+      await this.sendUserInfo(originalMessage, channelId, 'There was an issue with your order. Somebody from backoffice will contact you about it soon.', createOrderFromDb(order, items))
 
-      await this.addReaction('no_entry_sign', event.channel.id, msg.ts)
+      await this.addReaction('no_entry_sign', channelId, originalMessage.ts)
     } else if (actionName === 'discard') { // Discard order
-      await this.removeReaction('x', event.channel.id, msg.ts)
+      await this.removeReaction('x', channelId, originalMessage.ts)
 
       try {
         await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, 'discarded')
         try {
-          this.boltApp.client.chat.delete({channel: event.channel.id, ts: msg.ts})
+          this.boltApp.client.chat.delete({channel: channelId, ts: originalMessage.ts})
         } catch (err) {
-          logger.error(`Failed to delete a chat message on '${event.channel.id}': ${err}`)
+          logger.error(`Failed to delete a chat message on '${channelId}': ${err}`)
         }
       } catch (err) {
         logger.error('Failed to update sheet', err)
-        this.addReaction('x', event.channel.id, msg.ts)
+        this.addReaction('x', channelId, originalMessage.ts)
       }
     } else if (actionName === 'archive') { // Move to archive
-      await this.moveOrder(msg.ts, event.channel.id, this.config.channels.archive, {
+      await this.moveOrder(originalMessage.ts, channelId, this.config.channels.archive, {
         attachments: [
           ...attachments,
           ...(orderId === '-' ? [] : [getArchiveSection(orderId, true)]),
@@ -516,7 +515,7 @@ export class Slack {
         primaryBtn = 'ordered' // TODO: doesn't make sense to preselect on unarchive
       }
 
-      await this.moveOrder(msg.ts, event.channel.id, targetChannel, {
+      await this.moveOrder(originalMessage.ts, channelId, targetChannel, {
         attachments: [
           ...attachments,
           ...getAdminSections(this.variant, orderId, primaryBtn),
@@ -524,12 +523,12 @@ export class Slack {
       })
     // } else if (actionName === 'add-to-cart') { // Add items to cart
     //   // not called in wincent
-    //   await this.removeReaction('shopping_trolley', event.channel.id, msg.ts)
+    //   await this.removeReaction('shopping_trolley', channelId, originalMessage.ts)
 
     //   await addToCartAll(items)
 
     //   await this.apiCall('chat.update', {
-    //     channel: event.channel.id,
+    //     channel: channelId,
     //     ts: msg.ts,
     //     attachments: [
     //       ...attachments,
@@ -537,59 +536,59 @@ export class Slack {
     //     ],
     //   })
 
-    //   await this.addReaction('shopping_trolley', event.channel.id, msg.ts)
+    //   await this.addReaction('shopping_trolley', channelId, originalMessage.ts)
     } else if (actionName === 'accepted') { // Notify user - accepted
       // TODO - accepted by who?
-      await this.sendUserInfo(event, NOTIFICATION.accepted, createOrderFromDb(order, items))
+      await this.sendUserInfo(originalMessage, channelId, NOTIFICATION.accepted, createOrderFromDb(order, items))
 
       await this.changeStatus({
         order,
         items,
         status: 'accepted',
-        channelId: event.channel.id,
-        msgTs: msg.ts,
+        channelId,
+        msgTs: originalMessage.ts,
         textAttachments: attachments,
         // no msgButtons here - need to change the set of buttons
         actionsAttachments: getAdminSections(this.variant, orderId, 'ordered'),
         statusIcon: 'heavy_check_mark',
       })
     } else if (actionName === 'ordered') { // Notify user - ordered
-      await this.sendUserInfo(event, NOTIFICATION.ordered, createOrderFromDb(order, items))
+      await this.sendUserInfo(originalMessage, channelId, NOTIFICATION.ordered, createOrderFromDb(order, items))
 
       await this.changeStatus({
         order,
         items,
         status: 'ordered',
-        channelId: event.channel.id,
-        msgTs: msg.ts,
+        channelId,
+        msgTs: originalMessage.ts,
         textAttachments: attachments,
         actionsAttachments: getAdminSections(this.variant, orderId, 'delivered', msgButtons),
         statusIcon: 'page_with_curl',
       })
     } else if (actionName === 'delivered') { // Notify user - delivered
-      await this.sendUserInfo(event, NOTIFICATION.delivered[order.isCompany ? COMPANY : PERSONAL][order.isHome ? HOME : OFFICE], createOrderFromDb(order, items))
+      await this.sendUserInfo(originalMessage, channelId, NOTIFICATION.delivered[order.isCompany ? COMPANY : PERSONAL][order.isHome ? HOME : OFFICE], createOrderFromDb(order, items))
 
       await this.changeStatus({
         order,
         items,
         status: 'delivered',
-        channelId: event.channel.id,
-        msgTs: msg.ts,
+        channelId,
+        msgTs: originalMessage.ts,
         textAttachments: attachments,
         actionsAttachments: getAdminSections(this.variant, orderId, undefined, msgButtons),
         statusIcon: 'inbox_tray',
       })
     } else if (actionName === 'status') { // Set order status
-      const status = event.actions[0].selected_options[0].value
+      const status = action.selected_options[0].value
 
       await this.changeStatus({
         order,
         items,
         status,
-        channelId: event.channel.id,
-        msgTs: msg.ts,
+        channelId,
+        msgTs: originalMessage.ts,
         textAttachments: attachments,
-        actionsAttachments: msg.attachments.filter((att) => Boolean(att.actions)),
+        actionsAttachments: originalMessage.attachments.filter((att) => Boolean(att.actions)),
         // no reaction on manual status change
         statusIcon: null,
       })
@@ -767,20 +766,19 @@ export class Slack {
     }
   }
 
-  async sendUserInfo(event, text, order) {
-    const msg = event.original_message
-    const attachment = msg.attachments[0]
+  async sendUserInfo(originalMessage, channelId, text, order) {
+    const attachment = originalMessage.attachments[0]
 
     const userId = attachment.pretext.match(/<@(.+)>/)[1]
 
     await Promise.all([
-      this.removeReaction('no_bell', event.channel.id, msg.ts),
-      this.removeReaction('incoming_envelope', event.channel.id, msg.ts),
+      this.removeReaction('no_bell', channelId, originalMessage.ts),
+      this.removeReaction('incoming_envelope', channelId, originalMessage.ts),
     ])
 
     if (!userId) {
       logger.log('error', `Failed to parse user ID from '${attachment.pretext}`)
-      await this.addReaction('no_bell', event.channel.id, msg.ts)
+      await this.addReaction('no_bell', channelId, originalMessage.ts)
       return false
     }
 
@@ -789,11 +787,11 @@ export class Slack {
     })
 
     if (!notifyOk) {
-      await this.addReaction('no_bell', event.channel.id, msg.ts)
+      await this.addReaction('no_bell', channelId, originalMessage.ts)
       return false
     }
 
-    await this.addReaction('incoming_envelope', event.channel.id, msg.ts)
+    await this.addReaction('incoming_envelope', channelId, originalMessage.ts)
 
     return true
   }
