@@ -13,7 +13,7 @@ Happy shopping!
 
 PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`
 
-const SPINOFFS = [
+const COMPANIES = [
   'Vacuumlabs',
   'Sparring',
   'Trama',
@@ -103,22 +103,22 @@ export const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) =
   return acc
 }, {})
 
-export const ORDER_SPINOFF_ACTIONS = [
+export const ORDER_COMPANY_ACTIONS = [
   {
     type: 'select',
-    name: 'spinoff',
-    text: 'Select spinoff...',
-    options: SPINOFFS.map((spinoff) => ({
-      text: spinoff,
-      value: spinoff,
+    name: 'company',
+    text: 'Select company...',
+    options: COMPANIES.map((company) => ({
+      text: company,
+      value: company,
     })),
   },
   CANCEL_ORDER_ACTION,
 ]
 
 export const ORDER_TYPE_ACTIONS = [
-  {name: 'personal', text: 'Make Personal Order', type: 'button', value: 'personal'},
-  {name: 'company', text: 'Make Company Order', type: 'button', value: 'company'},
+  {name: 'is_personal', text: 'Make Personal Order', type: 'button', value: 'is_personal'},
+  {name: 'is_company', text: 'Make Company Order', type: 'button', value: 'is_company'},
   CANCEL_ORDER_ACTION,
 ]
 

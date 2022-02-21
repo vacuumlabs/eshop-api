@@ -6,7 +6,7 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_SPINOFF_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, NAME, MESSAGES as VARIANT_MESSAGES} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_COMPANY_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, NAME, MESSAGES as VARIANT_MESSAGES} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -241,7 +241,7 @@ export class Slack {
         reason: order.reason,
         isUrgent: order.isUrgent,
         isHome: order.isHome,
-        ...this.variant === 'wincent' ? {} : {spinoff: order.spinoff, manager: order.manager},
+        ...this.variant === 'wincent' ? {} : {company: order.company, manager: order.manager},
       },
       order.items,
     )
@@ -670,8 +670,8 @@ export class Slack {
 
     }
 
-    // ?-personal
-    if (actionName === 'personal') {
+    // ?-is_personal
+    if (actionName === 'is_personal') {
       order.isCompany = false
       await this.updateMessage(order, {
         actions: ORDER_URGENT_ACTIONS,
@@ -679,15 +679,15 @@ export class Slack {
       })
     }
 
-    // ?-personal-urgent
+    // ?-is_personal-urgent
     if (actionName === 'urgent') {
       order.isUrgent = actionValue === 'urgent-yes'
 
-      // home-personal-urgent
+      // home-is_personal-urgent
       if (order.isHome) {
         order.messages = MESSAGES.home.personal
       } else {
-        // office-personal-urgent
+        // office-is_personal-urgent
         await this.updateMessage(order, {
           actions: ORDER_NOTE_ACTIONS,
           fields: [...this.getOrderFields(order), {title: ':pencil: Do you want to add a note to the order?'}],
@@ -695,7 +695,7 @@ export class Slack {
       }
     }
 
-    // office-personal-?-note
+    // office-is_personal-?-note
     if (actionName === 'note') {
       if (actionValue === 'note-yes') {
         order.messages = MESSAGES.office.personal.note
@@ -704,26 +704,26 @@ export class Slack {
       }
     }
 
-    // ?-company
-    if (actionName === 'company') {
+    // ?-is_company
+    if (actionName === 'is_company') {
       order.isCompany = true
 
-      // for wincent, don't go into spinoff selection
+      // for wincent, don't go into company selection
       if (this.variant === 'wincent') {
         order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
       } else {
-        // spinoff selection for vacuumlabs (and test)
+        // company selection for vacuumlabs (and test)
         await this.updateMessage(order, {
-          actions: ORDER_SPINOFF_ACTIONS,
-          fields: [...this.getOrderFields(order), {title: 'Select your spinoff:'}],
+          actions: ORDER_COMPANY_ACTIONS,
+          fields: [...this.getOrderFields(order), {title: 'Select your company:'}],
         })
       }
     }
 
-    // ?-company-spinoff
+    // ?-is_company-company
     // this is never run for wincent
-    if (actionName === 'spinoff') {
-      order.spinoff = action.selected_options[0].value
+    if (actionName === 'company') {
+      order.company = action.selected_options[0].value
 
       order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
     }
@@ -928,7 +928,7 @@ export class Slack {
       this.itemsField(order.items, adminMsg, order),
       adminMsg && {value: `Total value: ${formatPrice(order.totalPrice, c.currency)}`},
       order.office && {value: `Office: ${order.office}${order.isHome ? ' (home delivery)' : ''}`},
-      order.spinoff && {value: `Spinoff: ${order.spinoff}`},
+      order.company && {value: `Company: ${order.company}`},
       order.reason && {value: `${order.isCompany ? 'Reason' : 'Note'}: ${order.reason}`, short: false},
       order.manager && {value: `Manager: ${order.manager}`},
       order.isUrgent !== null && {value: order.isUrgent ? 'Urgent: Yes' : 'Urgent: No'},
