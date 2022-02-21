@@ -101,28 +101,37 @@ export class Slack {
     // console.log('Upgrade complete')
 
     this.boltApp.event('message', async ({event, say}) => {
-      logger.info('message event')
+      logger.info('message handler')
+      logger.verbose(`event: ${JSON.stringify(event)}`)
 
       if (event.subtype) return
+      // safe type narrowing
+      // the above check doesn't satisfy typescript - type discrimination doesn't work on undefined properties
+      if (!('text' in event)) return
+
+      const {user: userId, text: message, channel} = event
 
       if (this.amIMentioned(event)) {
+        let order
         try {
-          await this.handleUserMessage(event, say)
+          order = this.orders[userId]
+          logger.info(`handling user message - user: '${userId}', event text: '${message}', order: ${JSON.stringify(order)}`)
+
+          await this.handleUserMessage(message, userId)
         } catch (err) {
           say(':exclamation: Something went wrong, please try again.') // show error to user
 
-          const {user: userId} = event
           await logError(this.boltApp, this.variant, err, 'User message error', userId, {
-            msg: event.text,
-            order: logOrder(this.orders[userId]),
+            msg: message,
+            order: logOrder(order),
           })
         }
         return
       }
 
-      if (event.channel === this.config.channels.news) {
+      if (channel === this.config.channels.news) {
         // TODO: require confirmation before sending a company-wide message
-        await this.announceToAll(event.text)
+        await this.announceToAll(message)
         return
       }
     })
@@ -132,19 +141,26 @@ export class Slack {
     // catch everything with a callback_id here
     this.boltApp.action({callback_id: /.*/g}, async ({body, action, ack, respond, say}) => {
       try {
-        logger.info(`action: ${JSON.stringify(action, null, 2)}`)
-        logger.verbose(`body: ${JSON.stringify(body, null, 2)}`)
+        logger.info('action handler')
+        logger.info(`action: ${JSON.stringify(action)}`)
+        logger.verbose(`body: ${JSON.stringify(body)}`)
 
         await ack()
 
-        const {callback_id, user: {id: userId}} = body
+        // safe type narrowing
+        // we know the handled body is always an interactive message payload, but typescript doesn't
+        if (body.type !== 'interactive_message') return
 
-        logger.info(`action callback_id: ${callback_id}, username: ${body.user.name}`)
+        const {callback_id, user: {id: userId, name: username}} = body
+        logger.info(`action callback_id: ${callback_id}, username: ${username}`)
 
         // admin action
         if (callback_id && callback_id.startsWith('O')) {
+          const orderId = callback_id.substring(1)
+          logger.info(`handling admin action - orderId: ${orderId}`)
+
           try {
-            await this.handleOrderAction(body)
+            await this.handleOrderAction(body, orderId)
           } catch (err) {
             await say(':exclamation: Something went wrong.')
             await logError(this.boltApp, this.variant, err, 'Admin action error', userId, {
@@ -156,16 +172,17 @@ export class Slack {
         }
 
         // user action
-        if (this.orders[userId]) {
+        const order = this.orders[userId]
+        logger.info(`handling user action - order: ${JSON.stringify(order)}`)
+
+        if (order) {
           try {
             this.handleUserAction(action, userId)
           } catch (err) {
             await say(':exclamation: Something went wrong, please try again.')
-            const {name: actionName, value: actionValue} = action
             await logError(this.boltApp, this.variant, err, 'User action error', userId, {
-              action: actionName,
-              value: actionValue,
-              order: logOrder(this.orders[userId]),
+              action,
+              order: logOrder(order),
             })
           }
         } else {
@@ -263,9 +280,7 @@ export class Slack {
     delete this.orders[userId] // remove order from memory
   }
 
-  async handleUserMessage(event, say) {
-    const {user: userId} = event
-
+  async handleUserMessage(message, userId) {
     let order = this.orders[userId] || {
       id: userId,
       items: new Map(),
@@ -279,10 +294,10 @@ export class Slack {
     }
 
     if (order.messages === undefined) { // Initial message for entering item links
-      order = await this.updateOrder(order, event, userId)
+      order = await this.updateOrder(order, message, userId)
     } else {
       const name = order.messages.shift()[NAME]
-      order[name] = event.text
+      order[name] = message
 
       if (order.messages.length === 0) { // user actions finished
         this.submitOrder(userId)
@@ -437,9 +452,8 @@ export class Slack {
     }
   }
 
-  async handleOrderAction(event) {
+  async handleOrderAction(event, orderId) {
     const actionName = event.actions[0].name
-    const orderId = event.callback_id.substring(1)
     const msg = event.original_message
     const attachments = msg.attachments.length === 1
       ? {...msg.attachments, actions: []} // legacy format
@@ -618,7 +632,6 @@ export class Slack {
   async handleUserAction(action, userId) {
     const order = this.orders[userId]
     const {name: actionName, value: actionValue} = action
-    logger.info(`handling user action - name: ${actionName}, value: ${actionValue}, user: ${userId}, order: ${JSON.stringify(order)}`)
 
     const MESSAGES = VARIANT_MESSAGES[this.variant]
 
@@ -831,10 +844,7 @@ export class Slack {
     }
   }
 
-  async updateOrder(order, event, user) {
-    logger.info(`handling user message - user: ${user}, event text: ${event.text}, order: ${JSON.stringify(order)}`)
-    logger.info(JSON.stringify(event))
-
+  async updateOrder(order, message, user) {
     if (order.orderConfirmation) {
       const {channel, ts} = order.orderConfirmation
       try {
@@ -844,7 +854,7 @@ export class Slack {
       }
     }
 
-    const items = parseOrder(event.text)
+    const items = parseOrder(message)
     const {info} = await orderInfo(items, order.country)
 
     for (const i of info.items) {
