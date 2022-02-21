@@ -599,6 +599,7 @@ export class Slack {
   async updateQuestion(userId, passedOrder) {
     const order = this.orders[userId]
     const userMessage = order.messages[0]
+    logger.debug(`running updateQuestion. userMessage: ${JSON.stringify(userMessage)}`)
 
     if (userMessage) {
       const {question, button: additionalButton} = userMessage
@@ -739,6 +740,7 @@ export class Slack {
       order.spinoff = action.selected_options[0].value
 
       order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
+      logger.debug(`handled spinoff action. spinoff: ${order.spinoff}, order.messages: ${JSON.stringify(order.messages)}`)
     }
 
     this.orders[userId] = order // update order
