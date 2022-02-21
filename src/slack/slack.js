@@ -368,14 +368,14 @@ export class Slack {
     }
   }
 
-  async getUsers(cursor) {
+  async getUsers() {
     const fetchUsers = async (cursor) => {
       const {members, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.users.list({cursor})
       const membersMap = members.reduce((acc, {id, name}) => {
         acc[id] = name
         return acc
       }, {})
-      return nextCursor ? {...membersMap, ...this.getUsers(nextCursor)} : membersMap
+      return nextCursor ? {...membersMap, ...fetchUsers(nextCursor)} : membersMap
     }
 
     try {
