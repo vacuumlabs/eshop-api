@@ -118,6 +118,11 @@ export class Slack {
           logger.info(`handling user message - user: '${userId}', event text: '${message}', order: ${JSON.stringify(order)}`)
 
           await this.handleUserMessage(message, userId)
+
+          // check if initial entered link valid. If not, ask for it again.
+          if (this.orders[userId] === null) {
+            say(':exclamation: The links you sent me are invalid.\nIf you want to add a comment, please start by sending the links first and you will be asked for a note later in the process.')
+          }
         } catch (err) {
           say(':exclamation: Something went wrong, please try again.') // show error to user
 
@@ -871,12 +876,13 @@ export class Slack {
     const totalCount = Array.from(order.items.entries()).reduce((acc, entry) => acc + entry[1], 0)
 
     if (totalCount === 0) {
-      return {...order, orderConfirmation: null}
+      return null
     }
 
     const orderAttachment = {
       ...orderToAttachment(
         [
+          items.length === 0 && ':exclamation: The links you sent me are invalid.\nIf you want to add a comment, please start by sending the links first and you will be asked for a note later in the process.',
           info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
           'Please confirm your order:',
         ].filter(Boolean).join('\n'),
