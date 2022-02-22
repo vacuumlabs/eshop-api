@@ -8,6 +8,8 @@ const BUTTON = 'button'
 const QUESTION = 'question'
 export const NAME = 'name'
 
+export const INVALID_LINK_ERROR = ':exclamation: The links you sent me are invalid.\nIf you want to add a comment, please start by sending the links first and you will be asked for a note later in the process.'
+
 const REASON_WITH_ADDRESS_QUESTION = {
   [NAME]: REASON, [QUESTION]: ':question: Why do you need these items? Reply by sending a message. And don\'t forget to tell us your address!',
 }

@@ -6,7 +6,7 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_COMPANY_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, NAME, MESSAGES as VARIANT_MESSAGES} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_COMPANY_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, NAME, MESSAGES as VARIANT_MESSAGES, INVALID_LINK_ERROR} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -117,14 +117,15 @@ export class Slack {
           order = this.orders[userId]
           logger.info(`handling user message - user: '${userId}', event text: '${message}', order: ${JSON.stringify(order)}`)
 
-          await this.handleUserMessage(message, userId)
+          await this.handleUserMessage(message, userId, say)
         } catch (err) {
-          say(':exclamation: Something went wrong, please try again.') // show error to user
-
-          await logError(this.boltApp, this.variant, err, 'User message error', userId, {
-            msg: message,
-            order: logOrder(order),
-          })
+          await Promise.all([
+            await say(':exclamation: Something went wrong, please try again.'),
+            await logError(this.boltApp, this.variant, err, 'User message error', userId, {
+              msg: message,
+              order: logOrder(order),
+            }),
+          ])
         }
         return
       }
@@ -274,7 +275,7 @@ export class Slack {
     delete this.orders[userId] // remove order from memory
   }
 
-  async handleUserMessage(message, userId) {
+  async handleUserMessage(message, userId, say) {
     let order = this.orders[userId] || {
       id: userId,
       // name is added later when first action is handled
@@ -290,7 +291,7 @@ export class Slack {
     }
 
     if (order.messages === undefined) { // Initial message for entering item links
-      order = await this.updateOrder(order, message, userId)
+      order = await this.updateOrder(order, message, userId, say)
     } else {
       const name = order.messages.shift()[NAME]
       order[name] = message
@@ -840,7 +841,7 @@ export class Slack {
     }
   }
 
-  async updateOrder(order, message, user) {
+  async updateOrder(order, message, user, say) {
     if (order.orderConfirmation) {
       const {channel, ts} = order.orderConfirmation
       try {
@@ -867,12 +868,14 @@ export class Slack {
     const totalCount = Array.from(order.items.entries()).reduce((acc, entry) => acc + entry[1], 0)
 
     if (totalCount === 0) {
-      return {...order, orderConfirmation: null}
+      await say(INVALID_LINK_ERROR)
+      return undefined
     }
 
     const orderAttachment = {
       ...orderToAttachment(
         [
+          items.length === 0 && INVALID_LINK_ERROR,
           info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
           'Please confirm your order:',
         ].filter(Boolean).join('\n'),
