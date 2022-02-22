@@ -944,9 +944,9 @@ export class Slack {
     ]
   }
 
-  async storeOrder(order, items) {
+  async storeOrder(order) {
+    const {user, orderConfirmation, isCompany, office, reason, isUrgent, isHome, company, manager, items} = order
     const id = await knex.transaction(async (trx) => {
-      const {user, orderConfirmation, isCompany, office, reason, isUrgent, isHome, company, manager, items} = order
       const data = {
         user: user.id,
         ts: orderConfirmation.ts,
