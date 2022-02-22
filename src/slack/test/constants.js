@@ -55,8 +55,8 @@ export const HOME_VALUE = 'remote'
 export const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
 
 export const ORDER_TYPE_ACTIONS = [
-  {name: 'personal', text: 'Make Personal Order', type: 'button', value: 'personal'},
-  {name: 'company', text: 'Make Company Order', type: 'button', value: 'company'},
+  {name: 'is_personal', text: 'Make Personal Order', type: 'button', value: 'is_personal'},
+  {name: 'is_company', text: 'Make Company Order', type: 'button', value: 'is_company'},
   CANCEL_ORDER_ACTION,
 ]
 
