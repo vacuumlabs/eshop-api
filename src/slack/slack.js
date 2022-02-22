@@ -164,6 +164,7 @@ export class Slack {
           } catch (err) {
             await say(':exclamation: Something went wrong.')
             await logError(this.boltApp, this.variant, err, 'Admin action error', userId, {
+              username,
               action,
               callback_id,
             })
@@ -173,6 +174,10 @@ export class Slack {
 
         // user action
         const order = this.orders[userId]
+
+        // save user's name in the order - used for logging and when storing to sheets
+        if (!order.user.name) order.user.name = this.orders[userId].user.name = username
+
         logger.info(`handling user action - order: ${JSON.stringify(order)}`)
 
         if (order) {
@@ -249,19 +254,8 @@ export class Slack {
 
   async submitOrder(userId) {
     const order = this.orders[userId]
-    const dbId = await this.storeOrder(
-      {
-        user: userId,
-        ts: order.orderConfirmation.ts,
-        isCompany: order.isCompany,
-        office: order.office,
-        reason: order.reason,
-        isUrgent: order.isUrgent,
-        isHome: order.isHome,
-        ...this.variant === 'wincent' ? {} : {company: order.company, manager: order.manager},
-      },
-      order.items,
-    )
+    const dbId = await this.storeOrder(order)
+
     await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
     await this.updateMessage(order, {
       pretext: order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:',
@@ -283,6 +277,8 @@ export class Slack {
   async handleUserMessage(message, userId) {
     let order = this.orders[userId] || {
       id: userId,
+      // name is added later when first action is handled
+      user: {id: userId, name: undefined},
       items: new Map(),
       totalPrice: 0,
       country: null,
@@ -947,17 +943,28 @@ export class Slack {
 
   async storeOrder(order, items) {
     const id = await knex.transaction(async (trx) => {
-      logger.info(`storing order to the db: ${JSON.stringify(order)}`)
-      const orderInsertResult = await trx.insert(order, ['id']).into(this.config.dbTables.order)
+      const {user, orderConfirmation, isCompany, office, reason, isUrgent, isHome, company, manager, items} = order
+      const data = {
+        user: user.id,
+        ts: orderConfirmation.ts,
+        isCompany,
+        office,
+        reason,
+        isUrgent,
+        isHome,
+        ...this.variant === 'wincent' ? {} : {company, manager},
+      }
+      logger.info(`storing order data to the db: ${JSON.stringify(data)}`)
+      const orderInsertResult = await trx.insert(data, ['id']).into(this.config.dbTables.order)
 
-      order.id = orderInsertResult[0].id
+      const dbId = orderInsertResult[0].id
 
       for (const item of items.values()) {
         item.dbIds = []
 
         for (let i = 0; i < item.count; i++) {
           const itemInsertResult = await trx.insert({
-            order: order.id,
+            order: dbId,
             shopId: item.id,
             count: 1,
             url: item.url,
@@ -970,7 +977,7 @@ export class Slack {
         }
       }
 
-      return order.id
+      return dbId
     })
 
     await storeOrderToSheets(this.variant, this.config.google.spreadsheetId, order, Array.from(items.values()))
