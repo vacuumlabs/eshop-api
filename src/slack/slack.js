@@ -117,14 +117,9 @@ export class Slack {
           order = this.orders[userId]
           logger.info(`handling user message - user: '${userId}', event text: '${message}', order: ${JSON.stringify(order)}`)
 
-          await this.handleUserMessage(message, userId)
-
-          // check if initial entered link valid. If not, ask for it again.
-          if (this.orders[userId] === null) {
-            say(':exclamation: The links you sent me are invalid.\nIf you want to add a comment, please start by sending the links first and you will be asked for a note later in the process.')
-          }
+          await this.handleUserMessage(message, userId, say)
         } catch (err) {
-          say(':exclamation: Something went wrong, please try again.') // show error to user
+          await say(':exclamation: Something went wrong, please try again.') // show error to user
 
           await logError(this.boltApp, this.variant, err, 'User message error', userId, {
             msg: message,
@@ -285,7 +280,7 @@ export class Slack {
     delete this.orders[userId] // remove order from memory
   }
 
-  async handleUserMessage(message, userId) {
+  async handleUserMessage(message, userId, say) {
     let order = this.orders[userId] || {
       id: userId,
       items: new Map(),
@@ -299,7 +294,7 @@ export class Slack {
     }
 
     if (order.messages === undefined) { // Initial message for entering item links
-      order = await this.updateOrder(order, message, userId)
+      order = await this.updateOrder(order, message, userId, say)
     } else {
       const name = order.messages.shift()[NAME]
       order[name] = message
@@ -849,7 +844,7 @@ export class Slack {
     }
   }
 
-  async updateOrder(order, message, user) {
+  async updateOrder(order, message, user, say) {
     if (order.orderConfirmation) {
       const {channel, ts} = order.orderConfirmation
       try {
@@ -876,7 +871,7 @@ export class Slack {
     const totalCount = Array.from(order.items.entries()).reduce((acc, entry) => acc + entry[1], 0)
 
     if (totalCount === 0) {
-      return null
+      await say(':exclamation: The links you sent me are invalid.\nIf you want to add a comment, please start by sending the links first and you will be asked for a note later in the process.')
     }
 
     const orderAttachment = {
