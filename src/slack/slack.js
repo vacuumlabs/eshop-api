@@ -618,7 +618,8 @@ export class Slack {
   }
 
   async updateMessage(order, attachmentUpdate) {
-    const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
+    const {channel, ts} = order.orderConfirmation
+    const attachment = userOrderAttachment(order.id)
     try {
       await this.boltApp.client.chat.update({ts, channel, text: ' ', attachments: [{...attachment, ...attachmentUpdate}]})
     } catch (err) {
@@ -872,23 +873,20 @@ export class Slack {
       return undefined
     }
 
-    const orderAttachment = {
-      ...orderToAttachment(
-        [
-          items.length === 0 && INVALID_LINK_ERROR,
-          info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
-          'Please confirm your order:',
-        ].filter(Boolean).join('\n'),
-        [
-          ...this.getOrderFields(order),
-          !order.country && {title: 'In which country is your office?'},
-          order.country && !order.office && {title: 'Where do you want to pickup the order?'},
-        ].filter(Boolean),
-      ),
-      callback_id: order.id,
-      actions: getUserActions(this.variant, order),
-      fallback: ' ', // To avoid warning message in logs
-    }
+    const orderAttachment = userOrderAttachment(
+      order.id, // callback_id
+      getUserActions(this.variant, order),
+      [
+        ...this.getOrderFields(order),
+        !order.country && {title: 'In which country is your office?'},
+        order.country && !order.office && {title: 'Where do you want to pickup the order?'},
+      ].filter(Boolean),
+      [
+        items.length === 0 && INVALID_LINK_ERROR,
+        info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
+        'Please confirm your order:',
+      ].filter(Boolean).join('\n'),
+    )
 
     try {
       const orderConfirmation = await this.boltApp.client.chat.postMessage({
@@ -1143,4 +1141,16 @@ async function orderInfo(items, country) {
     })
   }
   return {info: {items: info, totalPrice, country: orderCountry, wrongCountry}}
+}
+
+function userOrderAttachment(callback_id, actions, fields, pretext, title) {
+  return {
+    pretext,
+    fields,
+    actions,
+    callback_id,
+    fallback: ' ',
+    mrkdwn_in: ['fields'],
+    title: title || 'Order summary',
+  }
 }
