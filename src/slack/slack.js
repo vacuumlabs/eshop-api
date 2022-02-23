@@ -738,7 +738,10 @@ export class Slack {
       order.company = action.selected_options[0].value
 
       order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
-      logger.debug(`handled spinoff action. spinoff: ${order.spinoff}, order.messages: ${JSON.stringify(order.messages)}`)
+
+      // debug messages for some weird stuff going on on production SOMETIMES
+      logger.debug(`handled spinoff action. spinoff: ${order.company}, order.messages: ${JSON.stringify(order.messages)}`)
+      if (!order.messages || order.messages.length === 0) logger.error(`order.messages are wrongly empty. order.messages = ${JSON.stringify(order.messages)}\norder.isHome ? MESSAGES.home.company : MESSAGES.office.company = ${JSON.stringify(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)}\nMESSAGES.home.company = ${JSON.stringify(MESSAGES.home.company)} `)
     }
 
     this.orders[userId] = order // update order
