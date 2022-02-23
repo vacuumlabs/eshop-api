@@ -176,12 +176,12 @@ export class Slack {
         // user action
         const order = this.orders[userId]
 
-        // save user's name in the order - used for logging and when storing to sheets
-        if (!order.user.name) order.user.name = this.orders[userId].user.name = username
-
-        logger.info(`handling user action - order: ${JSON.stringify(order)}`)
-
         if (order) {
+          // save user's name in the order - used for logging and when storing to sheets
+          if (!order.user.name) order.user.name = this.orders[userId].user.name = username
+
+          logger.info(`handling user action - order: ${JSON.stringify(order)}`)
+
           try {
             this.handleUserAction(action, userId)
           } catch (err) {
@@ -192,6 +192,8 @@ export class Slack {
             })
           }
         } else {
+          logger.info(`order timeout - user: ${username}`)
+
           await respond(':exclamation: The order has timed out. Create a new order please.')
         }
       } catch (err) {
