@@ -1,8 +1,8 @@
 import {NEW_ORDER_STATUS} from '../../sheets/constants'
-import {ORDER_TYPE_ACTIONS} from './constants'
+import {USER_STEP_MAP} from './constants'
 
-export const getOrderActions = () => {
-  return ORDER_TYPE_ACTIONS
+export const getOrderActions = (order) => {
+  return USER_STEP_MAP[order.step]
 }
 
 export const getActionsSection = (orderId, primaryBtn, msgButtons) => {

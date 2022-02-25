@@ -1,4 +1,4 @@
-export const SLACK_URL = 'https://richard-wap4457.slack.com'
+export const SLACK_URL = 'https://vacuumlabs.slack.com'
 
 export const NEW_USER_GREETING = `Hi!
 I will get you any computer or phone equipment from Alza. Use me for both your personal and company orders.
@@ -12,6 +12,24 @@ Do you want to order 3 Cool Coolers and 2 Cool Smartphones? Just tell me so:
 Happy shopping!
 
 PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`
+
+const COMPANIES = [
+  'Vacuumlabs',
+  'Sparring',
+  'Trama',
+  'Rychlotest',
+  'Wincent',
+  'Wing Riders',
+  'NuFi',
+  'Capila',
+  'Verdikto',
+  'Daylight',
+  'Cardano NFT Marketplace',
+  'Ksebe',
+  'Treshold Capital',
+  'Robo',
+  'Other',
+]
 
 const CITIES_OPTIONS = {
   bratislava: 'Bratislava',
@@ -54,11 +72,6 @@ export const HOME_VALUE = 'remote'
 
 export const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
 
-export const ORDER_TYPE_ACTIONS = [
-  {name: 'is_personal', text: 'Make Personal Order', type: 'button', value: 'is_personal'},
-  {name: 'is_company', text: 'Make Company Order', type: 'button', value: 'is_company'},
-  CANCEL_ORDER_ACTION,
-]
 
 export const ORDER_COUNTRY_ACTIONS = [
   ...Object.keys(OFFICES).map((country) => ({
@@ -90,6 +103,25 @@ export const ORDER_OFFICE_ACTIONS = Object.keys(OFFICES).reduce((acc, country) =
   return acc
 }, {})
 
+export const ORDER_COMPANY_ACTIONS = [
+  {
+    type: 'select',
+    name: 'company',
+    text: 'Select company...',
+    options: COMPANIES.map((company) => ({
+      text: company,
+      value: company,
+    })),
+  },
+  CANCEL_ORDER_ACTION,
+]
+
+export const ORDER_TYPE_ACTIONS = [
+  {name: 'is_personal', text: 'Make Personal Order', type: 'button', value: 'is_personal'},
+  {name: 'is_company', text: 'Make Company Order', type: 'button', value: 'is_company'},
+  CANCEL_ORDER_ACTION,
+]
+
 export const ORDER_URGENT_ACTIONS = [
   {name: 'urgent', text: 'It\'s urgent, I will pay for delivery', type: 'button', value: 'urgent-yes'},
   {name: 'urgent', text: 'It\'s not urgent, I can wait', type: 'button', value: 'urgent-no'},
@@ -103,3 +135,13 @@ export const ORDER_NOTE_ACTIONS = [
   NOTE_NO_ACTION,
   CANCEL_ORDER_ACTION,
 ]
+
+export const USER_STEP_MAP = {
+  country: {actions: ORDER_COUNTRY_ACTIONS, title: 'In which country is your office?'},
+  delivery: {actions: DELIVERY_PLACE_ACTIONS, title: 'Where do you want to pickup the order?'},
+  office: {actions: ORDER_OFFICE_ACTIONS, title: 'Select the office you belong to:'},
+  type: {actions: ORDER_TYPE_ACTIONS},
+  company: {actions: ORDER_COMPANY_ACTIONS, title: 'Select your company:'},
+  urgent: {actions: ORDER_URGENT_ACTIONS, title: 'How urgent is your order?'},
+  note: {actions: ORDER_NOTE_ACTIONS, title: ':pencil: Do you want to add a note to the order?'},
+}
