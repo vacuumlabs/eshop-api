@@ -1,4 +1,4 @@
-export const SLACK_URL = 'https://vacuumlabs.slack.com'
+export const SLACK_URL = 'https://richard-wap4457.slack.com'
 
 export const NEW_USER_GREETING = `Hi!
 I will get you any computer or phone equipment from Alza. Use me for both your personal and company orders.

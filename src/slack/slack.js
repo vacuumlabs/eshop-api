@@ -259,16 +259,6 @@ export class Slack {
     const dbId = await this.storeOrder(order)
 
     await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
-    // const msgTitle = order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:'
-    // await this.updateMessage(order, msgTitle)
-    // try {
-    //   await this.boltApp.client.chat.postMessage({
-    //     channel: userId,
-    //     text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
-    //   })
-    // } catch (err) {
-    //   logger.error(`Failed to post 'order finished' message to user '${userId}': ${err}`)
-    // }
     const {channel, ts} = order.orderConfirmation
     try {
       await this.boltApp.client.chat.delete({channel, ts})
@@ -280,7 +270,7 @@ export class Slack {
     try {
       const orderAttachment = this.userOrderAttachment(order, msgTitle)
 
-      order.orderConfirmation = await this.boltApp.client.chat.postMessage({
+      await this.boltApp.client.chat.postMessage({
         channel: userId,
         attachments: [orderAttachment],
       })
@@ -632,7 +622,6 @@ export class Slack {
         order.orderConfirmation = await this.boltApp.client.chat.postMessage({
           channel: userId,
           attachments: [orderAttachment],
-          fallback: 'order finished',
         })
       } catch (err) {
         logger.error(`Failed to post a message '${question}' to user '${userId}': ${err}`)
@@ -865,7 +854,11 @@ export class Slack {
     }
 
     if (order.step === 'new') {
-      order.step = !order.country ? 'country' : 'delivery'
+      if (this.variant === 'wincent') {
+        order.step = 'type'
+      } else {
+        order.step = !order.country ? 'country' : 'delivery'
+      }
     }
 
     const totalCount = Array.from(order.items.entries()).reduce((acc, entry) => acc + entry[1], 0)
@@ -939,7 +932,8 @@ export class Slack {
 
   userOrderAttachment(order, msgTitle = null, alerts = []) {
 
-    const {actions, title: fieldsTitle} = getUserActions(this.variant, order)
+    const {actions, title: actionsTitle} = getUserActions(this.variant, order)
+    const fieldsTitle = msgTitle || actionsTitle
 
     return {
       callback_id: order.id,
@@ -948,7 +942,7 @@ export class Slack {
       fallback: fieldsTitle || 'Please confirm your order:',
       color: order.step === 'cancelled' ? 'danger' : order.step === 'finished' ? 'good' : null,
       actions: order.step === 'office' ? actions[order.country] : actions,
-      fields: [...this.getOrderFields(order), {title: msgTitle || fieldsTitle}],
+      fields: [...this.getOrderFields(order), {title: fieldsTitle}],
       pretext: order.step === 'cancelled' ? ':no_entry_sign: Order canceled:' : [...alerts, 'Please confirm your order:'].join('\n'),
     }
   }

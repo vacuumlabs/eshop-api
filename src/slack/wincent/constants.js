@@ -36,14 +36,7 @@ export const ORDER_NOTE_ACTIONS = [
   CANCEL_ORDER_ACTION,
 ]
 
-export const DELIVERY_PLACE_ACTIONS = [
-  {name: 'delivery', text: 'Home', type: 'button', value: 'remote'},
-  {name: 'delivery', text: 'Office', type: 'button', value: 'office'},
-  CANCEL_ORDER_ACTION,
-]
-
 export const USER_STEP_MAP = {
-  delivery: {actions: DELIVERY_PLACE_ACTIONS, title: 'Where do you want to pickup the order?'},
   type: {actions: ORDER_TYPE_ACTIONS},
   urgent: {actions: ORDER_URGENT_ACTIONS, title: 'How urgent is your order?'},
   note: {actions: ORDER_NOTE_ACTIONS, title: ':pencil: Do you want to add a note to the order?'},
