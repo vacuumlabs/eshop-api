@@ -302,6 +302,7 @@ export class Slack {
     if (order.messages === undefined) { // Initial message for entering item links
       order = await this.updateOrder(order, message, userId, say)
     } else {
+      // the `shift` here mutates the array - so always make sure the `messages` are copied, not directly assigned from `MESSAGES`
       const name = order.messages.shift()[NAME]
       order[name] = message
 
@@ -601,10 +602,9 @@ export class Slack {
     }
   }
 
-  async updateQuestion(userId, passedOrder) {
+  async updateQuestion(userId) {
     const order = this.orders[userId]
     const userMessage = order.messages[0]
-    logger.debug(`running updateQuestion. userMessage: ${JSON.stringify(userMessage)}`)
 
     if (userMessage) {
       const {channel, ts} = order.orderConfirmation
@@ -629,7 +629,7 @@ export class Slack {
         logger.error(`Failed to post a message '${question}' to user '${userId}': ${err}`)
       }
     } else {
-      logger.error(`No message to show to user '${userId}. order: ${JSON.stringify(order)}\npassedOrder: ${JSON.stringify(passedOrder)}`)
+      logger.error(`No message to show to user '${userId}. order: ${JSON.stringify(order)}`)
     }
   }
 
@@ -689,7 +689,7 @@ export class Slack {
       order.isUrgent = actionValue === 'urgent-yes'
       // home-is_personal-urgent
       if (order.isHome) {
-        order.messages = MESSAGES.home.personal
+        order.messages = [...MESSAGES.home.personal]
       } else {
         // office-is_personal-urgent
         order.step = 'note'
@@ -713,7 +713,7 @@ export class Slack {
 
       // for wincent, don't go into company selection
       if (this.variant === 'wincent') {
-        order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
+        order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
       } else {
         // company selection for vacuumlabs (and test)
         order.step = 'company'
@@ -724,11 +724,7 @@ export class Slack {
     // this is never run for wincent
     if (actionName === 'company') {
       order.company = action.selected_options[0].value
-      order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
-
-      // debug messages for some weird stuff going on on production SOMETIMES
-      logger.debug(`handled spinoff action. spinoff: ${order.company}, order.messages: ${JSON.stringify(order.messages)}`)
-      if (!order.messages || order.messages.length === 0) logger.error(`order.messages are wrongly empty. order.messages = ${JSON.stringify(order.messages)}\norder.isHome ? MESSAGES.home.company : MESSAGES.office.company = ${JSON.stringify(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)}\nMESSAGES.home.company = ${JSON.stringify(MESSAGES.home.company)} `)
+      order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
     }
 
 
