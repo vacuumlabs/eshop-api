@@ -1,20 +1,8 @@
 import {NEW_ORDER_STATUS} from '../../sheets/constants'
-import {ORDER_COUNTRY_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_TYPE_ACTIONS, DELIVERY_PLACE_ACTIONS} from './constants'
+import {USER_STEP_MAP} from './constants'
 
 export const getOrderActions = (order) => {
-  if (!order.country) {
-    return ORDER_COUNTRY_ACTIONS
-  }
-
-  if (order.isHome === null) {
-    return DELIVERY_PLACE_ACTIONS
-  }
-
-  if (!order.office) {
-    return ORDER_OFFICE_ACTIONS[order.country]
-  }
-
-  return ORDER_TYPE_ACTIONS
+  return USER_STEP_MAP[order.step]
 }
 
 export const getActionsSection = (orderId, primaryBtn, msgButtons) => {

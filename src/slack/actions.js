@@ -10,7 +10,7 @@ const variantMap = {
 
 // user-facing actions
 export const getUserActions = (variant, order) => {
-  return variantMap[variant].getOrderActions(order)
+  return variantMap[variant].getOrderActions(order) || {}
 }
 
 // admin-facing sections

@@ -6,7 +6,7 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, ORDER_NOTE_ACTIONS, ORDER_OFFICE_ACTIONS, ORDER_COMPANY_ACTIONS, ORDER_TYPE_ACTIONS, ORDER_URGENT_ACTIONS, SLACK_URL, COMPANY, PERSONAL, OFFICE, HOME, DELIVERY_PLACE_ACTIONS, NAME, MESSAGES as VARIANT_MESSAGES, INVALID_LINK_ERROR} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, OFFICE, SLACK_URL, COMPANY, PERSONAL, HOME, NAME, MESSAGES as VARIANT_MESSAGES, INVALID_LINK_ERROR} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -257,23 +257,29 @@ export class Slack {
 
   async submitOrder(userId) {
     const order = this.orders[userId]
+    order.step = 'finished'
     const dbId = await this.storeOrder(order)
 
     await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
-    await this.updateMessage(order, {
-      pretext: order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:',
-      color: 'good',
-      actions: [],
-      fields: this.getOrderFields(order),
-    })
+    const {channel, ts} = order.orderConfirmation
     try {
+      await this.boltApp.client.chat.delete({channel, ts})
+    } catch (err) {
+      logger.error(`Failed to delete message on channel '${channel}': ${err}`)
+    }
+
+    const msgTitle = order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:'
+    try {
+      const orderAttachment = this.userOrderAttachment(order, msgTitle)
+
       await this.boltApp.client.chat.postMessage({
         channel: userId,
-        text: order.isCompany ? ':office: Company order finished :point_up:' : ':woman: Personal order finished :point_up:',
+        attachments: [orderAttachment],
       })
     } catch (err) {
-      logger.error(`Failed to post 'order finished' message to user '${userId}': ${err}`)
+      logger.error(`Failed to post a message '${msgTitle}' to user '${userId}': ${err}`)
     }
+
     delete this.orders[userId] // remove order from memory
   }
 
@@ -290,6 +296,7 @@ export class Slack {
       isCompany: null,
       isUrgent: null,
       isHome: null,
+      step: 'new',
     }
 
     if (order.messages === undefined) { // Initial message for entering item links
@@ -301,7 +308,7 @@ export class Slack {
       if (order.messages.length === 0) { // user actions finished
         this.submitOrder(userId)
       } else {
-        this.updateQuestion(userId)
+        await this.updateQuestion(userId)
       }
     }
 
@@ -600,16 +607,23 @@ export class Slack {
     logger.debug(`running updateQuestion. userMessage: ${JSON.stringify(userMessage)}`)
 
     if (userMessage) {
-      const {question, button: additionalButton} = userMessage
-      await this.updateMessage(order, {
-        actions: [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean),
-        fields: this.getOrderFields(order),
-      })
+      const {channel, ts} = order.orderConfirmation
+      try {
+        await this.boltApp.client.chat.delete({channel, ts})
+      } catch (err) {
+        logger.error(`Failed to delete message on channel '${channel}': ${err}`)
+      }
+
+      const {name, question, button: additionalButton} = userMessage
+      order.step = name
 
       try {
-        await this.boltApp.client.chat.postMessage({
+        const orderAttachment = this.userOrderAttachment(order, question)
+        orderAttachment.actions = [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean)
+
+        order.orderConfirmation = await this.boltApp.client.chat.postMessage({
           channel: userId,
-          text: question,
+          attachments: [orderAttachment],
         })
       } catch (err) {
         logger.error(`Failed to post a message '${question}' to user '${userId}': ${err}`)
@@ -619,10 +633,12 @@ export class Slack {
     }
   }
 
-  async updateMessage(order, attachmentUpdate) {
-    const {channel, ts, message: {attachments: [attachment]}} = order.orderConfirmation
+
+  async updateMessage(order) {
+    const {channel, ts} = order.orderConfirmation
+    const attachment = this.userOrderAttachment(order)
     try {
-      await this.boltApp.client.chat.update({ts, channel, text: ' ', attachments: [{...attachment, ...attachmentUpdate}]})
+      await this.boltApp.client.chat.update({ts, channel, text: ' ', attachments: [attachment]})
     } catch (err) {
       logger.error(`Failed to update a chat on '${channel}': ${err}`)
     }
@@ -635,11 +651,8 @@ export class Slack {
     const MESSAGES = VARIANT_MESSAGES[this.variant]
 
     const cancelOrder = async () => {
-      await this.updateMessage(order, {
-        pretext: ':no_entry_sign: Order canceled:',
-        color: 'danger',
-        actions: [],
-      })
+      order.step = 'cancelled'
+      await this.updateMessage(order, ':no_entry_sign: Order canceled:')
     }
 
     if (actionName === 'cancel') {
@@ -649,70 +662,48 @@ export class Slack {
     }
 
     if (actionName === 'country') {
-
+      order.step = 'delivery'
       order.country = actionValue
-      await this.updateMessage(order, {
-        actions: DELIVERY_PLACE_ACTIONS,
-        fields: [
-          ...this.getOrderFields(order),
-          {title: 'Where do you want to pickup the order?'},
-        ],
-      })
     }
 
     // office/home
     if (actionName === 'delivery') {
+      order.step = 'office'
       order.isHome = actionValue === HOME_VALUE
-      await this.updateMessage(order, {
-        actions: ORDER_OFFICE_ACTIONS[order.country],
-        fields: [
-          ...this.getOrderFields(order),
-          {title: 'Select the office you belong to.'},
-        ],
-      })
     }
 
     // office
     if (actionName === 'office') {
+      order.step = 'type'
       order.office = actionValue
-      await this.updateMessage(order, {
-        actions: ORDER_TYPE_ACTIONS,
-        fields: this.getOrderFields(order),
-      })
-
     }
 
     // ?-is_personal
     if (actionName === 'is_personal') {
+      order.step = 'urgent'
       order.isCompany = false
-      await this.updateMessage(order, {
-        actions: ORDER_URGENT_ACTIONS,
-        fields: [...this.getOrderFields(order), {title: 'How urgent is your order?'}],
-      })
     }
 
     // ?-is_personal-urgent
     if (actionName === 'urgent') {
       order.isUrgent = actionValue === 'urgent-yes'
-
       // home-is_personal-urgent
       if (order.isHome) {
         order.messages = MESSAGES.home.personal
       } else {
         // office-is_personal-urgent
-        await this.updateMessage(order, {
-          actions: ORDER_NOTE_ACTIONS,
-          fields: [...this.getOrderFields(order), {title: ':pencil: Do you want to add a note to the order?'}],
-        })
+        order.step = 'note'
       }
     }
 
     // office-is_personal-?-note
     if (actionName === 'note') {
       if (actionValue === 'note-yes') {
+        order.step = 'note-yes'
         order.messages = MESSAGES.office.personal.note
       } else {
         this.submitOrder(userId)
+        return
       }
     }
 
@@ -725,10 +716,7 @@ export class Slack {
         order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
       } else {
         // company selection for vacuumlabs (and test)
-        await this.updateMessage(order, {
-          actions: ORDER_COMPANY_ACTIONS,
-          fields: [...this.getOrderFields(order), {title: 'Select your company:'}],
-        })
+        order.step = 'company'
       }
     }
 
@@ -736,7 +724,6 @@ export class Slack {
     // this is never run for wincent
     if (actionName === 'company') {
       order.company = action.selected_options[0].value
-
       order.messages = order.isHome ? MESSAGES.home.company : MESSAGES.office.company
 
       // debug messages for some weird stuff going on on production SOMETIMES
@@ -744,10 +731,11 @@ export class Slack {
       if (!order.messages || order.messages.length === 0) logger.error(`order.messages are wrongly empty. order.messages = ${JSON.stringify(order.messages)}\norder.isHome ? MESSAGES.home.company : MESSAGES.office.company = ${JSON.stringify(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)}\nMESSAGES.home.company = ${JSON.stringify(MESSAGES.home.company)} `)
     }
 
-    this.orders[userId] = order // update order
 
     if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
-      this.updateQuestion(userId, order)
+      await this.updateQuestion(userId, order)
+    } else {
+      this.updateMessage(order)
     }
   }
 
@@ -870,6 +858,14 @@ export class Slack {
       order.country = info.country
     }
 
+    if (order.step === 'new') {
+      if (this.variant === 'wincent') {
+        order.step = 'type'
+      } else {
+        order.step = !order.country ? 'country' : 'delivery'
+      }
+    }
+
     const totalCount = Array.from(order.items.entries()).reduce((acc, entry) => acc + entry[1], 0)
 
     if (totalCount === 0) {
@@ -877,24 +873,14 @@ export class Slack {
       return undefined
     }
 
-    const orderAttachment = {
-      ...orderToAttachment(
-        [
-          items.length === 0 && INVALID_LINK_ERROR,
-          info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
-          'Please confirm your order:',
-        ].filter(Boolean).join('\n'),
-        [
-          ...this.getOrderFields(order),
-          !order.country && {title: 'In which country is your office?'},
-          order.country && !order.office && {title: 'Where do you want to pickup the order?'},
-        ].filter(Boolean),
-      ),
-      callback_id: order.id,
-      actions: getUserActions(this.variant, order),
-      fallback: ' ', // To avoid warning message in logs
-    }
-
+    const orderAttachment = this.userOrderAttachment(
+      order,
+      null, // msgTitle
+      [
+        items.length === 0 && INVALID_LINK_ERROR,
+        info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
+      ].filter(Boolean),
+    )
     try {
       const orderConfirmation = await this.boltApp.client.chat.postMessage({
         channel: user,
@@ -947,6 +933,23 @@ export class Slack {
       order.manager && {value: `Manager: ${order.manager}`},
       order.isUrgent !== null && {value: order.isUrgent ? 'Urgent: Yes' : 'Urgent: No'},
     ]
+  }
+
+  userOrderAttachment(order, msgTitle = null, alerts = []) {
+
+    const {actions, title: actionsTitle} = getUserActions(this.variant, order)
+    const fieldsTitle = msgTitle || actionsTitle
+
+    return {
+      callback_id: order.id,
+      mrkdwn_in: ['fields'],
+      title: 'Order summary',
+      fallback: fieldsTitle || 'Please confirm your order:',
+      color: order.step === 'cancelled' ? 'danger' : order.step === 'finished' ? 'good' : null,
+      actions: order.step === 'office' ? actions[order.country] : actions,
+      fields: [...this.getOrderFields(order), {title: fieldsTitle}],
+      pretext: order.step === 'cancelled' ? ':no_entry_sign: Order canceled:' : [...alerts, 'Please confirm your order:'].join('\n'),
+    }
   }
 
   async storeOrder(order) {

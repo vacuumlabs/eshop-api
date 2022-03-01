@@ -135,3 +135,13 @@ export const ORDER_NOTE_ACTIONS = [
   NOTE_NO_ACTION,
   CANCEL_ORDER_ACTION,
 ]
+
+export const USER_STEP_MAP = {
+  country: {actions: ORDER_COUNTRY_ACTIONS, title: 'In which country is your office?'},
+  delivery: {actions: DELIVERY_PLACE_ACTIONS, title: 'Where do you want to pickup the order?'},
+  office: {actions: ORDER_OFFICE_ACTIONS, title: 'Select the office you belong to:'},
+  type: {actions: ORDER_TYPE_ACTIONS},
+  company: {actions: ORDER_COMPANY_ACTIONS, title: 'Select your company:'},
+  urgent: {actions: ORDER_URGENT_ACTIONS, title: 'How urgent is your order?'},
+  note: {actions: ORDER_NOTE_ACTIONS, title: ':pencil: Do you want to add a note to the order?'},
+}

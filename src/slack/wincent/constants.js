@@ -35,3 +35,9 @@ export const ORDER_NOTE_ACTIONS = [
   NOTE_NO_ACTION,
   CANCEL_ORDER_ACTION,
 ]
+
+export const USER_STEP_MAP = {
+  type: {actions: ORDER_TYPE_ACTIONS},
+  urgent: {actions: ORDER_URGENT_ACTIONS, title: 'How urgent is your order?'},
+  note: {actions: ORDER_NOTE_ACTIONS, title: ':pencil: Do you want to add a note to the order?'},
+}
