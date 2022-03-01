@@ -640,7 +640,7 @@ export class Slack {
     try {
       await respond({text: ' ', attachments: [attachment]})
     } catch (err) {
-      logger.error(`Failed to update a chat on '${order.user.id}': ${err}`)
+      logger.error(`Failed to update a chat of user:'${order.user.id}': ${err}`)
     }
   }
 
