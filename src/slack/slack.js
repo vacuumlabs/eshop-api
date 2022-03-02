@@ -183,7 +183,7 @@ export class Slack {
           logger.info(`handling user action - order: ${JSON.stringify(order)}`)
 
           try {
-            this.handleUserAction(action, userId)
+            this.handleUserAction(respond, action, userId)
           } catch (err) {
             await say(':exclamation: Something went wrong, please try again.')
             await logError(this.boltApp, this.variant, err, 'User action error', userId, {
@@ -261,7 +261,7 @@ export class Slack {
     const dbId = await this.storeOrder(order)
 
     await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
-    const {channel, ts} = order.orderConfirmation
+    const {channel, ts} = order.originalMessageInfo
     try {
       await this.boltApp.client.chat.delete({channel, ts})
     } catch (err) {
@@ -292,7 +292,7 @@ export class Slack {
       totalPrice: 0,
       country: null,
       office: null,
-      orderConfirmation: null,
+      originalMessageInfo: null,
       isCompany: null,
       isUrgent: null,
       isHome: null,
@@ -607,7 +607,7 @@ export class Slack {
     const userMessage = order.messages[0]
 
     if (userMessage) {
-      const {channel, ts} = order.orderConfirmation
+      const {originalMessageInfo: {channel, ts}} = order
       try {
         await this.boltApp.client.chat.delete({channel, ts})
       } catch (err) {
@@ -621,10 +621,11 @@ export class Slack {
         const orderAttachment = this.userOrderAttachment(order, question)
         orderAttachment.actions = [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean)
 
-        order.orderConfirmation = await this.boltApp.client.chat.postMessage({
+        const {channel, ts} = await this.boltApp.client.chat.postMessage({
           channel: userId,
           attachments: [orderAttachment],
         })
+        order.originalMessageInfo = {channel, ts}
       } catch (err) {
         logger.error(`Failed to post a message '${question}' to user '${userId}': ${err}`)
       }
@@ -634,17 +635,16 @@ export class Slack {
   }
 
 
-  async updateMessage(order) {
-    const {channel, ts} = order.orderConfirmation
+  async updateMessage(respond, order) {
     const attachment = this.userOrderAttachment(order)
     try {
-      await this.boltApp.client.chat.update({ts, channel, text: ' ', attachments: [attachment]})
+      await respond({text: ' ', attachments: [attachment]})
     } catch (err) {
-      logger.error(`Failed to update a chat on '${channel}': ${err}`)
+      logger.error(`Failed to update a chat of user:'${order.user.id}': ${err}`)
     }
   }
 
-  async handleUserAction(action, userId) {
+  async handleUserAction(respond, action, userId) {
     const order = this.orders[userId]
     const {name: actionName, value: actionValue} = action
 
@@ -652,7 +652,7 @@ export class Slack {
 
     const cancelOrder = async () => {
       order.step = 'cancelled'
-      await this.updateMessage(order, ':no_entry_sign: Order canceled:')
+      await this.updateMessage(respond, order)
     }
 
     if (actionName === 'cancel') {
@@ -731,7 +731,7 @@ export class Slack {
     if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
       await this.updateQuestion(userId, order)
     } else {
-      this.updateMessage(order)
+      this.updateMessage(respond, order)
     }
   }
 
@@ -831,8 +831,8 @@ export class Slack {
   }
 
   async updateOrder(order, message, user, say) {
-    if (order.orderConfirmation) {
-      const {channel, ts} = order.orderConfirmation
+    if (order.originalMessageInfo) {
+      const {channel, ts} = order.originalMessageInfo
       try {
         await this.boltApp.client.chat.delete({channel, ts})
       } catch (err) {
@@ -878,13 +878,15 @@ export class Slack {
       ].filter(Boolean),
     )
     try {
-      const orderConfirmation = await this.boltApp.client.chat.postMessage({
+      const {channel, ts} = await this.boltApp.client.chat.postMessage({
         channel: user,
         attachments: [orderAttachment],
         text: ' ',
       })
 
-      return {...order, orderConfirmation}
+      const originalMessageInfo = {channel, ts}
+
+      return {...order, originalMessageInfo}
     } catch (err) {
       logger.error(`Failed to post a message to user '${user}': ${err}`)
       throw err
@@ -949,11 +951,11 @@ export class Slack {
   }
 
   async storeOrder(order) {
-    const {user, orderConfirmation, isCompany, office, reason, isUrgent, isHome, company, manager, items} = order
+    const {user, originalMessageInfo, isCompany, office, reason, isUrgent, isHome, company, manager, items} = order
     const id = await knex.transaction(async (trx) => {
       const data = {
         user: user.id,
-        ts: orderConfirmation.ts,
+        ts: originalMessageInfo.ts,
         isCompany,
         office,
         reason,
@@ -1040,7 +1042,7 @@ function createOrderFromDb(orderData, itemsData) {
     totalPrice: itemsData.reduce((acc, item) => acc + item.price, 0),
     country,
     office: orderData.office,
-    orderConfirmation: null,
+    originalMessageInfo: null,
     isUrgent: orderData.isUrgent,
   }
 }
