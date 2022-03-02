@@ -607,11 +607,11 @@ export class Slack {
     const userMessage = order.messages[0]
 
     if (userMessage) {
-      const {originalMessageInfo} = order
+      const {originalMessageInfo: {channel, ts}} = order
       try {
-        await this.boltApp.client.chat.delete(originalMessageInfo)
+        await this.boltApp.client.chat.delete({channel, ts})
       } catch (err) {
-        logger.error(`Failed to delete message on channel '${originalMessageInfo.channel}': ${err}`)
+        logger.error(`Failed to delete message on channel '${channel}': ${err}`)
       }
 
       const {name, question, button: additionalButton} = userMessage
@@ -621,11 +621,11 @@ export class Slack {
         const orderAttachment = this.userOrderAttachment(order, question)
         orderAttachment.actions = [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean)
 
-        const response = await this.boltApp.client.chat.postMessage({
+        const {channel, ts} = await this.boltApp.client.chat.postMessage({
           channel: userId,
           attachments: [orderAttachment],
         })
-        order.originalMessageInfo = (({channel, ts}) => ({channel, ts}))(response)
+        order.originalMessageInfo = {channel, ts}
       } catch (err) {
         logger.error(`Failed to post a message '${question}' to user '${userId}': ${err}`)
       }
@@ -878,13 +878,13 @@ export class Slack {
       ].filter(Boolean),
     )
     try {
-      const response = await this.boltApp.client.chat.postMessage({
+      const {channel, ts} = await this.boltApp.client.chat.postMessage({
         channel: user,
         attachments: [orderAttachment],
         text: ' ',
       })
 
-      const originalMessageInfo = (({channel, ts}) => ({channel, ts}))(response)
+      const originalMessageInfo = {channel, ts}
 
       return {...order, originalMessageInfo}
     } catch (err) {
