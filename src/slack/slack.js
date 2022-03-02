@@ -268,16 +268,15 @@ export class Slack {
       logger.error(`Failed to delete message on channel '${channel}': ${err}`)
     }
 
-    const msgTitle = order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:'
     try {
-      const orderAttachment = this.userOrderAttachment(order, msgTitle)
+      const orderAttachment = this.userOrderAttachment(order)
 
       await this.boltApp.client.chat.postMessage({
         channel: userId,
         attachments: [orderAttachment],
       })
     } catch (err) {
-      logger.error(`Failed to post a message '${msgTitle}' to user '${userId}': ${err}`)
+      logger.error(`Failed to post a order finished message to user '${userId}': ${err}`)
     }
 
     delete this.orders[userId] // remove order from memory
@@ -938,6 +937,19 @@ export class Slack {
     const {actions, title: actionsTitle} = getUserActions(this.variant, order)
     const fieldsTitle = msgTitle || actionsTitle
 
+    let pretext
+    switch (order.step) {
+      case 'cancelled':
+        pretext = ':no_entry_sign: Order canceled:'
+        break
+      case 'finished':
+        pretext = order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:'
+        break
+      default:
+        pretext = [...alerts, 'Please confirm your order:'].join('\n')
+        break
+    }
+
     return {
       callback_id: order.id,
       mrkdwn_in: ['fields'],
@@ -946,7 +958,7 @@ export class Slack {
       color: order.step === 'cancelled' ? 'danger' : order.step === 'finished' ? 'good' : null,
       actions: order.step === 'office' ? actions[order.country] : actions,
       fields: [...this.getOrderFields(order), {title: fieldsTitle}],
-      pretext: order.step === 'cancelled' ? ':no_entry_sign: Order canceled:' : [...alerts, 'Please confirm your order:'].join('\n'),
+      pretext,
     }
   }
 
