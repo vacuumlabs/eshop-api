@@ -1,5 +1,6 @@
 import c from '../config.js'
 import {google} from 'googleapis'
+import logger from '../logger.js'
 
 const scopes = ['https://www.googleapis.com/auth/spreadsheets']
 const key = Buffer.from(c.google.key, 'base64').toString()
@@ -10,6 +11,7 @@ async function tryCall(call) {
   try {
     return await call()
   } catch (err) {
+    logger.error(`Google API error. err.message: ${err.message}\nerr.errors: ${JSON.stringify(err.errors)}`)
     throw new Error(`Google API error: ${err.errors.map((e) => e.message).join(', ')}`)
   }
 }
