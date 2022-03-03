@@ -306,7 +306,7 @@ export class Slack {
       order[name] = message
 
       if (order.messages.length === 0) { // user actions finished
-        this.submitOrder(userId)
+        await this.submitOrder(userId)
       } else {
         await this.updateQuestion(userId)
       }
