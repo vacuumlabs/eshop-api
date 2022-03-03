@@ -276,7 +276,7 @@ export class Slack {
         attachments: [orderAttachment],
       })
     } catch (err) {
-      logger.error(`Failed to an order finished message to user '${userId}': ${err}`)
+      logger.error(`Failed to post an order finished message to user '${userId}': ${err}`)
     }
 
     delete this.orders[userId] // remove order from memory
@@ -617,7 +617,7 @@ export class Slack {
       order.step = name
 
       try {
-        const orderAttachment = this.userOrderAttachment(order, question)
+        const orderAttachment = this.userOrderAttachment(order)
         orderAttachment.actions = [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean)
 
         const {channel, ts} = await this.boltApp.client.chat.postMessage({
@@ -870,7 +870,6 @@ export class Slack {
 
     const orderAttachment = this.userOrderAttachment(
       order,
-      null, // msgTitle
       [
         items.length === 0 && INVALID_LINK_ERROR,
         info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
@@ -932,9 +931,15 @@ export class Slack {
     ]
   }
 
-  userOrderAttachment(order, msgTitle = null, alerts = []) {
+  userOrderAttachment(order, alerts = []) {
 
     const {actions, title: actionsTitle} = getUserActions(this.variant, order)
+
+    let msgTitle
+    if (order.messages && order.messages.length > 0) {
+      ({question: msgTitle} = order.messages[0])
+    }
+
     const fieldsTitle = msgTitle || actionsTitle
 
     let pretext
