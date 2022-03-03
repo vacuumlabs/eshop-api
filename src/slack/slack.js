@@ -6,7 +6,7 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, OFFICE, SLACK_URL, COMPANY, PERSONAL, HOME, NAME, MESSAGES as VARIANT_MESSAGES, INVALID_LINK_ERROR} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, OFFICE, SLACK_URL, COMPANY, PERSONAL, HOME, NAME, MESSAGES as VARIANT_MESSAGES, INVALID_LINK_ERROR, ACTION_RANKS} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -177,10 +177,14 @@ export class Slack {
         const order = this.orders[userId]
 
         if (order) {
+          // avoid multiple clicks in one step
+          if (!this.validUserAction(action.name, order)) {
+            logger.info(`user:'${order.user.name}' clicked on a buttons multiple times.`)
+            return
+          }
+
           // save user's name in the order - used for logging and when storing to sheets
           if (!order.user.name) order.user.name = this.orders[userId].user.name = username
-
-          logger.info(`handling user action - order: ${JSON.stringify(order)}`)
 
           try {
             this.handleUserAction(respond, action, userId)
@@ -212,6 +216,10 @@ export class Slack {
       logger.error(`code: ${code}, message: ${message}, name: ${name}, req: ${JSON.stringify(req)}, stack: ${stack}, context: ${JSON.stringify(context)}, body: ${JSON.stringify(body)}`)
     }
     this.boltApp.error(errorHandler)
+  }
+
+  validUserAction(currentAction, order) {
+    return ACTION_RANKS[currentAction] >= ACTION_RANKS[order.step]
   }
 
   amIMentioned(event) {
@@ -257,7 +265,8 @@ export class Slack {
 
   async submitOrder(userId) {
     const order = this.orders[userId]
-    order.step = 'finished'
+    order.step = 'finish'
+
     const dbId = await this.storeOrder(order)
 
     await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
@@ -650,7 +659,7 @@ export class Slack {
     const MESSAGES = VARIANT_MESSAGES[this.variant]
 
     const cancelOrder = async () => {
-      order.step = 'cancelled'
+      order.step = 'cancel'
       await this.updateMessage(respond, order)
     }
 
@@ -698,7 +707,7 @@ export class Slack {
     // office-is_personal-?-note
     if (actionName === 'note') {
       if (actionValue === 'note-yes') {
-        order.step = 'note-yes'
+        order.step = 'note_yes'
         order.messages = MESSAGES.office.personal.note
       } else {
         this.submitOrder(userId)
@@ -726,6 +735,10 @@ export class Slack {
       order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
     }
 
+    if (actionName === 'without_note') {
+      await this.submitOrder(userId)
+      return
+    }
 
     if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
       await this.updateQuestion(userId, order)
@@ -939,10 +952,10 @@ export class Slack {
 
     let pretext
     switch (order.step) {
-      case 'cancelled':
-        pretext = ':no_entry_sign: Order canceled:'
+      case 'cancel':
+        pretext = ':no_entry_sign: Order cancelled:'
         break
-      case 'finished':
+      case 'finish':
         pretext = order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:'
         break
       default:
@@ -955,7 +968,7 @@ export class Slack {
       mrkdwn_in: ['fields'],
       title: 'Order summary',
       fallback: fieldsTitle || 'Please confirm your order:',
-      color: order.step === 'cancelled' ? 'danger' : order.step === 'finished' ? 'good' : null,
+      color: order.step === 'cancel' ? 'danger' : order.step === 'finish' ? 'good' : null,
       actions: order.step === 'office' ? actions[order.country] : actions,
       fields: [...this.getOrderFields(order), {title: fieldsTitle}],
       pretext,
