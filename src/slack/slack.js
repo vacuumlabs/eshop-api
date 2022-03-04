@@ -177,10 +177,14 @@ export class Slack {
         const order = this.orders[userId]
 
         if (order) {
+          // avoid multiple clicks in one step
+          if (!this.validUserAction(action.name, order)) {
+            logger.info(`user:'${order.user.name}' clicked on a buttons multiple times.`)
+            return
+          }
+
           // save user's name in the order - used for logging and when storing to sheets
           if (!order.user.name) order.user.name = this.orders[userId].user.name = username
-
-          logger.info(`handling user action - order: ${JSON.stringify(order)}`)
 
           try {
             this.handleUserAction(respond, action, userId)
@@ -212,6 +216,17 @@ export class Slack {
       logger.error(`code: ${code}, message: ${message}, name: ${name}, req: ${JSON.stringify(req)}, stack: ${stack}, context: ${JSON.stringify(context)}, body: ${JSON.stringify(body)}`)
     }
     this.boltApp.error(errorHandler)
+  }
+
+  validUserAction(currentAction, order) {
+    switch (currentAction) {
+      case 'cancel':
+        return order.step !== 'finish' && order.step !== 'cancel' // prevent cancel after order finished and repeated cancel clicks
+      case 'without_note':
+        return order.step === 'reason' // allow one-time without note while entering note/reason
+      default:
+        return order.step === currentAction //avoid multiple clicks on one step
+    }
   }
 
   amIMentioned(event) {
@@ -257,7 +272,8 @@ export class Slack {
 
   async submitOrder(userId) {
     const order = this.orders[userId]
-    order.step = 'finished'
+    order.step = 'finish'
+
     const dbId = await this.storeOrder(order)
 
     await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
@@ -276,7 +292,7 @@ export class Slack {
         attachments: [orderAttachment],
       })
     } catch (err) {
-      logger.error(`Failed to an order finished message to user '${userId}': ${err}`)
+      logger.error(`Failed to post an order finished message to user '${userId}': ${err}`)
     }
 
     delete this.orders[userId] // remove order from memory
@@ -650,7 +666,7 @@ export class Slack {
     const MESSAGES = VARIANT_MESSAGES[this.variant]
 
     const cancelOrder = async () => {
-      order.step = 'cancelled'
+      order.step = 'cancel'
       await this.updateMessage(respond, order)
     }
 
@@ -677,15 +693,30 @@ export class Slack {
       order.office = actionValue
     }
 
-    // ?-is_personal
-    if (actionName === 'is_personal') {
-      order.step = 'urgent'
-      order.isCompany = false
+    // type
+    if (actionName === 'type') {
+      order.isCompany = actionValue === 'is_company'
+
+      // ?-is_company
+      if (actionValue === 'is_company') {
+        // for wincent, don't go into company selection
+        if (this.variant === 'wincent') {
+          order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
+        } else {
+          // company selection for vacuumlabs (and test)
+          order.step = 'company'
+        }
+      }
+
+      // ?-is_personal
+      if (actionValue === 'is_personal') {
+        order.step = 'urgent'
+      }
     }
 
     // ?-is_personal-urgent
     if (actionName === 'urgent') {
-      order.isUrgent = actionValue === 'urgent-yes'
+      order.isUrgent = actionValue === 'urgent_yes'
       // home-is_personal-urgent
       if (order.isHome) {
         order.messages = [...MESSAGES.home.personal]
@@ -697,25 +728,11 @@ export class Slack {
 
     // office-is_personal-?-note
     if (actionName === 'note') {
-      if (actionValue === 'note-yes') {
-        order.step = 'note-yes'
-        order.messages = MESSAGES.office.personal.note
+      if (actionValue === 'note_yes') {
+        order.messages = [...MESSAGES.office.personal.note]
       } else {
         this.submitOrder(userId)
         return
-      }
-    }
-
-    // ?-is_company
-    if (actionName === 'is_company') {
-      order.isCompany = true
-
-      // for wincent, don't go into company selection
-      if (this.variant === 'wincent') {
-        order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
-      } else {
-        // company selection for vacuumlabs (and test)
-        order.step = 'company'
       }
     }
 
@@ -726,6 +743,10 @@ export class Slack {
       order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
     }
 
+    if (actionName === 'without_note') {
+      await this.submitOrder(userId)
+      return
+    }
 
     if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
       await this.updateQuestion(userId, order)
@@ -939,10 +960,10 @@ export class Slack {
 
     let pretext
     switch (order.step) {
-      case 'cancelled':
-        pretext = ':no_entry_sign: Order canceled:'
+      case 'cancel':
+        pretext = ':no_entry_sign: Order cancelled:'
         break
-      case 'finished':
+      case 'finish':
         pretext = order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:'
         break
       default:
@@ -955,7 +976,7 @@ export class Slack {
       mrkdwn_in: ['fields'],
       title: 'Order summary',
       fallback: fieldsTitle || 'Please confirm your order:',
-      color: order.step === 'cancelled' ? 'danger' : order.step === 'finished' ? 'good' : null,
+      color: order.step === 'cancel' ? 'danger' : order.step === 'finish' ? 'good' : null,
       actions: order.step === 'office' ? actions[order.country] : actions,
       fields: [...this.getOrderFields(order), {title: fieldsTitle}],
       pretext,

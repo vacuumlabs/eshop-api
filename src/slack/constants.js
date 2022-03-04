@@ -8,6 +8,8 @@ const BUTTON = 'button'
 const QUESTION = 'question'
 export const NAME = 'name'
 
+export const WITHOUT_NOTE_ACTION = {name: 'without_note', text: 'Continue without note', type: 'button', value: 'without_note'}
+
 export const INVALID_LINK_ERROR = ':exclamation: The links you sent me are invalid.\nIf you want to add a comment, please start by sending the links first and you will be asked for a note later in the process.'
 
 const REASON_WITH_ADDRESS_QUESTION = {
@@ -23,7 +25,7 @@ const REASON_NOTE_QUESTION = {
 }
 
 const REASON_COMMENT_QUESTION = {
-  [NAME]: REASON, [QUESTION]: ':pencil: Send your comment in a message.', [BUTTON]: vlConstants.NOTE_NO_ACTION,
+  [NAME]: REASON, [QUESTION]: ':pencil: Send your comment in a message.', [BUTTON]: WITHOUT_NOTE_ACTION,
 }
 
 const MANAGER_QUESTION = {[NAME]: MANAGER, [QUESTION]: ':question: Name of your manager (needed for approval for items above 100 EUR - write N/A otherwise):'}

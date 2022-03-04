@@ -17,21 +17,21 @@ PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`
 export const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
 
 export const ORDER_TYPE_ACTIONS = [
-  {name: 'is_personal', text: 'Make Personal Order', type: 'button', value: 'is_personal'},
-  {name: 'is_company', text: 'Make Company Order', type: 'button', value: 'is_company'},
+  {name: 'type', text: 'Make Personal Order', type: 'button', value: 'is_personal'},
+  {name: 'type', text: 'Make Company Order', type: 'button', value: 'is_company'},
   CANCEL_ORDER_ACTION,
 ]
 
 export const ORDER_URGENT_ACTIONS = [
-  {name: 'urgent', text: 'It\'s urgent, I will pay for delivery', type: 'button', value: 'urgent-yes'},
-  {name: 'urgent', text: 'It\'s not urgent, I can wait', type: 'button', value: 'urgent-no'},
+  {name: 'urgent', text: 'It\'s urgent, I will pay for delivery', type: 'button', value: 'urgent_yes'},
+  {name: 'urgent', text: 'It\'s not urgent, I can wait', type: 'button', value: 'urgent_no'},
   CANCEL_ORDER_ACTION,
 ]
 
-export const NOTE_NO_ACTION = {name: 'note', text: 'Continue without note', type: 'button', value: 'note-no'}
+export const NOTE_NO_ACTION = {name: 'note', text: 'Continue without note', type: 'button', value: 'note_no'}
 
 export const ORDER_NOTE_ACTIONS = [
-  {name: 'note', text: 'Add note', type: 'button', value: 'note-yes'},
+  {name: 'note', text: 'Add note', type: 'button', value: 'note_yes'},
   NOTE_NO_ACTION,
   CANCEL_ORDER_ACTION,
 ]
