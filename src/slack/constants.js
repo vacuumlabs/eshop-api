@@ -132,22 +132,3 @@ export const ORDER_NOTE_ACTIONS = vlConstants.ORDER_NOTE_ACTIONS
 export const ORDER_COMPANY_ACTIONS = vlConstants.ORDER_COMPANY_ACTIONS
 
 export const DELIVERY_PLACE_ACTIONS = vlConstants.DELIVERY_PLACE_ACTIONS
-
-export const ACTION_RANKS = {
-  new: 0,
-  country: 1,
-  delivery: 2,
-  office: 3,
-  type: 4,
-  is_personal: 4,
-  is_company: 4,
-  urgent: 5,
-  company: 5,
-  note: 6,
-  note_yes: 7,
-  without_note: 8,
-  reason: 8,
-  manager: 9,
-  cancel: 10,
-  finish: 11,
-}

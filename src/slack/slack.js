@@ -219,7 +219,14 @@ export class Slack {
   }
 
   validUserAction(currentAction, order) {
-    return ACTION_RANKS[currentAction] >= ACTION_RANKS[order.step]
+    switch (currentAction) {
+      case 'cancel':
+        return order.step !== 'finish' && order.step !== 'cancel' // prevent cancel after order finished and repeated cancel clicks
+      case 'without_note':
+        return order.step === 'reason' // allow one-time without note while entering note/reason
+      default:
+        return order.step === currentAction //avoid multiple clicks on one step
+    }
   }
 
   amIMentioned(event) {
@@ -686,15 +693,30 @@ export class Slack {
       order.office = actionValue
     }
 
-    // ?-is_personal
-    if (actionName === 'is_personal') {
-      order.step = 'urgent'
-      order.isCompany = false
+    // type
+    if (actionName === 'type') {
+      order.isCompany = actionValue === 'is_company'
+
+      // ?-is_company
+      if (actionValue === 'is_company') {
+        // for wincent, don't go into company selection
+        if (this.variant === 'wincent') {
+          order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
+        } else {
+          // company selection for vacuumlabs (and test)
+          order.step = 'company'
+        }
+      }
+
+      // ?-is_personal
+      if (actionValue === 'is_personal') {
+        order.step = 'urgent'
+      }
     }
 
     // ?-is_personal-urgent
     if (actionName === 'urgent') {
-      order.isUrgent = actionValue === 'urgent-yes'
+      order.isUrgent = actionValue === 'urgent_yes'
       // home-is_personal-urgent
       if (order.isHome) {
         order.messages = [...MESSAGES.home.personal]
@@ -706,25 +728,11 @@ export class Slack {
 
     // office-is_personal-?-note
     if (actionName === 'note') {
-      if (actionValue === 'note-yes') {
-        order.step = 'note_yes'
+      if (actionValue === 'note_yes') {
         order.messages = MESSAGES.office.personal.note
       } else {
         this.submitOrder(userId)
         return
-      }
-    }
-
-    // ?-is_company
-    if (actionName === 'is_company') {
-      order.isCompany = true
-
-      // for wincent, don't go into company selection
-      if (this.variant === 'wincent') {
-        order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
-      } else {
-        // company selection for vacuumlabs (and test)
-        order.step = 'company'
       }
     }
 
