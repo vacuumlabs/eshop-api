@@ -292,7 +292,7 @@ export class Slack {
         attachments: [orderAttachment],
       })
     } catch (err) {
-      logger.error(`Failed to an order finished message to user '${userId}': ${err}`)
+      logger.error(`Failed to post an order finished message to user '${userId}': ${err}`)
     }
 
     delete this.orders[userId] // remove order from memory
