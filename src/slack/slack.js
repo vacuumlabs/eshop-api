@@ -6,7 +6,7 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, OFFICE, SLACK_URL, COMPANY, PERSONAL, HOME, NAME, MESSAGES as VARIANT_MESSAGES, INVALID_LINK_ERROR, ACTION_RANKS} from './constants'
+import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, OFFICE, SLACK_URL, COMPANY, PERSONAL, HOME, NAME, MESSAGES as VARIANT_MESSAGES, INVALID_LINK_ERROR} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -729,7 +729,7 @@ export class Slack {
     // office-is_personal-?-note
     if (actionName === 'note') {
       if (actionValue === 'note_yes') {
-        order.messages = MESSAGES.office.personal.note
+        order.messages = [...MESSAGES.office.personal.note]
       } else {
         this.submitOrder(userId)
         return
