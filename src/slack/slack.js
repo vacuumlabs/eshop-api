@@ -290,6 +290,7 @@ export class Slack {
       await this.boltApp.client.chat.postMessage({
         channel: userId,
         attachments: [orderAttachment],
+        text: ' ', // TODO: fix while migrate to use blocks
       })
     } catch (err) {
       logger.error(`Failed to post an order finished message to user '${userId}': ${err}`)
@@ -353,7 +354,7 @@ export class Slack {
         this.boltApp.client.chat.update({
           channel: channelId,
           ts: msgTs,
-          text: '',
+          text: ' ', // TODO: fix while migrate to use blocks
           attachments: [
           // *Status:* is the new message format. temporarily, we need to support the old format,
           // and it seems checking just *Status* doesn't work, so dual check here it is
@@ -414,6 +415,7 @@ export class Slack {
       ({message: {ts: newTs}} = await this.boltApp.client.chat.postMessage({
         channel: toChannel,
         ...data,
+        text: ' ', // TODO: fix while migrate to use blocks
       }))
     } catch (err) {
       logger.error(`Failed to move order from '${fromChannel}' to '${toChannel}': ${err}`)
@@ -639,6 +641,7 @@ export class Slack {
         const {channel, ts} = await this.boltApp.client.chat.postMessage({
           channel: userId,
           attachments: [orderAttachment],
+          text: ' ', // TODO: fix while migrate to use blocks
         })
         order.originalMessageInfo = {channel, ts}
       } catch (err) {
@@ -653,7 +656,7 @@ export class Slack {
   async updateMessage(respond, order) {
     const attachment = this.userOrderAttachment(order)
     try {
-      await respond({text: ' ', attachments: [attachment]})
+      await respond({text: ' ', attachments: [attachment]}) // TODO: <text> fix while migrate to use blocks
     } catch (err) {
       logger.error(`Failed to update a chat of user:'${order.user.id}': ${err}`)
     }
@@ -766,6 +769,7 @@ export class Slack {
       await this.boltApp.client.chat.postMessage({
         channel: this.config.channels.orders,
         attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, orderOffice),
+        text: ' ', // TODO: fix while migrate to use blocks
       })
     } catch (err) {
       logger.error(`Failed to post 'order information' on orders channel: ${err}`)
@@ -814,6 +818,7 @@ export class Slack {
       await this.boltApp.client.chat.postMessage({
         ...message,
         channel: channelId,
+        text: ' ', // TODO: fix while migrate to use blocks
       })
     } catch (err) {
       logger.error(`Failed to notify user '${userId}': ${err}`)
@@ -901,7 +906,7 @@ export class Slack {
       const {channel, ts} = await this.boltApp.client.chat.postMessage({
         channel: user,
         attachments: [orderAttachment],
-        text: ' ',
+        text: ' ', // TODO: fix while migrate to use blocks
       })
 
       const originalMessageInfo = {channel, ts}
