@@ -914,8 +914,7 @@ export class Slack {
       ].filter(Boolean),
     )
     try {
-      const {channel, ts} = await this.boltApp.client.chat.postMessage({
-        channel: userId,
+      const {channel, ts} = await say({
         attachments: [orderAttachment],
         text: ' ', // TODO: fix while migrate to use blocks
       })
