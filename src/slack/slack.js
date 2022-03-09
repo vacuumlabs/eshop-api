@@ -752,7 +752,7 @@ export class Slack {
     }
 
     if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
-      await this.updateQuestion(userId, order)
+      await this.updateQuestion(userId)
     } else {
       await this.updateMessage(respond, order)
     }
