@@ -300,23 +300,32 @@ export class Slack {
   }
 
   async handleUserMessage(message, userId, say) {
-    let order = this.orders[userId] || {
-      id: userId,
-      // name is added later when first action is handled
-      user: {id: userId, name: undefined},
-      items: new Map(),
-      totalPrice: 0,
-      country: null,
-      office: null,
-      originalMessageInfo: null,
-      isCompany: null,
-      isUrgent: null,
-      isHome: null,
-      step: 'new',
+    // this is a reference to an object
+    // - throughout the codebase, we often take a reference this way and update its properties
+    let order = this.orders[userId]
+    if (!order) {
+      // reinitialize order
+      order = {
+        id: userId,
+        // name is added later when first action is handled
+        user: {id: userId, name: undefined},
+        items: new Map(),
+        totalPrice: 0,
+        country: null,
+        office: null,
+        originalMessageInfo: null,
+        isCompany: null,
+        isUrgent: null,
+        isHome: null,
+        messages: undefined,
+        step: 'new',
+      }
+      // important - load the new object reference into the global state
+      this.orders[userId] = order
     }
 
     if (order.messages === undefined) { // Initial message for entering item links
-      order = await this.updateOrder(order, message, userId, say)
+      await this.updateOrder(message, userId, say)
     } else {
       // the `shift` here mutates the array - so always make sure the `messages` are copied, not directly assigned from `MESSAGES`
       const name = order.messages.shift()[NAME]
@@ -328,8 +337,6 @@ export class Slack {
         await this.updateQuestion(userId)
       }
     }
-
-    this.orders[userId] = order
   }
 
   async changeStatus({
@@ -855,7 +862,9 @@ export class Slack {
     }
   }
 
-  async updateOrder(order, message, userId, say) {
+  async updateOrder(message, userId, say) {
+    const order = this.orders[userId]
+
     if (order.originalMessageInfo) {
       const {channel, ts} = order.originalMessageInfo
       try {
@@ -891,7 +900,8 @@ export class Slack {
 
     if (totalCount === 0) {
       await say(INVALID_LINK_ERROR)
-      return undefined
+      delete this.orders[userId]
+      return
     }
 
     const orderAttachment = this.userOrderAttachment(
@@ -911,7 +921,7 @@ export class Slack {
 
       const originalMessageInfo = {channel, ts}
 
-      return {...order, originalMessageInfo}
+      order.originalMessageInfo = originalMessageInfo
     } catch (err) {
       logger.error(`Failed to post a message to user '${userId}': ${err}`)
       throw err
