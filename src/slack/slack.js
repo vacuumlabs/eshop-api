@@ -855,7 +855,7 @@ export class Slack {
     }
   }
 
-  async updateOrder(order, message, user, say) {
+  async updateOrder(order, message, userId, say) {
     if (order.originalMessageInfo) {
       const {channel, ts} = order.originalMessageInfo
       try {
@@ -904,7 +904,7 @@ export class Slack {
     )
     try {
       const {channel, ts} = await this.boltApp.client.chat.postMessage({
-        channel: user,
+        channel: userId,
         attachments: [orderAttachment],
         text: ' ', // TODO: fix while migrate to use blocks
       })
@@ -913,7 +913,7 @@ export class Slack {
 
       return {...order, originalMessageInfo}
     } catch (err) {
-      logger.error(`Failed to post a message to user '${user}': ${err}`)
+      logger.error(`Failed to post a message to user '${userId}': ${err}`)
       throw err
     }
   }
