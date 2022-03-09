@@ -367,7 +367,7 @@ export class Slack {
       }
     } catch (err) {
       logger.error('Failed to update sheet', err)
-      this.addReaction('x', channelId, msgTs)
+      await this.addReaction('x', channelId, msgTs)
     }
 
     if (statusIcon) {
@@ -514,13 +514,13 @@ export class Slack {
       try {
         await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, 'discarded')
         try {
-          this.boltApp.client.chat.delete({channel: channelId, ts: originalMessage.ts})
+          await this.boltApp.client.chat.delete({channel: channelId, ts: originalMessage.ts})
         } catch (err) {
           logger.error(`Failed to delete a chat message on '${channelId}': ${err}`)
         }
       } catch (err) {
         logger.error('Failed to update sheet', err)
-        this.addReaction('x', channelId, originalMessage.ts)
+        await this.addReaction('x', channelId, originalMessage.ts)
       }
     } else if (actionName === 'archive') { // Move to archive
       await this.moveOrder(originalMessage.ts, channelId, this.config.channels.archive, {
@@ -754,7 +754,7 @@ export class Slack {
     if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
       await this.updateQuestion(userId, order)
     } else {
-      this.updateMessage(respond, order)
+      await this.updateMessage(respond, order)
     }
   }
 
