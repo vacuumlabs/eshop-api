@@ -324,7 +324,8 @@ export class Slack {
       this.orders[userId] = order
     }
 
-    if (order.messages === undefined) { // Initial message for entering item links
+    // messages are undefined initially, but it seems empty array is possible in some edge cases (possibly errors)
+    if (order.messages === undefined || order.messages.length === 0) {
       await this.updateOrder(message, userId, say)
     } else {
       // the `shift` here mutates the array - so always make sure the `messages` are copied, not directly assigned from `MESSAGES`
