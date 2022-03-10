@@ -221,7 +221,7 @@ export class Slack {
   validUserAction(currentAction, order) {
     switch (currentAction) {
       case 'cancel':
-        return order.step !== 'finish' && order.step !== 'cancel' // prevent cancel after order finished and repeated cancel clicks
+        return order.step !== 'submit' && order.step !== 'cancel' // prevent cancel after order finished and repeated cancel clicks
       case 'without_note':
         return order.step === 'reason' // allow one-time without note while entering note/reason
       default:
@@ -272,7 +272,7 @@ export class Slack {
 
   async submitOrder(userId) {
     const order = this.orders[userId]
-    order.step = 'finish'
+    order.step = 'submit'
 
     const dbId = await this.storeOrder(order)
 
@@ -329,14 +329,17 @@ export class Slack {
       await this.updateOrder(message, userId, say)
     } else {
       // the `shift` here mutates the array - so always make sure the `messages` are copied, not directly assigned from `MESSAGES`
+      // either 'reason' or 'manager' for now
       const name = order.messages.shift()[NAME]
       order[name] = message
 
-      if (order.messages.length === 0) { // user actions finished
-        await this.submitOrder(userId)
+      if (order.messages.length === 0) { // user message steps finished
+        order.step = 'finish'
       } else {
-        await this.updateQuestion(userId, say)
+        order.step = order.messages[0][NAME] // 'manager' is the only possible value for now
       }
+
+      await this.updateQuestion(userId, say)
     }
   }
 
@@ -629,33 +632,24 @@ export class Slack {
 
   async updateQuestion(userId, say) {
     const order = this.orders[userId]
-    const userMessage = order.messages[0]
 
-    if (userMessage) {
-      const {originalMessageInfo: {channel, ts}} = order
-      try {
-        await this.boltApp.client.chat.delete({channel, ts})
-      } catch (err) {
-        logger.error(`Failed to delete message on channel '${channel}': ${err}`)
-      }
+    const {originalMessageInfo: {channel, ts}} = order
+    try {
+      await this.boltApp.client.chat.delete({channel, ts})
+    } catch (err) {
+      logger.error(`Failed to delete message on channel '${channel}': ${err}`)
+    }
 
-      const {name, question, button: additionalButton} = userMessage
-      order.step = name
+    try {
+      const orderAttachment = this.userOrderAttachment(order)
 
-      try {
-        const orderAttachment = this.userOrderAttachment(order, question)
-        orderAttachment.actions = [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean)
-
-        const {channel, ts} = await say({
-          attachments: [orderAttachment],
-          text: ' ', // TODO: fix while migrate to use blocks
-        })
-        order.originalMessageInfo = {channel, ts}
-      } catch (err) {
-        logger.error(`Failed to post a message '${question}' to user '${userId}': ${err}`)
-      }
-    } else {
-      logger.error(`No message to show to user '${userId}. order: ${JSON.stringify(order)}`)
+      const {channel, ts} = await say({
+        attachments: [orderAttachment],
+        text: ' ', // TODO: fix while migrate to use blocks
+      })
+      order.originalMessageInfo = {channel, ts}
+    } catch (err) {
+      logger.error(`Failed to post a message to user '${userId}', step '${order.step}': ${err}`)
     }
   }
 
@@ -729,6 +723,7 @@ export class Slack {
       order.isUrgent = actionValue === 'urgent_yes'
       // home-is_personal-urgent
       if (order.isHome) {
+        order.step = 'reason'
         order.messages = [...MESSAGES.home.personal]
       } else {
         // office-is_personal-urgent
@@ -739,26 +734,31 @@ export class Slack {
     // office-is_personal-?-note
     if (actionName === 'note') {
       if (actionValue === 'note_yes') {
+        order.step = 'reason'
         order.messages = [...MESSAGES.office.personal.note]
       } else {
-        this.submitOrder(userId)
-        return
+        order.step = 'finish'
       }
     }
 
     // ?-is_company-company
     // this is never run for wincent
     if (actionName === 'company') {
+      order.step = 'reason'
       order.company = action.selected_options[0].value
       order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
     }
 
     if (actionName === 'without_note') {
+      order.step = 'finish'
+    }
+
+    if (actionName === 'finish') {
       await this.submitOrder(userId)
       return
     }
 
-    if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
+    if (order.step === 'finish' || order.step === 'reason') { // If order actions finished, update question
       await this.updateQuestion(userId, say)
     } else {
       await this.updateMessage(respond, order)
@@ -874,6 +874,7 @@ export class Slack {
       }
     }
 
+
     const items = parseOrder(message)
     const {info} = await orderInfo(items, order.country)
 
@@ -906,12 +907,12 @@ export class Slack {
 
     const orderAttachment = this.userOrderAttachment(
       order,
-      null, // msgTitle
       [
         items.length === 0 && INVALID_LINK_ERROR,
         info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
       ].filter(Boolean),
     )
+
     try {
       const {channel, ts} = await say({
         attachments: [orderAttachment],
@@ -967,17 +968,25 @@ export class Slack {
     ]
   }
 
-  userOrderAttachment(order, msgTitle = null, alerts = []) {
+  userOrderAttachment(order, alerts = []) {
+    let actions, fieldsTitle
 
-    const {actions, title: actionsTitle} = getUserActions(this.variant, order)
-    const fieldsTitle = msgTitle || actionsTitle
+    if (order.step === 'reason' || order.step === 'manager') {
+      const {question, button: additionalButton} = order.messages[0]
+
+      fieldsTitle = question
+      actions = [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean)
+    } else {
+      ({actions, title: fieldsTitle} = getUserActions(this.variant, order))
+    }
+
 
     let pretext
     switch (order.step) {
       case 'cancel':
         pretext = ':no_entry_sign: Order cancelled:'
         break
-      case 'finish':
+      case 'submit':
         pretext = order.isCompany ? ':office: Company order finished:' : ':woman: Personal order finished:'
         break
       default:
@@ -990,7 +999,7 @@ export class Slack {
       mrkdwn_in: ['fields'],
       title: 'Order summary',
       fallback: fieldsTitle || 'Please confirm your order:',
-      color: order.step === 'cancel' ? 'danger' : order.step === 'finish' ? 'good' : null,
+      color: order.step === 'cancel' ? 'danger' : order.step === 'submit' ? 'good' : null,
       actions: order.step === 'office' ? actions[order.country] : actions,
       fields: [...this.getOrderFields(order), {title: fieldsTitle}],
       pretext,

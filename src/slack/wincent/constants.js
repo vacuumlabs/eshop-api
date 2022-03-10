@@ -36,8 +36,14 @@ export const ORDER_NOTE_ACTIONS = [
   CANCEL_ORDER_ACTION,
 ]
 
+export const ORDER_FINISH_ACTIONS = [
+  {name: 'finish', text: 'Finish Order', type: 'button', value: 'finish', style: 'primary'},
+  {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'},
+]
+
 export const USER_STEP_MAP = {
   type: {actions: ORDER_TYPE_ACTIONS},
   urgent: {actions: ORDER_URGENT_ACTIONS, title: 'How urgent is your order?'},
   note: {actions: ORDER_NOTE_ACTIONS, title: ':pencil: Do you want to add a note to the order?'},
+  finish: {actions: ORDER_FINISH_ACTIONS, title: ':grey_exclamation: Please review your order.'},
 }
