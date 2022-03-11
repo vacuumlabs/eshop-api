@@ -187,7 +187,7 @@ export class Slack {
           if (!order.user.name) order.user.name = this.orders[userId].user.name = username
 
           try {
-            this.handleUserAction(respond, action, userId)
+            this.handleUserAction(respond, action, userId, say)
           } catch (err) {
             await say(':exclamation: Something went wrong, please try again.')
             await logError(this.boltApp, this.variant, err, 'User action error', userId, {
@@ -335,7 +335,7 @@ export class Slack {
       if (order.messages.length === 0) { // user actions finished
         await this.submitOrder(userId)
       } else {
-        await this.updateQuestion(userId)
+        await this.updateQuestion(userId, say)
       }
     }
   }
@@ -627,7 +627,7 @@ export class Slack {
     }
   }
 
-  async updateQuestion(userId) {
+  async updateQuestion(userId, say) {
     const order = this.orders[userId]
     const userMessage = order.messages[0]
 
@@ -646,8 +646,7 @@ export class Slack {
         const orderAttachment = this.userOrderAttachment(order, question)
         orderAttachment.actions = [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean)
 
-        const {channel, ts} = await this.boltApp.client.chat.postMessage({
-          channel: userId,
+        const {channel, ts} = await say({
           attachments: [orderAttachment],
           text: ' ', // TODO: fix while migrate to use blocks
         })
@@ -670,7 +669,7 @@ export class Slack {
     }
   }
 
-  async handleUserAction(respond, action, userId) {
+  async handleUserAction(respond, action, userId, say) {
     const order = this.orders[userId]
     const {name: actionName, value: actionValue} = action
 
@@ -760,7 +759,7 @@ export class Slack {
     }
 
     if (order.messages !== undefined && order.messages.length > 0) { // If order actions finished, update question
-      await this.updateQuestion(userId)
+      await this.updateQuestion(userId, say)
     } else {
       await this.updateMessage(respond, order)
     }
