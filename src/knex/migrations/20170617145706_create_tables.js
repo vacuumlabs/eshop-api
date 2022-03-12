@@ -1,5 +1,4 @@
 exports.up = async (knex) => {
-
   await knex.schema.createTableIfNotExists('order', (table) => {
     table.increments('id').primary()
     table.string('user').notNullable()

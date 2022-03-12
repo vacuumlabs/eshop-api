@@ -39,26 +39,29 @@ class Alza {
 
   makeRequest(opts) {
     return new Promise((resolve, reject) => {
-      this.request({
-        timeout: 5000,
-        ...opts,
-        headers: {
-          'User-Agent': userAgentPool[Math.floor(Math.random() * userAgentPool.length)],
-          ...(opts.headers || {}),
+      this.request(
+        {
+          timeout: 5000,
+          ...opts,
+          headers: {
+            'User-Agent': userAgentPool[Math.floor(Math.random() * userAgentPool.length)],
+            ...(opts.headers || {}),
+          },
         },
-      }, (err, response, body) => {
-        if (err) {
-          return reject(err)
-        }
+        (err, response, body) => {
+          if (err) {
+            return reject(err)
+          }
 
-        if (!(/^2/.test(String(response.statusCode)))) {
-          const error = new Error(`Wrong status code: ${response.statusCode}`)
-          error.response = response
-          return reject(error)
-        }
+          if (!/^2/.test(String(response.statusCode))) {
+            const error = new Error(`Wrong status code: ${response.statusCode}`)
+            error.response = response
+            return reject(error)
+          }
 
-        return resolve(body)
-      })
+          return resolve(body)
+        },
+      )
     })
   }
 
@@ -147,12 +150,17 @@ class Alza {
     const $ = cheerio.load(content)
 
     const nameTxt = $('meta[name="twitter:title"]').attr('content') || $('meta[property="og:title"]').attr('content')
-    const name = nameTxt ? nameTxt.replace(new RegExp(`\\| ${this.domain}\\s*$`, 'i'), '').trim().replace(/\s+/g, ' ') : url
+    const name = nameTxt
+      ? nameTxt
+          .replace(new RegExp(`\\| ${this.domain}\\s*$`, 'i'), '')
+          .trim()
+          .replace(/\s+/g, ' ')
+      : url
 
     const priceTxt = $('span.price_withoutVat').text() || $('tr.pricenormal').find('td.c2').find('span').text()
     const price = priceTxt ? parseFloat(priceTxt.replace(/[^\d,.]/g, '').replace(/,/g, '.')) : 0
 
-    const priceConverted = price && await convert(price, this.currency, c.currency)
+    const priceConverted = price && (await convert(price, this.currency, c.currency))
 
     const description = $('div.nameextc').text().trim()
 
@@ -183,10 +191,13 @@ const VERSIONS = {
   },
 }
 
-const SHOPS = Object.entries(VERSIONS).reduce((acc, [lang, settings]) => ({
-  ...acc,
-  [lang]: new Alza(settings, c.alza.credentials[lang]),
-}), {})
+const SHOPS = Object.entries(VERSIONS).reduce(
+  (acc, [lang, settings]) => ({
+    ...acc,
+    [lang]: new Alza(settings, c.alza.credentials[lang]),
+  }),
+  {},
+)
 
 function getId(urlString) {
   const url = new URL(urlString)
@@ -201,10 +212,13 @@ export function getLangByLink(link) {
 }
 
 function groupItemsByLang(items) {
-  const carts = Object.keys(VERSIONS).reduce((acc, lang) => ({
-    ...acc,
-    [lang]: [],
-  }), {})
+  const carts = Object.keys(VERSIONS).reduce(
+    (acc, lang) => ({
+      ...acc,
+      [lang]: [],
+    }),
+    {},
+  )
 
   for (const item of items) {
     const lang = getLangByLink(item.url)
@@ -247,7 +261,8 @@ export async function alzaCode(req, res) {
   }
 
   if (lang && SHOPS[lang]) {
-    await SHOPS[lang].login(code ? {validationCode: code} : {})
+    await SHOPS[lang]
+      .login(code ? {validationCode: code} : {})
       .then((resp) => {
         const respObj = JSON.parse(resp)
 
@@ -275,7 +290,10 @@ export async function alzaCode(req, res) {
   <form method="get" action="/alzacode">
     <div>Language: <select name="lang">
       <option value="">- - -</option>
-      ${Object.entries(VERSIONS).map(([l, settings]) => `<option value="${l}"${lang === l ? ' selected="selected"' : ''}>${settings.domain} (${l})</option>`)}
+      ${Object.entries(VERSIONS).map(
+        ([l, settings]) =>
+          `<option value="${l}"${lang === l ? ' selected="selected"' : ''}>${settings.domain} (${l})</option>`,
+      )}
     </select></div>
     <div>Code: <input type="text" name="code" value="${code || ''}" /></div>
     <div><button type="submit">Submit</button></div>

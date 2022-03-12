@@ -13,7 +13,11 @@ const logger = winston.createLogger({
 export default logger
 
 export async function logError(boltApp, variant, e, msg, userId, data) {
-  logger.error(`[${variant}] - logError - error: ${e} | msg: ${msg} | userId: ${userId} | error.response: ${JSON.stringify(e.response)} | data: ${JSON.stringify(data)}`)
+  logger.error(
+    `[${variant}] - logError - error: ${e} | msg: ${msg} | userId: ${userId} | error.response: ${JSON.stringify(
+      e.response,
+    )} | data: ${JSON.stringify(data)}`,
+  )
 
   let postMessageInput
   try {

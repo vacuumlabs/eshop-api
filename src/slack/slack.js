@@ -6,7 +6,21 @@ import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
-import {CANCEL_ORDER_ACTION, CITIES_OPTIONS_TO_CITIES, HOME_VALUE, NEW_USER_GREETING, OFFICES, OFFICE, SLACK_URL, COMPANY, PERSONAL, HOME, NAME, MESSAGES as VARIANT_MESSAGES, INVALID_LINK_ERROR} from './constants'
+import {
+  CANCEL_ORDER_ACTION,
+  CITIES_OPTIONS_TO_CITIES,
+  HOME_VALUE,
+  NEW_USER_GREETING,
+  OFFICES,
+  OFFICE,
+  SLACK_URL,
+  COMPANY,
+  PERSONAL,
+  HOME,
+  NAME,
+  MESSAGES as VARIANT_MESSAGES,
+  INVALID_LINK_ERROR,
+} from './constants'
 import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {App, ExpressReceiver} from '@slack/bolt'
 
@@ -32,7 +46,6 @@ export class Slack {
   async init() {
     const response = await this.boltApp.client.auth.test()
     this.botUserId = response.user_id
-
 
     /* old Milan's code for upgrading all messages to a new message format
         - outdated, but potentially useful
@@ -115,7 +128,9 @@ export class Slack {
         let order
         try {
           order = this.orders[userId]
-          logger.info(`handling user message - user: '${userId}', event text: '${message}', order: ${JSON.stringify(order)}`)
+          logger.info(
+            `handling user message - user: '${userId}', event text: '${message}', order: ${JSON.stringify(order)}`,
+          )
 
           await this.handleUserMessage(message, userId, say)
         } catch (err) {
@@ -152,7 +167,12 @@ export class Slack {
         // we know the handled body is always an interactive message payload, but typescript doesn't
         if (body.type !== 'interactive_message') return
 
-        const {callback_id, user: {id: userId, name: username}, original_message: originalMessage, channel: {id: channelId}} = body
+        const {
+          callback_id,
+          user: {id: userId, name: username},
+          original_message: originalMessage,
+          channel: {id: channelId},
+        } = body
         logger.info(`action callback_id: ${callback_id}, username: ${username}`)
 
         // admin action
@@ -213,7 +233,11 @@ export class Slack {
       @type import('@slack/bolt/dist/App').ExtendedErrorHandler
     */
     const errorHandler = async ({error: {code, message, name, req, stack}, context, body}) => {
-      logger.error(`code: ${code}, message: ${message}, name: ${name}, req: ${JSON.stringify(req)}, stack: ${stack}, context: ${JSON.stringify(context)}, body: ${JSON.stringify(body)}`)
+      logger.error(
+        `code: ${code}, message: ${message}, name: ${name}, req: ${JSON.stringify(
+          req,
+        )}, stack: ${stack}, context: ${JSON.stringify(context)}, body: ${JSON.stringify(body)}`,
+      )
     }
     this.boltApp.error(errorHandler)
   }
@@ -241,10 +265,7 @@ export class Slack {
 
   async announceToAll(message) {
     try {
-      const users =
-      (await this.boltApp.client.users.list())
-        .members
-        .filter((u) => u.is_bot === false)
+      const users = (await this.boltApp.client.users.list()).members.filter((u) => u.is_bot === false)
 
       for (const u of users) {
         if (message === 'help') {
@@ -339,7 +360,8 @@ export class Slack {
       const name = order.messages.shift()[NAME]
       order[name] = message
 
-      if (order.messages.length === 0) { // user message steps finished
+      // user message steps finished
+      if (order.messages.length === 0) {
         order.step = 'finish'
       } else {
         order.step = order.messages[0][NAME] // 'manager' is the only possible value for now
@@ -349,16 +371,7 @@ export class Slack {
     }
   }
 
-  async changeStatus({
-    order,
-    items,
-    status,
-    channelId,
-    msgTs,
-    textAttachments,
-    actionsAttachments,
-    statusIcon,
-  }) {
+  async changeStatus({order, items, status, channelId, msgTs, textAttachments, actionsAttachments, statusIcon}) {
     if (statusIcon) {
       await this.removeReaction(statusIcon, channelId, msgTs)
     }
@@ -373,9 +386,13 @@ export class Slack {
           ts: msgTs,
           text: ' ', // TODO: fix while migrate to use blocks
           attachments: [
-          // *Status:* is the new message format. temporarily, we need to support the old format,
-          // and it seems checking just *Status* doesn't work, so dual check here it is
-            ...textAttachments.map((att) => att.text && (att.text.startsWith('*Status*') || att.text.startsWith('*Status:*')) ? {...att, text: `*Status:* ${status}`} : att),
+            // *Status:* is the new message format. temporarily, we need to support the old format,
+            // and it seems checking just *Status* doesn't work, so dual check here it is
+            ...textAttachments.map((att) =>
+              att.text && (att.text.startsWith('*Status*') || att.text.startsWith('*Status:*'))
+                ? {...att, text: `*Status:* ${status}`}
+                : att,
+            ),
             ...actionsAttachments,
           ],
         })
@@ -395,8 +412,9 @@ export class Slack {
   async getComments(ts, channel) {
     const fetchComments = async (cursor) => {
       // error is caught later
-      const {messages, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.conversations.replies({channel, ts, cursor})
-      return nextCursor ? [...messages, ...await fetchComments(nextCursor)] : messages
+      const {messages, response_metadata: {next_cursor: nextCursor} = {}} =
+        await this.boltApp.client.conversations.replies({channel, ts, cursor})
+      return nextCursor ? [...messages, ...(await fetchComments(nextCursor))] : messages
     }
 
     try {
@@ -410,7 +428,9 @@ export class Slack {
 
   async getUsers() {
     const fetchUsers = async (cursor) => {
-      const {members, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.users.list({cursor})
+      const {members, response_metadata: {next_cursor: nextCursor} = {}} = await this.boltApp.client.users.list({
+        cursor,
+      })
       const membersMap = members.reduce((acc, {id, name}) => {
         acc[id] = name
         return acc
@@ -429,7 +449,9 @@ export class Slack {
   async moveOrder(ts, fromChannel, toChannel, data) {
     let newTs
     try {
-      ({message: {ts: newTs}} = await this.boltApp.client.chat.postMessage({
+      ;({
+        message: {ts: newTs},
+      } = await this.boltApp.client.chat.postMessage({
         channel: toChannel,
         ...data,
         text: ' ', // TODO: fix while migrate to use blocks
@@ -438,10 +460,7 @@ export class Slack {
       logger.error(`Failed to move order from '${fromChannel}' to '${toChannel}': ${err}`)
     }
 
-    const [{mainMsg, comments}, usersMap] = await Promise.all([
-      this.getComments(ts, fromChannel),
-      this.getUsers(),
-    ])
+    const [{mainMsg, comments}, usersMap] = await Promise.all([this.getComments(ts, fromChannel), this.getUsers()])
 
     if (mainMsg.reactions) {
       for (const {name: reaction} of mainMsg.reactions) {
@@ -450,21 +469,20 @@ export class Slack {
     }
 
     for (const {user, text, ts: commentTs, reactions = [], files} of comments) {
-      const mainText = !user || user === this.botUserId ? (text || ' ') : `<@${user}> ${getTS(msgTsToDate(commentTs))}:\n\n${text}`
+      const mainText =
+        !user || user === this.botUserId ? text || ' ' : `<@${user}> ${getTS(msgTsToDate(commentTs))}:\n\n${text}`
       const filesText = files && files.map((file) => `${file.title}: ${file.permalink}`).join('\n')
 
       const fullText = `${mainText}${filesText ? `\n\n${filesText}` : ''}`
 
-      const finalText = fullText.replace(
-        /<@([A-Z0-9]+)>/g,
-        (match, userId) =>
-          usersMap[userId]
-            ? `<${SLACK_URL[this.variant]}/team/${userId}|${usersMap[userId]}>`
-            : `<@${userId}>`,
+      const finalText = fullText.replace(/<@([A-Z0-9]+)>/g, (match, userId) =>
+        usersMap[userId] ? `<${SLACK_URL[this.variant]}/team/${userId}|${usersMap[userId]}>` : `<@${userId}>`,
       )
       let newCommentTs
       try {
-        ({message: {ts: newCommentTs}} = await this.boltApp.client.chat.postMessage({
+        ;({
+          message: {ts: newCommentTs},
+        } = await this.boltApp.client.chat.postMessage({
           channel: toChannel,
           thread_ts: newTs,
           text: finalText,
@@ -479,7 +497,11 @@ export class Slack {
 
       // delete the comment. note: admin rights needed to delete other users' messages
       try {
-        await this.boltApp.client.chat.delete({channel: fromChannel, ts: commentTs, token: this.config.slack.adminToken})
+        await this.boltApp.client.chat.delete({
+          channel: fromChannel,
+          ts: commentTs,
+          token: this.config.slack.adminToken,
+        })
       } catch (err) {
         logger.error(`Failed to delete a comment on '${fromChannel}, ts '${ts}': ${err}`)
       }
@@ -495,11 +517,14 @@ export class Slack {
 
   async handleAdminAction(action, orderId, originalMessage, channelId) {
     const actionName = action.name
-    const attachments = originalMessage.attachments.length === 1
-      ? {...originalMessage.attachments, actions: []} // legacy format
-      : originalMessage.attachments.filter((att) => !att.actions)
+    const attachments =
+      originalMessage.attachments.length === 1
+        ? {...originalMessage.attachments, actions: []} // legacy format
+        : originalMessage.attachments.filter((att) => !att.actions)
     // find the section with button actions that's not the Archive
-    const buttonsAtt = originalMessage.attachments.find((att) => att.actions && att.actions[0].type === 'button' && att.text !== 'Archive')
+    const buttonsAtt = originalMessage.attachments.find(
+      (att) => att.actions && att.actions[0].type === 'button' && att.text !== 'Archive',
+    )
     const msgButtons = buttonsAtt && buttonsAtt.actions
 
     const NOTIFICATION = VARIANT_MESSAGES[this.variant].notification
@@ -510,7 +535,8 @@ export class Slack {
 
     const {order, items} = orderId === '-' ? {} : await this.getOrderAndItemsFromDb(orderId)
 
-    if (actionName === 'forward-to-channel') { // Forward to office channel
+    // Forward to office channel
+    if (actionName === 'forward-to-channel') {
       // this action shouldn't happen on wincent
       await this.moveOrder(originalMessage.ts, channelId, this.getCityChannel(order.office), {
         attachments: [
@@ -519,13 +545,20 @@ export class Slack {
           ...getAdminSections(this.variant, orderId, 'ordered'),
         ],
       })
-    } else if (actionName === 'decline') { // Notify user - decline
+      // Notify user - decline
+    } else if (actionName === 'decline') {
       await this.removeReaction('no_entry_sign', channelId, originalMessage.ts)
 
-      await this.sendUserInfo(originalMessage, channelId, 'There was an issue with your order. Somebody from backoffice will contact you about it soon.', createOrderFromDb(order, items))
+      await this.sendUserInfo(
+        originalMessage,
+        channelId,
+        'There was an issue with your order. Somebody from backoffice will contact you about it soon.',
+        createOrderFromDb(order, items),
+      )
 
       await this.addReaction('no_entry_sign', channelId, originalMessage.ts)
-    } else if (actionName === 'discard') { // Discard order
+      // Discard order
+    } else if (actionName === 'discard') {
       await this.removeReaction('x', channelId, originalMessage.ts)
 
       try {
@@ -539,14 +572,13 @@ export class Slack {
         logger.error('Failed to update sheet', err)
         await this.addReaction('x', channelId, originalMessage.ts)
       }
-    } else if (actionName === 'archive') { // Move to archive
+      // Move to archive
+    } else if (actionName === 'archive') {
       await this.moveOrder(originalMessage.ts, channelId, this.config.channels.archive, {
-        attachments: [
-          ...attachments,
-          ...(orderId === '-' ? [] : [getArchiveSection(orderId, true)]),
-        ],
+        attachments: [...attachments, ...(orderId === '-' ? [] : [getArchiveSection(orderId, true)])],
       })
-    } else if (actionName === 'unarchive') { // Move from archive
+      // Move from archive
+    } else if (actionName === 'unarchive') {
       let targetChannel, primaryBtn
       if (this.variant === 'wincent') {
         targetChannel = this.config.channels.orders
@@ -557,28 +589,26 @@ export class Slack {
       }
 
       await this.moveOrder(originalMessage.ts, channelId, targetChannel, {
-        attachments: [
-          ...attachments,
-          ...getAdminSections(this.variant, orderId, primaryBtn),
-        ],
+        attachments: [...attachments, ...getAdminSections(this.variant, orderId, primaryBtn)],
       })
-    // } else if (actionName === 'add-to-cart') { // Add items to cart
-    //   // not called in wincent
-    //   await this.removeReaction('shopping_trolley', channelId, originalMessage.ts)
+      // } else if (actionName === 'add-to-cart') { // Add items to cart
+      //   // not called in wincent
+      //   await this.removeReaction('shopping_trolley', channelId, originalMessage.ts)
 
-    //   await addToCartAll(items)
+      //   await addToCartAll(items)
 
-    //   await this.apiCall('chat.update', {
-    //     channel: channelId,
-    //     ts: msg.ts,
-    //     attachments: [
-    //       ...attachments,
-    //       ...getAdminSections(this.variant, orderId, 'ordered', msgButtons),
-    //     ],
-    //   })
+      //   await this.apiCall('chat.update', {
+      //     channel: channelId,
+      //     ts: msg.ts,
+      //     attachments: [
+      //       ...attachments,
+      //       ...getAdminSections(this.variant, orderId, 'ordered', msgButtons),
+      //     ],
+      //   })
 
-    //   await this.addReaction('shopping_trolley', channelId, originalMessage.ts)
-    } else if (actionName === 'accepted') { // Notify user - accepted
+      //   await this.addReaction('shopping_trolley', channelId, originalMessage.ts)
+    } else if (actionName === 'accepted') {
+      // Notify user - accepted
       // TODO - accepted by who?
       await this.sendUserInfo(originalMessage, channelId, NOTIFICATION.accepted, createOrderFromDb(order, items))
 
@@ -593,7 +623,8 @@ export class Slack {
         actionsAttachments: getAdminSections(this.variant, orderId, 'ordered'),
         statusIcon: 'heavy_check_mark',
       })
-    } else if (actionName === 'ordered') { // Notify user - ordered
+      // Notify user - ordered
+    } else if (actionName === 'ordered') {
       await this.sendUserInfo(originalMessage, channelId, NOTIFICATION.ordered, createOrderFromDb(order, items))
 
       await this.changeStatus({
@@ -606,8 +637,14 @@ export class Slack {
         actionsAttachments: getAdminSections(this.variant, orderId, 'delivered', msgButtons),
         statusIcon: 'page_with_curl',
       })
-    } else if (actionName === 'delivered') { // Notify user - delivered
-      await this.sendUserInfo(originalMessage, channelId, NOTIFICATION.delivered[order.isCompany ? COMPANY : PERSONAL][order.isHome ? HOME : OFFICE], createOrderFromDb(order, items))
+      // Notify user - delivered
+    } else if (actionName === 'delivered') {
+      await this.sendUserInfo(
+        originalMessage,
+        channelId,
+        NOTIFICATION.delivered[order.isCompany ? COMPANY : PERSONAL][order.isHome ? HOME : OFFICE],
+        createOrderFromDb(order, items),
+      )
 
       await this.changeStatus({
         order,
@@ -619,7 +656,8 @@ export class Slack {
         actionsAttachments: getAdminSections(this.variant, orderId, undefined, msgButtons),
         statusIcon: 'inbox_tray',
       })
-    } else if (actionName === 'status') { // Set order status
+      // Set order status
+    } else if (actionName === 'status') {
       const status = action.selected_options[0].value
 
       await this.changeStatus({
@@ -639,7 +677,9 @@ export class Slack {
   async updateQuestion(userId, say) {
     const order = this.orders[userId]
 
-    const {originalMessageInfo: {channel, ts}} = order
+    const {
+      originalMessageInfo: {channel, ts},
+    } = order
     try {
       await this.boltApp.client.chat.delete({channel, ts})
     } catch (err) {
@@ -658,7 +698,6 @@ export class Slack {
       logger.error(`Failed to post a message to user '${userId}', step '${order.step}': ${err}`)
     }
   }
-
 
   async updateMessage(respond, order) {
     const attachment = this.userOrderAttachment(order)
@@ -771,7 +810,10 @@ export class Slack {
   async notifyOfficeManager(order, dbId, user, isCompany) {
     const orderTypeText = isCompany ? ':office: Company' : ':woman: Personal'
 
-    const orderAttachment = orderToAttachment(`${orderTypeText} order from <@${user}>`, this.getOrderFields(order, true))
+    const orderAttachment = orderToAttachment(
+      `${orderTypeText} order from <@${user}>`,
+      this.getOrderFields(order, true),
+    )
     // note: in wincent, there is no order.office
     const orderOffice = order.office && this.getCityChannel(order.office) ? order.office : null
 
@@ -815,7 +857,9 @@ export class Slack {
   async notifyUser(userId, message) {
     let channelId
     try {
-      ({channel: {id: channelId}} = await this.boltApp.client.conversations.open({users: userId}))
+      ;({
+        channel: {id: channelId},
+      } = await this.boltApp.client.conversations.open({users: userId}))
     } catch (err) {
       logger.error(`Failed to open conversation with user '${userId}': ${err}`)
     }
@@ -833,7 +877,6 @@ export class Slack {
 
     return true
   }
-
 
   async addReaction(name, channel, timestamp) {
     try {
@@ -873,7 +916,6 @@ export class Slack {
       }
     }
 
-
     const items = parseOrder(message)
     const {info} = await orderInfo(items, order.country)
 
@@ -908,7 +950,8 @@ export class Slack {
       order,
       [
         items.length === 0 && INVALID_LINK_ERROR,
-        info.wrongCountry && ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
+        info.wrongCountry &&
+          ':exclamation: You cannot combine items from different Alza stores. Please create separate orders.',
       ].filter(Boolean),
     )
 
@@ -926,7 +969,6 @@ export class Slack {
       throw err
     }
   }
-
 
   itemsField(items, showPrice, order) {
     const itemLines = [...items.values()].map((item) => {
@@ -976,9 +1018,8 @@ export class Slack {
       fieldsTitle = question
       actions = [additionalButton, CANCEL_ORDER_ACTION].filter(Boolean)
     } else {
-      ({actions, title: fieldsTitle} = getUserActions(this.variant, order))
+      ;({actions, title: fieldsTitle} = getUserActions(this.variant, order))
     }
-
 
     let pretext
     switch (order.step) {
@@ -1016,7 +1057,7 @@ export class Slack {
         reason,
         isUrgent,
         isHome,
-        ...this.variant === 'wincent' ? {} : {company, manager},
+        ...(this.variant === 'wincent' ? {} : {company, manager}),
       }
       logger.info(`storing order data to the db: ${JSON.stringify(data)}`)
       const orderInsertResult = await trx.insert(data, ['id']).into(this.config.dbTables.order)
@@ -1027,13 +1068,18 @@ export class Slack {
         item.dbIds = []
 
         for (let i = 0; i < item.count; i++) {
-          const itemInsertResult = await trx.insert({
-            order: dbId,
-            shopId: item.id,
-            count: 1,
-            url: item.url,
-            price: item.price,
-          }, ['id']).into(this.config.dbTables.orderItem)
+          const itemInsertResult = await trx
+            .insert(
+              {
+                order: dbId,
+                shopId: item.id,
+                count: 1,
+                url: item.url,
+                price: item.price,
+              },
+              ['id'],
+            )
+            .into(this.config.dbTables.orderItem)
 
           const itemId = itemInsertResult[0].id
 
@@ -1070,7 +1116,8 @@ export class Slack {
 }
 
 function createOrderFromDb(orderData, itemsData) {
-  const country = Object.keys(OFFICES).find((off) => OFFICES[off] && OFFICES[off].options.includes(orderData.office)) || 'sk'
+  const country =
+    Object.keys(OFFICES).find((off) => OFFICES[off] && OFFICES[off].options.includes(orderData.office)) || 'sk'
 
   const items = new Map()
 
@@ -1112,11 +1159,9 @@ function getTS(date = new Date()) {
   return moment(date).tz('Europe/Bratislava').format('YYYY-MM-DD HH:mm')
 }
 
-
 function formatPrice(price, currency) {
   return price && !isNaN(price) ? format(price, currency) : '???'
 }
-
 
 function orderToAttachment(text, fields) {
   return {
@@ -1155,7 +1200,7 @@ async function orderInfo(items, country) {
   let orderCountry = country
   for (const item of items) {
     // eslint-disable-next-line no-loop-func
-    await (async function() {
+    await (async function () {
       const itemCountry = getLangByLink(item.url)
 
       if (itemCountry && !orderCountry) {

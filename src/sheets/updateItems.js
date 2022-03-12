@@ -3,13 +3,7 @@ import {getColumn} from './utils'
 import {sheets} from './constants'
 import c from '../config'
 
-export async function updateItems(
-  variant,
-  spreadsheetId,
-  isCompanyItem,
-  items,
-  getItemData,
-) {
+export async function updateItems(variant, spreadsheetId, isCompanyItem, items, getItemData) {
   const sheet = isCompanyItem ? sheets[variant].companyOrders : sheets[variant].personalOrders
 
   const [fieldIndexMap, itemIdsFromSheet] = await Promise.all([

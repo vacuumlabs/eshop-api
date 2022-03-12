@@ -3,10 +3,7 @@ export function formatAsHyperlink(url, name) {
 }
 
 export function formatDate(dateStr) {
-  return Math.round(
-    (Date.parse(`${dateStr}UTC`) - Date.parse('1899-12-30UTC')) /
-      (1000 * 60 * 60 * 24),
-  )
+  return Math.round((Date.parse(`${dateStr}UTC`) - Date.parse('1899-12-30UTC')) / (1000 * 60 * 60 * 24))
 }
 
 function sheetsEscapeString(str) {
@@ -16,7 +13,7 @@ function sheetsEscapeString(str) {
 export function mapFieldsToRow(fieldIndexMap, data) {
   const totalCols = Math.max(...Object.values(fieldIndexMap))
 
-  const result = (new Array(totalCols - 1)).fill(undefined)
+  const result = new Array(totalCols - 1).fill(undefined)
 
   Object.entries(data).forEach(([field, value]) => {
     if (!fieldIndexMap[field]) {

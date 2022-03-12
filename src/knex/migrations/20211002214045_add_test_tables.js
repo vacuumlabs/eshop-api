@@ -1,4 +1,3 @@
-
 exports.up = async (knex) => {
   await knex.schema.createTable('testOrder', (table) => {
     table.increments('id').primary()

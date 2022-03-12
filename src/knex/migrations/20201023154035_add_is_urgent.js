@@ -1,4 +1,3 @@
-
 exports.up = async (knex) => {
   await knex.schema.hasColumn('order', 'isUrgent').then(async (exists) => {
     if (!exists) {

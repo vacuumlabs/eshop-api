@@ -6,10 +6,12 @@ export const getOrderActions = (order) => {
 }
 
 export const getActionsSection = (orderId, primaryBtn, msgButtons) => {
-  const buttons = (msgButtons || [
-    {name: 'ordered', text: 'Ordered + send notification'},
-    {name: 'delivered', text: 'Delivered + send notification'},
-  ]).map((btn) => ({
+  const buttons = (
+    msgButtons || [
+      {name: 'ordered', text: 'Ordered + send notification'},
+      {name: 'delivered', text: 'Delivered + send notification'},
+    ]
+  ).map((btn) => ({
     ...btn,
     type: 'button',
     value: orderId,

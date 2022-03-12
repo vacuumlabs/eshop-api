@@ -6,11 +6,13 @@ export const getOrderActions = (order) => {
 }
 
 export const getActionsSection = (orderId, primaryBtn, msgButtons) => {
-  const buttons = (msgButtons || [
-    // {name: 'add-to-cart', text: 'Add to Cart'},
-    {name: 'ordered', text: 'Ordered + send notification'},
-    {name: 'delivered', text: 'Delivered + send notification'},
-  ]).map((btn) => ({
+  const buttons = (
+    msgButtons || [
+      // {name: 'add-to-cart', text: 'Add to Cart'},
+      {name: 'ordered', text: 'Ordered + send notification'},
+      {name: 'delivered', text: 'Delivered + send notification'},
+    ]
+  ).map((btn) => ({
     ...btn,
     type: 'button',
     value: orderId,
@@ -27,7 +29,17 @@ export const getActionsSection = (orderId, primaryBtn, msgButtons) => {
 export const getNewOrderAdminSections = (orderAttachment, orderId, orderOffice) => {
   // not sure if possible at all
   // maybe the message shouldn't even get sent when order.office is missing
-  const forwardAction = orderOffice ? [{name: 'forward-to-channel', text: `Forward to ${orderOffice}`, type: 'button', value: orderId, style: 'primary'}] : []
+  const forwardAction = orderOffice
+    ? [
+        {
+          name: 'forward-to-channel',
+          text: `Forward to ${orderOffice}`,
+          type: 'button',
+          value: orderId,
+          style: 'primary',
+        },
+      ]
+    : []
 
   return [
     orderAttachment,

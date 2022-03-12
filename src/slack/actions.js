@@ -16,27 +16,31 @@ export const getUserActions = (variant, order) => {
 // admin-facing sections
 const getStatusSection = (orderId) => ({
   text: '',
-  actions: [{
-    type: 'select',
-    name: 'status',
-    text: 'Set status...',
-    options: ['requested', 'ordered', 'canceled', 'delivered', 'lost', 'sold', 'used', 'gift'].map((status) => ({
-      text: status,
-      value: status,
-    })),
-  }],
+  actions: [
+    {
+      type: 'select',
+      name: 'status',
+      text: 'Set status...',
+      options: ['requested', 'ordered', 'canceled', 'delivered', 'lost', 'sold', 'used', 'gift'].map((status) => ({
+        text: status,
+        value: status,
+      })),
+    },
+  ],
   callback_id: `O${orderId}`,
 })
 
 export const getArchiveSection = (orderId, toArchive) => ({
   text: '',
-  actions: [{
-    type: 'button',
-    name: toArchive ? 'unarchive' : 'archive',
-    text: toArchive ? 'Unarchive' : 'Archive',
-    value: orderId,
-    style: 'default',
-  }],
+  actions: [
+    {
+      type: 'button',
+      name: toArchive ? 'unarchive' : 'archive',
+      text: toArchive ? 'Unarchive' : 'Archive',
+      value: orderId,
+      style: 'default',
+    },
+  ],
   callback_id: `O${orderId}`,
 })
 

@@ -22,14 +22,7 @@ export async function storeOrder(variant, spreadsheetId, order, items) {
       data.push(
         mapFieldsToRow(
           fieldIndexMap,
-          itemToSheetData(
-            variant,
-            `${item.dbIds[i]}${c.google.orderIdSuffix}`,
-            item,
-            order,
-            userJiraId,
-            date,
-          ),
+          itemToSheetData(variant, `${item.dbIds[i]}${c.google.orderIdSuffix}`, item, order, userJiraId, date),
         ),
       )
     }
@@ -58,35 +51,33 @@ async function getUserJiraId(variant, spreadsheetId, slackId, name) {
   return jiraIds[rowIndex][0]
 }
 
-function itemToSheetData(
-  variant,
-  dbId,
-  item,
-  order,
-  userJiraId,
-  date,
-) {
+function itemToSheetData(variant, dbId, item, order, userJiraId, date) {
   const commonFields = {
     Status: NEW_ORDER_STATUS,
     Date: formatDate(date),
   }
-  const variantFields = variant === 'wincent' ? {
-    ID: dbId,
-    Specification: formatAsHyperlink(item.url, item.name),
-  } : {
-    UUID: dbId,
-    Name: formatAsHyperlink(item.url, item.name),
-    Office: order.office,
-  }
-  const companyOrPersonalFields = order.isCompany ? {
-    'Reason': order.reason,
-    'Requested by': userJiraId,
-    ...variant === 'wincent' ? {} : {Manager: order.manager, Company: order.company},
-  } : {
-    'Note': order.reason,
-    'Urgent': Boolean(order.isUrgent),
-    'User ID': userJiraId,
-  }
+  const variantFields =
+    variant === 'wincent'
+      ? {
+          ID: dbId,
+          Specification: formatAsHyperlink(item.url, item.name),
+        }
+      : {
+          UUID: dbId,
+          Name: formatAsHyperlink(item.url, item.name),
+          Office: order.office,
+        }
+  const companyOrPersonalFields = order.isCompany
+    ? {
+        Reason: order.reason,
+        'Requested by': userJiraId,
+        ...(variant === 'wincent' ? {} : {Manager: order.manager, Company: order.company}),
+      }
+    : {
+        Note: order.reason,
+        Urgent: Boolean(order.isUrgent),
+        'User ID': userJiraId,
+      }
 
   return {
     ...commonFields,

@@ -2,7 +2,6 @@ import express from 'express'
 
 import c from './config'
 import {Slack} from './slack/slack'
-import {alzaCode} from './alza'
 import logger from './logger'
 
 const app = express()
@@ -23,24 +22,23 @@ const endpoints = {
   },
 }
 
-;(async function() {
+;(async function () {
+  app.listen(c.port, () => logger.info(`App started on localhost:${c.port}.`))
 
-  app.listen(c.port, () =>
-    logger.info(`App started on localhost:${c.port}.`)
+  await Promise.all(
+    ['vacuumlabs', 'test', 'wincent'].map(async (variant) => {
+      if (!c[variant]) {
+        logger.warn(`Config for variant ${variant} not defined, the variant will not run.`)
+        return
+      }
+      const slackClient = new Slack(variant)
+
+      app.use(endpoints[variant].actions, slackClient.boltReceiver.router)
+      app.use(endpoints[variant].events, slackClient.boltReceiver.router)
+
+      await slackClient.init()
+    }),
   )
-
-  await Promise.all(['vacuumlabs', 'test', 'wincent'].map(async (variant) => {
-    if (!c[variant]) {
-      logger.warn(`Config for variant ${variant} not defined, the variant will not run.`)
-      return
-    }
-    const slackClient = new Slack(variant)
-
-    app.use(endpoints[variant].actions, slackClient.boltReceiver.router)
-    app.use(endpoints[variant].events, slackClient.boltReceiver.router)
-
-    await slackClient.init()
-  }))
 })().catch((e) => {
   logger.error('Init error', e)
   process.exit(1)

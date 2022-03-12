@@ -8,27 +8,42 @@ const BUTTON = 'button'
 const QUESTION = 'question'
 export const NAME = 'name'
 
-export const WITHOUT_NOTE_ACTION = {name: 'without_note', text: 'Continue without note', type: 'button', value: 'without_note'}
+export const WITHOUT_NOTE_ACTION = {
+  name: 'without_note',
+  text: 'Continue without note',
+  type: 'button',
+  value: 'without_note',
+}
 
-export const INVALID_LINK_ERROR = ':exclamation: The links you sent me are invalid.\nIf you want to add a comment, please start by sending the links first and you will be asked for a note later in the process.'
+export const INVALID_LINK_ERROR =
+  ':exclamation: The links you sent me are invalid.\nIf you want to add a comment, please start by sending the links first and you will be asked for a note later in the process.'
 
 const REASON_WITH_ADDRESS_QUESTION = {
-  [NAME]: REASON, [QUESTION]: ':question: Why do you need these items? Reply by sending a message. And don\'t forget to tell us your address!',
+  [NAME]: REASON,
+  [QUESTION]:
+    ":question: Why do you need these items? Reply by sending a message. And don't forget to tell us your address!",
 }
 
 const REASON_DEFAULT_QUESTION = {
-  [NAME]: REASON, [QUESTION]: ':question: Why do you need these items? Reply by sending a message.',
+  [NAME]: REASON,
+  [QUESTION]: ':question: Why do you need these items? Reply by sending a message.',
 }
 
 const REASON_NOTE_QUESTION = {
-  [NAME]: REASON, [QUESTION]: ':pencil: Add a note by sending a message. And don\'t forget to tell us your address!',
+  [NAME]: REASON,
+  [QUESTION]: ":pencil: Add a note by sending a message. And don't forget to tell us your address!",
 }
 
 const REASON_COMMENT_QUESTION = {
-  [NAME]: REASON, [QUESTION]: ':pencil: Send your comment in a message.', [BUTTON]: WITHOUT_NOTE_ACTION,
+  [NAME]: REASON,
+  [QUESTION]: ':pencil: Send your comment in a message.',
+  [BUTTON]: WITHOUT_NOTE_ACTION,
 }
 
-const MANAGER_QUESTION = {[NAME]: MANAGER, [QUESTION]: ':question: Name of your manager (needed for approval for items above 100 EUR - write N/A otherwise):'}
+const MANAGER_QUESTION = {
+  [NAME]: MANAGER,
+  [QUESTION]: ':question: Name of your manager (needed for approval for items above 100 EUR - write N/A otherwise):',
+}
 
 export const COMPANY = 'company'
 export const PERSONAL = 'personal'
@@ -44,7 +59,8 @@ const NOTIFICATION = {
       [HOME]: 'Your order has arrived :truck:.',
     },
     [PERSONAL]: {
-      [OFFICE]: 'Your personal order has arrived :truck:. Come pick it up during office hours and please bring the money in CASH.',
+      [OFFICE]:
+        'Your personal order has arrived :truck:. Come pick it up during office hours and please bring the money in CASH.',
       [HOME]: 'Your personal order has arrived :truck:.',
     },
   },
@@ -52,24 +68,17 @@ const NOTIFICATION = {
 
 const DEFAULT_MESSAGES = {
   home: {
-    company: [
-      REASON_WITH_ADDRESS_QUESTION,
-      MANAGER_QUESTION,
-    ],
+    company: [REASON_WITH_ADDRESS_QUESTION, MANAGER_QUESTION],
     personal: [REASON_NOTE_QUESTION],
   },
   office: {
-    company: [
-      REASON_DEFAULT_QUESTION,
-      MANAGER_QUESTION,
-    ],
+    company: [REASON_DEFAULT_QUESTION, MANAGER_QUESTION],
     personal: {
       note: [REASON_COMMENT_QUESTION],
     },
   },
   notification: NOTIFICATION,
 }
-
 
 const WINCENT_MESSAGES = {
   home: {
@@ -85,7 +94,6 @@ const WINCENT_MESSAGES = {
 
   notification: NOTIFICATION,
 }
-
 
 export const MESSAGES = {
   vacuumlabs: DEFAULT_MESSAGES,

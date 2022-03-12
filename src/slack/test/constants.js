@@ -70,8 +70,13 @@ export const OFFICES = {
 
 export const HOME_VALUE = 'remote'
 
-export const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
-
+export const CANCEL_ORDER_ACTION = {
+  name: 'cancel',
+  text: 'Cancel Order',
+  type: 'button',
+  value: 'cancel',
+  style: 'danger',
+}
 
 export const ORDER_COUNTRY_ACTIONS = [
   ...Object.keys(OFFICES).map((country) => ({
@@ -123,8 +128,8 @@ export const ORDER_TYPE_ACTIONS = [
 ]
 
 export const ORDER_URGENT_ACTIONS = [
-  {name: 'urgent', text: 'It\'s urgent, I will pay for delivery', type: 'button', value: 'urgent_yes'},
-  {name: 'urgent', text: 'It\'s not urgent, I can wait', type: 'button', value: 'urgent_no'},
+  {name: 'urgent', text: "It's urgent, I will pay for delivery", type: 'button', value: 'urgent_yes'},
+  {name: 'urgent', text: "It's not urgent, I can wait", type: 'button', value: 'urgent_no'},
   CANCEL_ORDER_ACTION,
 ]
 

@@ -13,8 +13,13 @@ Happy shopping!
 
 PS: Feel free to contribute at https://github.com/vacuumlabs/eshop-api`
 
-
-export const CANCEL_ORDER_ACTION = {name: 'cancel', text: 'Cancel Order', type: 'button', value: 'cancel', style: 'danger'}
+export const CANCEL_ORDER_ACTION = {
+  name: 'cancel',
+  text: 'Cancel Order',
+  type: 'button',
+  value: 'cancel',
+  style: 'danger',
+}
 
 export const ORDER_TYPE_ACTIONS = [
   {name: 'type', text: 'Make Personal Order', type: 'button', value: 'is_personal'},
@@ -23,8 +28,8 @@ export const ORDER_TYPE_ACTIONS = [
 ]
 
 export const ORDER_URGENT_ACTIONS = [
-  {name: 'urgent', text: 'It\'s urgent, I will pay for delivery', type: 'button', value: 'urgent_yes'},
-  {name: 'urgent', text: 'It\'s not urgent, I can wait', type: 'button', value: 'urgent_no'},
+  {name: 'urgent', text: "It's urgent, I will pay for delivery", type: 'button', value: 'urgent_yes'},
+  {name: 'urgent', text: "It's not urgent, I can wait", type: 'button', value: 'urgent_no'},
   CANCEL_ORDER_ACTION,
 ]
 

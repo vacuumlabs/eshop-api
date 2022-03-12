@@ -18,13 +18,15 @@ async function tryCall(call) {
 
 export async function getValues(spreadsheetId, range) {
   return (
-    (await tryCall(
-      () => sheetsApi.spreadsheets.values.get({
-        spreadsheetId,
-        valueRenderOption: 'UNFORMATTED_VALUE',
-        range,
-      })
-    )).data.values || []
+    (
+      await tryCall(() =>
+        sheetsApi.spreadsheets.values.get({
+          spreadsheetId,
+          valueRenderOption: 'UNFORMATTED_VALUE',
+          range,
+        }),
+      )
+    ).data.values || []
   )
 }
 
@@ -42,31 +44,37 @@ export async function getFieldIndexMap(spreadsheetId, sheetName, fieldsRow) {
 
 export async function batchGetValues(spreadsheetId, ranges) {
   return (
-    (await tryCall(
-      () => sheetsApi.spreadsheets.values.batchGet({
-        spreadsheetId,
-        valueRenderOption: 'UNFORMATTED_VALUE',
-        ranges,
-      })
-    )).data.valueRanges || []
+    (
+      await tryCall(() =>
+        sheetsApi.spreadsheets.values.batchGet({
+          spreadsheetId,
+          valueRenderOption: 'UNFORMATTED_VALUE',
+          ranges,
+        }),
+      )
+    ).data.valueRanges || []
   )
 }
 
 export function appendRows(spreadsheetId, sheetName, values) {
-  return tryCall(() => sheetsApi.spreadsheets.values.append({
-    spreadsheetId,
-    range: `${sheetName}!A1:A1`,
-    insertDataOption: 'INSERT_ROWS',
-    valueInputOption: 'USER_ENTERED',
-    requestBody: {
-      values,
-    },
-  }))
+  return tryCall(() =>
+    sheetsApi.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${sheetName}!A1:A1`,
+      insertDataOption: 'INSERT_ROWS',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values,
+      },
+    }),
+  )
 }
 
 export function batchUpdateValues(spreadsheetId, sheet, requests) {
-  return tryCall(() => sheetsApi.spreadsheets.values.batchUpdate({
-    spreadsheetId,
-    requestBody: requests,
-  }))
+  return tryCall(() =>
+    sheetsApi.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: requests,
+    }),
+  )
 }
