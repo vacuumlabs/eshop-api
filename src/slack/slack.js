@@ -758,7 +758,9 @@ export class Slack {
       return
     }
 
-    if (order.step === 'finish' || order.step === 'reason') { // If order actions finished, update question
+    // TODO: not always we need to remove previous message
+    // - maybe we can remove this `updateQuestion` usage altogether and only use it when handling user's message
+    if (order.step === 'finish') {
       await this.updateQuestion(userId, say)
     } else {
       await this.updateMessage(respond, order)
