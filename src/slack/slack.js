@@ -270,30 +270,36 @@ export class Slack {
     }
   }
 
-  async submitOrder(userId) {
+  /**
+   * @param {string} userId
+   * @param {import('@slack/bolt').RespondFn} respond
+   */
+  async submitOrder(userId, respond) {
     const order = this.orders[userId]
     order.step = 'submit'
 
     const dbId = await this.storeOrder(order)
 
-    await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
-    const {channel, ts} = order.originalMessageInfo
     try {
-      await this.boltApp.client.chat.delete({channel, ts})
+      await this.notifyOfficeManager(order, dbId, userId, order.isCompany)
     } catch (err) {
-      logger.error(`Failed to delete message on channel '${channel}': ${err}`)
+      logger.error(`Failed to notify office managers of the new order. ${err}`)
+      // fatal - tell user this is not ok and send it to the support channel
+      throw err
     }
 
     try {
       const orderAttachment = this.userOrderAttachment(order)
-
-      await this.boltApp.client.chat.postMessage({
-        channel: userId,
+      await respond({
         attachments: [orderAttachment],
         text: ' ', // TODO: fix while migrate to use blocks
       })
     } catch (err) {
-      logger.error(`Failed to post an order finished message to user '${userId}': ${err}`)
+      logger.error(`Failed to respond with an order finished message to user '${userId}': ${err}`)
+      await respond({
+        text: 'Something went wrong. Please write to OfficeBot to confirm your order went through.',
+        replace_original: false,
+      })
     }
 
     delete this.orders[userId] // remove order from memory
@@ -754,7 +760,7 @@ export class Slack {
     }
 
     if (actionName === 'finish') {
-      await this.submitOrder(userId)
+      await this.submitOrder(userId, respond)
       return
     }
 
@@ -769,15 +775,11 @@ export class Slack {
     // note: in wincent, there is no order.office
     const orderOffice = order.office && this.getCityChannel(order.office) ? order.office : null
 
-    try {
-      await this.boltApp.client.chat.postMessage({
-        channel: this.config.channels.orders,
-        attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, orderOffice),
-        text: ' ', // TODO: fix while migrate to use blocks
-      })
-    } catch (err) {
-      logger.error(`Failed to post 'order information' on orders channel: ${err}`)
-    }
+    await this.boltApp.client.chat.postMessage({
+      channel: this.config.channels.orders,
+      attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, orderOffice),
+      text: ' ', // TODO: fix while migrate to use blocks
+    })
   }
 
   async sendUserInfo(originalMessage, channelId, text, order) {
