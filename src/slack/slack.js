@@ -187,7 +187,7 @@ export class Slack {
           if (!order.user.name) order.user.name = this.orders[userId].user.name = username
 
           try {
-            this.handleUserAction(respond, action, userId, say)
+            await this.handleUserAction(respond, action, userId)
           } catch (err) {
             await say(':exclamation: Something went wrong, please try again.')
             await logError(this.boltApp, this.variant, err, 'User action error', userId, {
@@ -663,7 +663,7 @@ export class Slack {
     }
   }
 
-  async handleUserAction(respond, action, userId, say) {
+  async handleUserAction(respond, action, userId) {
     const order = this.orders[userId]
     const {name: actionName, value: actionValue} = action
 
@@ -758,13 +758,8 @@ export class Slack {
       return
     }
 
-    // TODO: not always we need to remove previous message
-    // - maybe we can remove this `updateQuestion` usage altogether and only use it when handling user's message
-    if (order.step === 'finish') {
-      await this.updateQuestion(userId, say)
-    } else {
-      await this.updateMessage(respond, order)
-    }
+    // update the order summary in place
+    await this.updateMessage(respond, order)
   }
 
   async notifyOfficeManager(order, dbId, user, isCompany) {
