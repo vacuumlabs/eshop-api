@@ -16,12 +16,17 @@
     "ngrok": "ngrok http 8000"
   },
   "devDependencies": {
-    "babel-eslint": "^7.2.3",
-    "eslint": "^4.18.2",
-    "eslint-config-vacuumlabs": "^1.8.2",
-    "eslint-plugin-import": "^2.18.2",
+    "@babel/core": "^7.17.5",
+    "@babel/eslint-parser": "^7.17.0",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^8.11.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-config-vacuumlabs": "^2.0.14",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-react": "^7.14.3",
-    "ngrok": "^4.3.0"
+    "ngrok": "^4.3.0",
+    "prettier": "^2.5.1"
   },
   "dependencies": {
     "@slack/bolt": "^3.8.1",
