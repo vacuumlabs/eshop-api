@@ -204,7 +204,7 @@ export class Slack {
           }
 
           // save user's name in the order - used for logging and when storing to sheets
-          if (!order.user.name) order.user.name = this.orders[userId].user.name = username
+          if (!order.user.name) order.user.name = username
 
           try {
             await this.handleUserAction(respond, action, userId)
@@ -750,6 +750,7 @@ export class Slack {
       if (actionValue === 'is_company') {
         // for wincent, don't go into company selection
         if (this.variant === 'wincent') {
+          order.step = 'reason'
           order.messages = [...(order.isHome ? MESSAGES.home.company : MESSAGES.office.company)]
         } else {
           // company selection for vacuumlabs (and test)
