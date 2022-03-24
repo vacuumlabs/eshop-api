@@ -272,6 +272,7 @@ export class Slack {
           await this.greetNewUser(u.id)
         } else {
           try {
+            logger.info('calling chat.postMessage in announceToAll')
             await this.boltApp.client.chat.postMessage({channel: u.id, text: message})
           } catch (err) {
             logger.error(`Failed to send a message to user '${u.id}': ${err}`)
@@ -285,6 +286,7 @@ export class Slack {
 
   async greetNewUser(userId) {
     try {
+      logger.info('calling chat.postMessage in greetNewUser')
       await this.boltApp.client.chat.postMessage({channel: userId, text: NEW_USER_GREETING[this.variant]})
     } catch (err) {
       logger.error(`Failed to greet a new user '${userId}': ${err}`)
@@ -381,6 +383,7 @@ export class Slack {
     try {
       await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, status)
       try {
+        logger.info('calling chat.update in changeStatus')
         await this.boltApp.client.chat.update({
           channel: channelId,
           ts: msgTs,
@@ -449,6 +452,7 @@ export class Slack {
   async moveOrder(ts, fromChannel, toChannel, data) {
     let newTs
     try {
+      logger.info('calling chat.postMessage in moveOrder')
       const result = await this.boltApp.client.chat.postMessage({
         channel: toChannel,
         ...data,
@@ -479,6 +483,7 @@ export class Slack {
       )
       let newCommentTs
       try {
+        logger.info(`calling chat.postMessage in moveOrder saying: ${finalText}`)
         const result = await this.boltApp.client.chat.postMessage({
           channel: toChannel,
           thread_ts: newTs,
@@ -495,6 +500,7 @@ export class Slack {
 
       // delete the comment. note: admin rights needed to delete other users' messages
       try {
+        logger.info('calling chat.delete in moveOrder - deleting comment')
         await this.boltApp.client.chat.delete({
           channel: fromChannel,
           ts: commentTs,
@@ -507,6 +513,7 @@ export class Slack {
 
     // delete the chat message as it is already reposted to another channel
     try {
+      logger.info('calling chat.delete in moveOrder - deleting message')
       await this.boltApp.client.chat.delete({channel: fromChannel, ts})
     } catch (err) {
       logger.error(`Failed to delete chat a message on '${fromChannel}', ts '${ts}': ${err}`)
@@ -562,6 +569,7 @@ export class Slack {
       try {
         await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, 'discarded')
         try {
+          logger.info('calling chat.delete in handleAdminAction')
           await this.boltApp.client.chat.delete({channel: channelId, ts: originalMessage.ts})
         } catch (err) {
           logger.error(`Failed to delete a chat message on '${channelId}': ${err}`)
@@ -679,6 +687,7 @@ export class Slack {
       originalMessageInfo: {channel, ts},
     } = order
     try {
+      logger.info('calling chat.delete in updateQuestion')
       await this.boltApp.client.chat.delete({channel, ts})
     } catch (err) {
       logger.error(`Failed to delete message on channel '${channel}': ${err}`)
@@ -816,6 +825,7 @@ export class Slack {
     // note: in wincent, there is no order.office
     const orderOffice = order.office && this.getCityChannel(order.office) ? order.office : null
 
+    logger.info('calling chat.postMessage in notifyOfficeManager')
     await this.boltApp.client.chat.postMessage({
       channel: this.config.channels.orders,
       attachments: getNewOrderAdminSections(this.variant, orderAttachment, dbId, orderOffice),
@@ -864,6 +874,7 @@ export class Slack {
     }
 
     try {
+      logger.info('calling chat.postMessage in notifyUser')
       await this.boltApp.client.chat.postMessage({
         ...message,
         channel: channelId,
@@ -879,6 +890,7 @@ export class Slack {
 
   async addReaction(name, channel, timestamp) {
     try {
+      logger.info('calling reactions.add')
       await this.boltApp.client.reactions.add({name, channel, timestamp})
     } catch (err) {
       // already_reacted error is acceptable, don't even log it
@@ -891,6 +903,7 @@ export class Slack {
 
   async removeReaction(name, channel, timestamp) {
     try {
+      logger.info('calling reactions.remove')
       await this.boltApp.client.reactions.remove({name, channel, timestamp})
     } catch (err) {
       // no_reaction is thrown when:
@@ -909,6 +922,7 @@ export class Slack {
     if (order.originalMessageInfo) {
       const {channel, ts} = order.originalMessageInfo
       try {
+        logger.info('calling chat.delete in updateOrder')
         await this.boltApp.client.chat.delete({channel, ts})
       } catch (err) {
         logger.error(`Failed to delete message on channel '${channel}': ${err}`)
