@@ -381,7 +381,7 @@ export class Slack {
     try {
       await updateStatusInSheets(this.variant, this.config.google.spreadsheetId, order, items, status)
       try {
-        this.boltApp.client.chat.update({
+        await this.boltApp.client.chat.update({
           channel: channelId,
           ts: msgTs,
           text: ' ', // TODO: fix while migrate to use blocks
@@ -435,7 +435,7 @@ export class Slack {
         acc[id] = name
         return acc
       }, {})
-      return nextCursor ? {...membersMap, ...fetchUsers(nextCursor)} : membersMap
+      return nextCursor ? {...membersMap, ...(await fetchUsers(nextCursor))} : membersMap
     }
 
     try {
