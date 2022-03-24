@@ -449,13 +449,12 @@ export class Slack {
   async moveOrder(ts, fromChannel, toChannel, data) {
     let newTs
     try {
-      ;({
-        message: {ts: newTs},
-      } = await this.boltApp.client.chat.postMessage({
+      const result = await this.boltApp.client.chat.postMessage({
         channel: toChannel,
         ...data,
         text: ' ', // TODO: fix while migrate to use blocks
-      }))
+      })
+      newTs = result.message.ts
     } catch (err) {
       logger.error(`Failed to move order from '${fromChannel}' to '${toChannel}': ${err}`)
     }
@@ -480,13 +479,12 @@ export class Slack {
       )
       let newCommentTs
       try {
-        ;({
-          message: {ts: newCommentTs},
-        } = await this.boltApp.client.chat.postMessage({
+        const result = await this.boltApp.client.chat.postMessage({
           channel: toChannel,
           thread_ts: newTs,
           text: finalText,
-        }))
+        })
+        newCommentTs = result.message.ts
       } catch (err) {
         logger.error(`Failed to post a message: '${finalText}' on channel: '${toChannel}': ${err}`)
       }
