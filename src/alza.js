@@ -88,10 +88,10 @@ class Alza {
           if (respObj.ErrorLevel === 0) {
             this.lastLoggedIn = Date.now()
           } else {
-            logger.log('error', 'Failed to login to alza', resp)
+            logger.error('Failed to login to alza', resp)
           }
         } catch (err) {
-          logger.log('error', 'Failed to login to alza', err)
+          logger.error('Failed to login to alza', err)
         }
       }
 
@@ -119,10 +119,10 @@ class Alza {
         const respObj = JSON.parse(resp)
 
         if (respObj.d.ErrorLevel !== 0) {
-          logger.log('error', 'Failed to add to cart', resp)
+          logger.error('Failed to add to cart', resp)
         }
       } catch (err) {
-        logger.log('error', 'Failed to add to cart', err)
+        logger.error('Failed to add to cart', err)
       }
     }
   }

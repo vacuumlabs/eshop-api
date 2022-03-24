@@ -834,7 +834,7 @@ export class Slack {
     ])
 
     if (!userId) {
-      logger.log('error', `Failed to parse user ID from '${attachment.pretext}`)
+      logger.error(`Failed to parse user ID from '${attachment.pretext}`)
       await this.addReaction('no_bell', channelId, originalMessage.ts)
       return false
     }
