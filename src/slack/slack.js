@@ -122,6 +122,12 @@ export class Slack {
       // the above check doesn't satisfy typescript - type discrimination doesn't work on undefined properties
       if (!('text' in event)) return
 
+      // block messages from bots
+      // - during 22.-25.4.2022, it the Tempo bot was added to the Slack workspace. I believe the AlzaBot welcomed it with a message.
+      // the Tempo bot responds to any received message by posting some "Connect Jira" link, and the AlzaBot responds to any message containing a link...
+      // this resulted in a never-stopping chain of message exchange between the bots and it was also hitting the rate limits
+      if ('bot_id' in event) return
+
       const {user: userId, text: message, channel} = event
 
       if (this.amIMentioned(event)) {
