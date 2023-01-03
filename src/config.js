@@ -38,7 +38,13 @@ export default transenv()(({str, bool, num}) => {
     },
     knex: {
       client: 'pg',
-      connection: `${str('DATABASE_URL')}${isDevelopment ? '' : '?sslmode=no-verify'}`,
+      connection: {
+        host: str('DB_HOST'),
+        user: str('DB_USER'),
+        password: str('DB_PASSWORD'),
+        port: str('DB_PORT'),
+        database: str('DB_DATABASE'),
+      },
       searchPath: str('db_schema'),
       schema: str('db_schema'),
       debug: isDevelopment,
