@@ -1,7 +1,7 @@
 export const SLACK_URL = 'https://vacuumlabs.slack.com'
 
 export const NEW_USER_GREETING = `Hi!
-I will get you any computer or phone equipment from Alza. Use me for both your personal and company orders.
+I will get you any computer or phone equipment from Alza. Use me for company orders.
 
 DM me with Alza links and I'll order them. Like this:
 > https://www.alza.sk/cool-smartphone https://www.alza.sk/cool-chopter https://www.alza.sk/cool-cooler
