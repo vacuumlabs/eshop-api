@@ -19,6 +19,7 @@
     "@babel/core": "^7.17.5",
     "@babel/eslint-parser": "^7.17.0",
     "babel-eslint": "^10.1.0",
+    "babel-register": "^6.26.0",
     "eslint": "^8.11.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-config-vacuumlabs": "^2.0.14",
