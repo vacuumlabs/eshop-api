@@ -3,6 +3,7 @@ import express from 'express'
 import c from './config'
 import {Slack} from './slack/slack'
 import logger from './logger'
+import knex from './knex/index'
 
 const app = express()
 
@@ -23,6 +24,7 @@ const endpoints = {
 }
 
 ;(async function () {
+  await knex.migrate.latest();
   app.listen(c.port, () => logger.info(`App started on localhost:${c.port}.`))
 
   await Promise.all(
