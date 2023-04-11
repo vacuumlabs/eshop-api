@@ -38,7 +38,7 @@ export default transenv()(({str, bool, num}) => {
     },
     knex: {
       client: 'pg',
-      connection: `str('DATABASE_URL')`,
+      connection: str('DATABASE_URL'),
       searchPath: str('db_schema'),
       schema: str('db_schema'),
       debug: isDevelopment,
