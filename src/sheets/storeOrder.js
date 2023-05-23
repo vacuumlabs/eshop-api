@@ -1,7 +1,7 @@
-import {getFieldIndexMap, batchGetValues, appendRows} from './sheets.js'
-import {formatAsHyperlink, formatDate, mapFieldsToRow} from './utils'
-import {sheets, NEW_ORDER_STATUS} from './constants'
 import c from '../config'
+import {NEW_ORDER_STATUS, sheets} from './constants'
+import {appendRows, batchGetValues, getFieldIndexMap} from './sheets.js'
+import {formatAsHyperlink, formatDate, mapFieldsToRow} from './utils'
 
 export async function storeOrder(variant, spreadsheetId, order, items) {
   const sheet = order.isCompany ? sheets[variant].companyOrders : sheets[variant].personalOrders

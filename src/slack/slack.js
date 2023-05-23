@@ -1,28 +1,29 @@
-import c from '../config'
+import {App, ExpressReceiver} from '@slack/bolt'
 import _knex from 'knex'
 import moment from 'moment-timezone'
+
 import {getInfo, getLangByLink} from '../alza'
+import c from '../config'
 import {format} from '../currency'
 import logger, {logError, logOrder} from '../logger'
 import {storeOrder as storeOrderToSheets} from '../sheets/storeOrder'
 import {updateStatus as updateStatusInSheets} from '../sheets/updateStatus'
+import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
 import {
   CANCEL_ORDER_ACTION,
   CITIES_OPTIONS_TO_CITIES,
-  HOME_VALUE,
-  NEW_USER_GREETING,
-  OFFICES,
-  OFFICE,
-  SLACK_URL,
   COMPANY,
-  PERSONAL,
   HOME,
-  NAME,
-  MESSAGES as VARIANT_MESSAGES,
+  HOME_VALUE,
   INVALID_LINK_ERROR,
+  MESSAGES as VARIANT_MESSAGES,
+  NAME,
+  NEW_USER_GREETING,
+  OFFICE,
+  OFFICES,
+  PERSONAL,
+  SLACK_URL,
 } from './constants'
-import {getAdminSections, getArchiveSection, getNewOrderAdminSections, getUserActions} from './actions'
-import {App, ExpressReceiver} from '@slack/bolt'
 
 const knex = _knex(c.knex)
 

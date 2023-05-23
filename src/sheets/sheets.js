@@ -1,5 +1,6 @@
-import c from '../config.js'
 import {google} from 'googleapis'
+
+import c from '../config.js'
 import logger from '../logger.js'
 
 const scopes = ['https://www.googleapis.com/auth/spreadsheets']

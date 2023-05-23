@@ -1,8 +1,8 @@
 import express from 'express'
 
 import c from './config'
-import {Slack} from './slack/slack'
 import logger from './logger'
+import {Slack} from './slack/slack'
 
 const app = express()
 
