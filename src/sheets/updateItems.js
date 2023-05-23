@@ -1,7 +1,7 @@
-import {getFieldIndexMap, getValues, batchUpdateValues} from './sheets.js'
-import {getColumn} from './utils'
-import {sheets} from './constants'
 import c from '../config'
+import {sheets} from './constants'
+import {batchUpdateValues, getFieldIndexMap, getValues} from './sheets.js'
+import {getColumn} from './utils'
 
 export async function updateItems(variant, spreadsheetId, isCompanyItem, items, getItemData) {
   const sheet = isCompanyItem ? sheets[variant].companyOrders : sheets[variant].personalOrders

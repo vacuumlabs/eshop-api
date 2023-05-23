@@ -1,5 +1,5 @@
-import * as vlConstants from './vacuumlabs/constants'
 import * as testConstants from './test/constants'
+import * as vlConstants from './vacuumlabs/constants'
 import * as wincentConstants from './wincent/constants'
 
 const REASON = 'reason'

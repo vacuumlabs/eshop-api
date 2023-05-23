@@ -1,6 +1,7 @@
-import _request from 'request'
 import cheerio from 'cheerio'
+import _request from 'request'
 import {URL} from 'url'
+
 import c from './config'
 import {convert} from './currency'
 import logger from './logger'

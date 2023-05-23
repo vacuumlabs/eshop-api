@@ -1,5 +1,5 @@
-import * as vlActions from './vacuumlabs/actions'
 import * as testActions from './test/actions'
+import * as vlActions from './vacuumlabs/actions'
 import * as wincentActions from './wincent/actions'
 
 const variantMap = {
