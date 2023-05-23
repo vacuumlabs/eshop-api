@@ -10,10 +10,16 @@ module.exports = {
     'prettier/prettier',
     'plugin:prettier/recommended',
   ],
-
-  env: {
-    node: true,
-  },
-
+  env: {node: true},
   ignorePatterns: ['dist'],
+  plugins: ['simple-import-sort'],
+  rules: {
+    'simple-import-sort/imports': 'error',
+    'simple-import-sort/exports': 'error',
+    'import/first': 'error',
+    'import/newline-after-import': 'error',
+    // no-duplicate-imports does't have autofix
+    'no-duplicate-imports': 'off',
+    'import/no-duplicates': 'error',
+  },
 }
