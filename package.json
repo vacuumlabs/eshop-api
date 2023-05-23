@@ -19,19 +19,20 @@
     "node": ">=12"
   },
   "dependencies": {
-    "@slack/bolt": "^3.8.1",
+    "@slack/bolt": "^3.13.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "cheerio": "^1.0.0-rc.3",
-    "express": "^4.17.1",
-    "googleapis": "^47.0.0",
-    "knex": "^0.95.10",
+    "express": "^4.18.2",
+    "googleapis": "^118.0.0",
+    "knex": "^2.4.2",
     "moment": "^2.29.1",
-    "moment-timezone": "^0.5.32",
-    "pg": "^8.7.1",
-    "request": "^2.88.0",
-    "request-promise": "^4.2.4",
+    "moment-timezone": "^0.5.43",
+    "monent": "^0.0.2-security",
+    "pg": "^8.11.0",
+    "request": "^2.88.2",
+    "request-promise": "^4.2.6",
     "transenv": "^1.0.3",
-    "winston": "^3.2.1"
+    "winston": "^3.8.2"
   },
   "devDependencies": {
     "@babel/cli": "^7.21.5",
