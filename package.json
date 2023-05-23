@@ -9,50 +9,45 @@
   "scripts": {
     "dev": "babel-node -- src/index.js",
     "test": "babel-node -- ./test.js",
-    "knex": "knex --knexfile src/knex/knexfile.js",
+    "knex": "knex --knexfile knex/knexfile.js",
     "eslint": "eslint src",
     "build": "yarn knex migrate:latest && babel src -d dist",
     "start": "node -- dist/index.js",
     "ngrok": "ngrok http 8000"
   },
-  "devDependencies": {
-    "@babel/core": "^7.17.5",
-    "@babel/eslint-parser": "^7.17.0",
-    "babel-eslint": "^10.1.0",
-    "eslint": "^8.11.0",
-    "eslint-config-prettier": "^8.5.0",
-    "eslint-config-vacuumlabs": "^2.0.14",
-    "eslint-plugin-import": "^2.25.4",
-    "eslint-plugin-prettier": "^4.0.0",
-    "eslint-plugin-react": "^7.14.3",
-    "ngrok": "^4.3.0",
-    "prettier": "^2.5.1"
+  "engines": {
+    "node": ">=12"
   },
   "dependencies": {
-    "@slack/bolt": "^3.8.1",
-    "babel-cli": "^6.26.0",
-    "babel-plugin-syntax-trailing-function-commas": "^6.22.0",
-    "babel-plugin-transform-class-properties": "^6.24.1",
+    "@slack/bolt": "^3.13.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
-    "babel-plugin-transform-export-extensions": "^6.22.0",
-    "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "cheerio": "^1.0.0-rc.3",
-    "express": "^4.17.1",
-    "googleapis": "^47.0.0",
-    "knex": "^0.95.10",
+    "express": "^4.18.2",
+    "googleapis": "^118.0.0",
+    "knex": "^2.4.2",
     "moment": "^2.29.1",
-    "moment-timezone": "^0.5.32",
-    "pg": "^8.7.1",
-    "request": "^2.88.0",
-    "request-promise": "^4.2.4",
+    "moment-timezone": "^0.5.43",
+    "monent": "^0.0.2-security",
+    "pg": "^8.11.0",
+    "request": "^2.88.2",
+    "request-promise": "^4.2.6",
     "transenv": "^1.0.3",
-    "winston": "^3.2.1"
+    "winston": "^3.8.2"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.21.5",
+    "@babel/core": "^7.17.5",
+    "@babel/node": "^7.20.7",
+    "eslint": "^8.41.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-config-vacuumlabs": "^8.0.2",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-prettier": "^4.2.1",
+    "ngrok": "^4.3.0",
+    "prettier": "^2.8.8"
   },
   "resolutions": {
     "deep-extend": "0.5.1",
     "request": "2.88.0"
-  },
-  "engines": {
-    "node": ">=12"
   }
 }

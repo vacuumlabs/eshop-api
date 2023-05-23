@@ -1,5 +1,5 @@
 import knexLib from 'knex'
-import config from '../config'
+import config from '../src/config'
 
 const knex = knexLib(config.knex)
 
