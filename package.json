@@ -15,17 +15,8 @@
     "start": "node -- dist/index.js",
     "ngrok": "ngrok http 8000"
   },
-  "devDependencies": {
-    "@babel/cli": "^7.21.5",
-    "@babel/core": "^7.17.5",
-    "@babel/node": "^7.20.7",
-    "eslint": "^8.41.0",
-    "eslint-config-prettier": "^8.8.0",
-    "eslint-config-vacuumlabs": "^8.0.2",
-    "eslint-plugin-import": "^2.27.5",
-    "eslint-plugin-prettier": "^4.2.1",
-    "ngrok": "^4.3.0",
-    "prettier": "^2.8.8"
+  "engines": {
+    "node": ">=12"
   },
   "dependencies": {
     "@slack/bolt": "^3.8.1",
@@ -42,11 +33,20 @@
     "transenv": "^1.0.3",
     "winston": "^3.2.1"
   },
+  "devDependencies": {
+    "@babel/cli": "^7.21.5",
+    "@babel/core": "^7.17.5",
+    "@babel/node": "^7.20.7",
+    "eslint": "^8.41.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-config-vacuumlabs": "^8.0.2",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-prettier": "^4.2.1",
+    "ngrok": "^4.3.0",
+    "prettier": "^2.8.8"
+  },
   "resolutions": {
     "deep-extend": "0.5.1",
     "request": "2.88.0"
-  },
-  "engines": {
-    "node": ">=12"
   }
 }
