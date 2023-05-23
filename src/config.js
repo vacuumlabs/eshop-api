@@ -1,5 +1,6 @@
-import transenv from 'transenv'
-export default transenv()(({str, bool, num}) => {
+const transenv = require('transenv').default
+
+module.exports = transenv()(({str, bool, num}) => {
   const env = str('NODE_ENV', 'development')
   const isDevelopment = env === 'development'
 
@@ -43,7 +44,7 @@ export default transenv()(({str, bool, num}) => {
       schema: str('db_schema'),
       debug: isDevelopment,
       migrations: {
-        directory: 'src/knex/migrations',
+        directory: 'knex/migrations',
       },
     },
   }

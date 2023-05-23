@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "babel-node -- src/index.js",
     "test": "babel-node -- ./test.js",
-    "knex": "knex --knexfile src/knex/knexfile.js",
+    "knex": "knex --knexfile knex/knexfile.js",
     "eslint": "eslint src",
     "build": "yarn knex migrate:latest && babel src -d dist",
     "start": "node -- dist/index.js",
