@@ -24,6 +24,8 @@ import {
   PERSONAL,
   SLACK_URL,
 } from './constants'
+import {HOME_BLOCKS} from './homePage'
+import {updateHome} from './updateHome'
 
 const knex = _knex(c.knex)
 
@@ -233,6 +235,20 @@ export class Slack {
           action,
           callback_id: body.callback_id,
         })
+      }
+    })
+
+    this.boltApp.event('app_home_opened', async ({event, client}) => {
+      try {
+        logger.verbose(`event: ${JSON.stringify(event)}`)
+        const userId = event.user
+        logger.info(`app_home_opened, userId: ${userId}`)
+
+        const blocks = HOME_BLOCKS[this.variant]
+
+        await updateHome(client, userId, blocks)
+      } catch (err) {
+        await logError(this.boltApp, this.variant, err, 'Home page handler error', event.user)
       }
     })
 
