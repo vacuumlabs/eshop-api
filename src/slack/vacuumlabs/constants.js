@@ -122,6 +122,7 @@ export const ORDER_COMPANY_ACTIONS = [
 ]
 
 export const ORDER_TYPE_ACTIONS = [
+  {name: 'type', text: 'Make Personal Order', type: 'button', value: 'is_personal'},
   {name: 'type', text: 'Make Company Order', type: 'button', value: 'is_company'},
   CANCEL_ORDER_ACTION,
 ]
