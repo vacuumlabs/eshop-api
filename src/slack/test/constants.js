@@ -127,6 +127,22 @@ export const ORDER_TYPE_ACTIONS = [
   CANCEL_ORDER_ACTION,
 ]
 
+export const PAYMENT_TYPE_ACTIONS = [
+  {
+    name: 'paymentType',
+    text: 'Deduction from my payroll invoice (with additional 10% fee)',
+    type: 'button',
+    value: 'payment_type_invoice',
+  },
+  {
+    name: 'paymentType',
+    text: 'I will bring cash to VL office (with 0% fee)',
+    type: 'button',
+    value: 'payment_type_cash',
+  },
+  CANCEL_ORDER_ACTION,
+]
+
 export const ORDER_URGENT_ACTIONS = [
   {name: 'urgent', text: "It's urgent, I will pay for delivery", type: 'button', value: 'urgent_yes'},
   {name: 'urgent', text: "It's not urgent, I can wait", type: 'button', value: 'urgent_no'},
@@ -151,6 +167,10 @@ export const USER_STEP_MAP = {
   delivery: {actions: DELIVERY_PLACE_ACTIONS, title: 'Where do you want to pickup the order?'},
   office: {actions: ORDER_OFFICE_ACTIONS, title: 'Select the office you belong to:'},
   type: {actions: ORDER_TYPE_ACTIONS},
+  paymentType: {
+    actions: PAYMENT_TYPE_ACTIONS,
+    title: 'How do you want to pay for the item(s)? (in case you are not SZCO/sro, please select the 2nd option)',
+  },
   company: {actions: ORDER_COMPANY_ACTIONS, title: 'Select your company:'},
   urgent: {actions: ORDER_URGENT_ACTIONS, title: 'How urgent is your order?'},
   note: {actions: ORDER_NOTE_ACTIONS, title: ':pencil: Do you want to add a note to the order?'},
