@@ -367,6 +367,7 @@ export class Slack {
         office: null,
         originalMessageInfo: null,
         isCompany: null,
+        paymentType: null,
         isUrgent: null,
         isHome: null,
         messages: undefined,
@@ -790,8 +791,14 @@ export class Slack {
 
       // ?-is_personal
       if (actionValue === 'is_personal') {
-        order.step = 'urgent'
+        order.step = 'paymentType'
       }
+    }
+
+    // ?-is_personal
+    if (actionName === 'paymentType') {
+      order.paymentType = actionValue
+      order.step = 'urgent'
     }
 
     // ?-is_personal-urgent
@@ -1039,6 +1046,9 @@ export class Slack {
       adminMsg && {value: `Total value: ${formatPrice(order.totalPrice, c.currency)}`},
       order.office && {value: `Office: ${order.office}${order.isHome ? ' (home delivery)' : ''}`},
       order.company && {value: `Company: ${order.company}`},
+      order.paymentType && {
+        value: `Payment type: ${order.paymentType === 'payment_type_invoice' ? 'From invoice' : 'Cash'}`,
+      },
       order.reason && {value: `${order.isCompany ? 'Reason' : 'Note'}: ${order.reason}`, short: false},
       order.manager && {value: `Manager: ${order.manager}`},
       order.isUrgent !== null && {value: order.isUrgent ? 'Urgent: Yes' : 'Urgent: No'},
@@ -1083,7 +1093,19 @@ export class Slack {
   }
 
   async storeOrder(order) {
-    const {user, originalMessageInfo, isCompany, office, reason, isUrgent, isHome, company, manager, items} = order
+    const {
+      user,
+      originalMessageInfo,
+      isCompany,
+      office,
+      reason,
+      isUrgent,
+      isHome,
+      company,
+      manager,
+      items,
+      paymentType,
+    } = order
     const id = await knex.transaction(async (trx) => {
       const data = {
         user: user.id,
@@ -1093,7 +1115,7 @@ export class Slack {
         reason,
         isUrgent,
         isHome,
-        ...(this.variant === 'wincent' ? {} : {company, manager}),
+        ...(this.variant === 'wincent' ? {} : {company, manager, paymentType}),
       }
       logger.info(`storing order data to the db: ${JSON.stringify(data)}`)
       const orderInsertResult = await trx.insert(data, ['id']).into(this.config.dbTables.order)
@@ -1135,7 +1157,7 @@ export class Slack {
     return await knex.transaction(async (trx) => {
       const order = (
         await trx
-          .select('id', 'isCompany', 'user', 'office', 'isUrgent', 'isHome')
+          .select('id', 'isCompany', 'user', 'office', 'isUrgent', 'isHome', 'paymentType')
           .from(this.config.dbTables.order)
           .where('id', orderId)
       )[0]
