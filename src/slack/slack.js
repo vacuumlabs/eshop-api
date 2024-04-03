@@ -791,7 +791,11 @@ export class Slack {
 
       // ?-is_personal
       if (actionValue === 'is_personal') {
-        order.step = 'paymentType'
+        if (this.variant === 'vacuumlabs') {
+          order.step = 'paymentType'
+        } else {
+          order.step = 'urgent'
+        }
       }
     }
 
