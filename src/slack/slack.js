@@ -1159,9 +1159,15 @@ export class Slack {
 
   async getOrderAndItemsFromDb(orderId) {
     return await knex.transaction(async (trx) => {
+      const fields = ['id', 'isCompany', 'user', 'office', 'isUrgent', 'isHome']
+
+      if (this.variant !== 'wincent') {
+        fields.push('paymentType')
+      }
+
       const order = (
         await trx
-          .select('id', 'isCompany', 'user', 'office', 'isUrgent', 'isHome', 'paymentType')
+          .select(...fields)
           .from(this.config.dbTables.order)
           .where('id', orderId)
       )[0]
