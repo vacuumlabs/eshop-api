@@ -76,7 +76,7 @@ function itemToSheetData(variant, dbId, item, order, userJiraId, date) {
     : {
         Note: order.reason,
         Urgent: Boolean(order.isUrgent),
-        'From invoice': order.paymentType === 'payment_type_invoice',
+        ...(variant === 'wincent' ? {} : {'From invoice': order.paymentType === 'payment_type_invoice'}),
         'User ID': userJiraId,
       }
 
